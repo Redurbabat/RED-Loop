@@ -1,0 +1,5 @@
+﻿/* A single strings file, whose title is specified in your preferences schema. The strings files provide the localized content to display to the user for each of your preferences. */
+
+"GroupDebug" = "DEBUG";
+"FooterText" = "Turn on logger to view native logs in the macOS console when connecting this device to mac for debugging";
+"EnableLogger" = "Enable Native Logger";
