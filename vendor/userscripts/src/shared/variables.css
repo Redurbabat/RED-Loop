@@ -1,0 +1,75 @@
+/* Base styles */
+:root {
+	/* Layout variables */
+	--border-radius: 0.188rem;
+	--font-family: -apple-system, "Helvetica Neue", "Helvetica", sans-serif;
+	--letter-spacing-default: -0.029rem;
+	--letter-spacing-large: -0.031rem;
+	--letter-spacing-medium: -0.018rem;
+	--letter-spacing-small: -0.008rem;
+	--opacity-disabled: 0.3;
+	--text-default: 1rem/1.5rem var(--font-family);
+	--text-large: 1.25rem/1.5rem var(--font-family);
+	--text-medium: 0.875rem/1.313rem var(--font-family);
+	--text-small: 0.719rem/1rem var(--font-family);
+
+	/* Editor layout variables */
+	--editor-font: monaco, monospace;
+	--editor-font-size: 14px;
+	--editor-line-height: 24px;
+	--editor-active-line: var(--color-bg-secondary);
+	--editor-error: var(--color-red);
+	--editor-non-matching-bracket: var(--editor-error);
+	--editor-selected-bg: rgb(116 178 235 / 0.35);
+	--editor-matched-highlight: rgb(116 178 235 / 0.2);
+	--editor-search-highlight: rgb(255 166 0 / 0.3);
+
+	/* Color Theme */
+	color-scheme: light dark;
+	--color-bg-primary: light-dark(#fafafa, #323639);
+	--color-bg-secondary: light-dark(#f1f1f1, #2f3337);
+	--color-bg-theme: light-dark(var(--color-white), var(--color-black));
+	--color-script-highlighted: light-dark(#e2ebf3, #364049);
+	--color-black: light-dark(#333, #1d2023);
+	--color-white: light-dark(#fff, #fff);
+	--color-blue: light-dark(#317eff, #74b1eb);
+	--color-green: light-dark(#2bb239, #60f36c);
+	--color-grey: light-dark(rgb(51 51 51 / 0.15), rgb(255 255 255 / 0.15));
+	--color-red: light-dark(#ff453a, #ff453a);
+	--color-yellow: light-dark(#b8722c, #e4f360);
+	--text-color-primary: light-dark(rgb(51 51 51), rgb(255 255 255));
+	--text-color-secondary: light-dark(
+		rgb(51 51 51 / 0.65),
+		rgb(255 255 255 / 0.65)
+	);
+	--text-color-disabled: light-dark(
+		rgb(51 51 51 / 0.35),
+		rgb(255 255 255 / 0.4)
+	);
+	--box-shadow: 0 0.5rem 1rem 0 light-dark(rgb(0 0 0 / 0.15), rgb(0 0 0 / 0.25));
+	--button-color: light-dark(var(--color-white), var(--color-black));
+	--border-color: light-dark(var(--color-grey), var(--color-black));
+
+	/* Editor colors */
+	--editor-invisible: light-dark(rgb(51 51 51 / 0.15), rgb(255 255 255 / 0.15));
+	--editor-number: light-dark(var(--color-green), #77e26a);
+	--editor-comment: light-dark(
+		var(--text-color-disabled),
+		rgb(255 255 255 / 0.35)
+	);
+	--editor-def: light-dark(#b86d17, #efc371);
+	--editor-default: light-dark(#777, #cdcfd1);
+	--editor-keyword: light-dark(#3a68ff, #96c3ed);
+	--editor-atom: light-dark(#00adad, #59ebf5);
+	--editor-operator: light-dark(#8c99a7, #8c99a7);
+	--editor-property: light-dark(#ff453a, #e86c8a);
+	--editor-string: light-dark(var(--editor-atom), #f5eea2);
+	--editor-string-2: light-dark(#a34fe6, #cdabff);
+	--editor-cursor: light-dark(#7e7e7f, #e3e7eb);
+	--editor-matching-bracket-color: light-dark(var(--text-color-primary), #fff);
+	--editor-matching-bracket-border: light-dark(#ff00ea, var(--editor-number));
+	--editor-blurred-background: light-dark(
+		rgb(255 255 255 / 0.65),
+		rgb(50 54 57 / 0.65)
+	);
+}
