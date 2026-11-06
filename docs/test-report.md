@@ -50,7 +50,7 @@ Final native source verification, including navigation/rotation fixes and shared
 
 https://codemagic.io/app/6aeddc59edd02d4de06b9379/build/6aede10324e1ec237556d2e1
 
-The baseline final run reports `ARCHIVE SUCCEEDED`; simulator tests completed before the archive under `set -euo pipefail`. At that handoff, subsequent commits changed documentation/browser assertions only. The later Windows follow-up changes the shared Safari JavaScript resource and manifest; its iOS packaging is **NICHT GETESTET**. Swift sources and build configuration remain unchanged.
+The baseline final run reports `ARCHIVE SUCCEEDED`; simulator tests completed before the archive under `set -euo pipefail`. At that handoff, subsequent commits changed documentation/browser assertions only. The later Windows follow-ups change the shared Safari JavaScript resource, manifest and native privacy wording; their iOS packaging is **NICHT GETESTET**. Native model logic and build configuration remain unchanged.
 
 Final browser evidence comprises 35 distinct checks. One full run passed all 35. Following the extension appearance change, a second full run passed 34 and exposed an overly strict timing assumption in the stop test: an iPhone-profile step could complete before the automated Stop click. The assertion now records the count at Stop and verifies it remains unchanged; the corrected test passed on all four profiles. It uses limit 50 during this stop check so a slow click cannot race with normal completion. No failing assertion is left unresolved.
 
