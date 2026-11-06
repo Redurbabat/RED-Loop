@@ -3,30 +3,43 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 const source=readFileSync('userscripts/red-loop.user.js','utf8');
-function setup(saved, {modern=false,path='/c/test'}={}) {
+function setup(saved, {modern=false,path='/c/test',paragraphs=false}={}) {
   const html=modern ? '<body><section><h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4><div data-markdown-text-style="assistant-message">Done</div></section><form data-chatgpt-composer><div contenteditable="true" role="textbox" data-composer-markdown aria-label="ChatGPT fragen"></div><button type="button" aria-label="Senden">Send</button></form></body>' : '<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>';
   const dom=new JSDOM(html,{url:'https://chatgpt.com'+path,runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window; let tick,now=100000,sends=0; const sent=[];
-  Object.defineProperty(w.HTMLElement.prototype,'innerText',{get(){return this.textContent;},set(value){this.textContent=value;},configurable:true});
+  Object.defineProperty(w.HTMLElement.prototype,'innerText',{get(){return this.hasAttribute('data-composer-markdown') && this.children.length && [...this.children].every(el=>el.tagName==='P') ? [...this.children].map(p=>p.textContent || '\n').join('\n\n') : this.textContent;},set(value){this.textContent=value;},configurable:true});
   w.HTMLElement.prototype.getClientRects=function(){return w.getComputedStyle(this).display==='none'?[]:[{width:200,height:40}];};
   w.document.hasFocus=()=>true; w.Date.now=()=>now; w.setInterval=fn=>{tick=fn;return 1;};
   if(saved) w.sessionStorage.setItem('red-loop:v1:/c/test',JSON.stringify(saved));
-  w.document.execCommand=(command,unused,value)=>{if(command!=='insertText') return false;w.document.activeElement.textContent=value;return true;};
+  w.document.execCommand=(command,unused,value)=>{if(command!=='insertText') return false;const el=w.document.activeElement;if(paragraphs)el.replaceChildren(...value.split('\n').map(line=>{const p=w.document.createElement('p');if(line)p.textContent=line;else p.append(w.document.createElement('br'));return p;}));else el.textContent=value;return true;};
   const sendControl=w.document.querySelector('[data-testid="send-button"],button[aria-label="Senden"]');
   sendControl.onclick=()=>{
     sends++;const editor=sendControl.closest('form')?.querySelector('[data-composer-markdown]') || w.document.querySelector('textarea');
-    sent.push(editor.value || editor.textContent);
+    sent.push(editor.children.length && [...editor.children].every(el=>el.tagName==='P') ? [...editor.children].map(p=>p.textContent).join('\n') : editor.value || editor.textContent);
     if(editor instanceof w.HTMLTextAreaElement) editor.value='';else editor.textContent='';
   };
   w.eval(source);
   return {w,dom,sent,get sends(){return sends;},click:s=>w.document.querySelector(s).click(),advance:ms=>{now+=ms;tick();}};
 }
 
+test('rich-text paragraph rendering supports multiline prompts including intentional blank lines',()=>{
+  const f=setup(null,{modern:true,paragraphs:true});const prompt='Zeile eins\nZeile zwei\n\nNeuer Absatz';
+  f.w.document.querySelector('#rl-prompt').value=prompt;f.click('.rl-start');f.advance(7000);
+  assert.equal(f.sends,1);assert.equal(f.sent[0],prompt);f.dom.window.close();
+});
+
+test('a newline edit in a prepared rich-text draft cancels the send',()=>{
+  const f=setup(null,{modern:true,paragraphs:true});const button=f.w.document.querySelector('button[aria-label="Senden"]');button.disabled=true;
+  f.w.document.querySelector('#rl-prompt').value='Erste Zeile\nZweite Zeile';f.click('.rl-start');f.advance(7000);
+  const editor=f.w.document.querySelector('[data-composer-markdown]');editor.textContent='Erste Zeile\nZweite Zeile';button.disabled=false;f.advance(1500);
+  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Entwurf geändert/);f.dom.window.close();
+});
+
 test('custom multiline follow-up repeats only after completed new responses and stops at the limit',()=>{
   const f=setup(null,{modern:true});const prompt='Prüfe den nächsten Schritt.\nAntworte kurz mit dem Ergebnis.';
   f.w.document.querySelector('#rl-prompt').value=prompt;f.w.document.querySelector('#rl-limit').value='2';f.click('.rl-start');
   assert.equal(f.w.document.querySelector('#rl-prompt').disabled,true);
-  const stop=f.w.document.createElement('button');stop.setAttribute('data-testid','stop-button');f.w.document.body.append(stop);
+  const stop=f.w.document.createElement('button');stop.setAttribute('aria-label','Stoppen');f.w.document.querySelector('form').append(stop);
   f.advance(20000);assert.equal(f.sends,0);stop.remove();f.advance(7000);assert.deepEqual(f.sent,[prompt]);
   f.advance(20000);assert.equal(f.sends,1);
   f.w.document.querySelector('[data-markdown-text-style]').textContent='Next response';f.advance(1500);f.advance(7000);

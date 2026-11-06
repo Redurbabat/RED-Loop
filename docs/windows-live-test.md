@@ -1,10 +1,20 @@
 # Windows live test and browser compatibility — 6 November 2026
 
-## Custom follow-up text — browser extension 0.2.3
+## Live custom-text verification — browser extension 0.2.4
+
+The real Edge test of v0.2.3 found a rich-text issue: paragraph spacing adds line breaks to the editor's rendered `innerText`. The prepared text was therefore rejected before sending (0/2). Version 0.2.4 verifies the actual paragraph boundaries, including intentional empty paragraphs. It then retains an exact snapshot of the prepared draft, so later edits still cancel sending. It also recognizes the observed localized generation control “Stoppen”.
+
+**LIVE WINDOWS / EDGE CUSTOM-TEXT TEST PASSED with installed v0.2.4.** In a dedicated benign text conversation, Reset, a custom message containing multiple lines and an empty paragraph, limit 2 and explicit Start produced two automatic sends. ChatGPT answered both. The panel reached **2 / 2 Fortsetzungen**, displayed **Limit erreicht**, re-enabled Start/text editing and disabled Stop. The completed test tab remains open. The screenshot stays local; no image, conversation URL or conversation content is exported to this repository.
+
+Executed current checks: **35/35 unit tests, 14/14 focused browser checks**, build, configuration/syntax and packaged-source parity. Browser fixtures cover exact multiline repetition, real HTML paragraphs and blank paragraphs, generation waiting, strict draft editing protection, stop/limits and reload persistence without auto-start. Chromium and WebKit viewport checks remain fixture tests; the installed Edge/live-service result above is separate.
+
+Current Cloudflare deployment: `d09e03c3-a227-48fd-9e6e-e3c609cfdae1`. The shared Safari resource has changed; current iOS packaging has not been rebuilt.
+
+## Custom follow-up field introduced in 0.2.3
 
 The page panel now includes **Automatischer Folgetext**. Enter a message (1–4000 characters, including multiple lines), choose a limit and press Start. After each completed answer the same text is sent again. The field is locked during execution; Stop enables editing, and Reset keeps the text while clearing the counter. The text is saved with the counter and limit in per-conversation browser-tab session storage. Reload never starts sending automatically.
 
-Executed for v0.2.3: **33/33 unit tests** and **12/12 focused browser checks**. The browser checks include the actual unpacked Chromium extension sending the exact multiline message twice, waiting during generation, stopping at 2/2 and restoring the text on reload without restarting. Existing editor/draft and panel-collapse checks passed across Chromium and WebKit iPhone/iPad/MacBook viewport profiles. These are intercepted local fixtures, separate from live-service testing. The source was installed in the existing Edge extension directory; the real Edge test below remains evidence for v0.2.2 until the updated extension is reloaded and tested.
+Executed for v0.2.3: **33/33 unit tests** and **12/12 focused browser checks**. The browser checks include the actual unpacked Chromium extension sending the exact multiline message twice, waiting during generation, stopping at 2/2 and restoring the text on reload without restarting. Existing editor/draft and panel-collapse checks passed across Chromium and WebKit iPhone/iPad/MacBook viewport profiles. These were intercepted local fixtures; they did not cover the live rich-text paragraph issue corrected and tested in v0.2.4 above.
 
 The downloadable ZIP and userscript were deployed with Cloudflare version `dbc03f48-a737-4206-9bc3-0d7bdc5994b4`. The shared Safari resource and native privacy wording were updated; v0.2.3 has not been compiled on iOS.
 

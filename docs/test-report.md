@@ -2,7 +2,7 @@
 
 This report distinguishes executed checks from prepared code. A browser viewport profile is not a physical device test; parsing an Xcode project is not compilation.
 
-**Current follow-up — v0.2.3:** configurable automatic follow-up text passes **33 unit tests and 12 focused browser checks**, including a real loaded Chromium extension repeating the exact multiline text after responses and stopping at 2/2. Checks for generation waiting, reload persistence without auto-start, draft protection and collapsed-panel controls passed. Browser pages were intercepted local fixtures. The existing Edge install was updated; the real live-service success described below concerns v0.2.2. The current Worker deployment version is `dbc03f48-a737-4206-9bc3-0d7bdc5994b4`.
+**Current follow-up — v0.2.4:** configurable automatic follow-up text passes **35 unit tests, 14 focused browser checks and a real installed-extension/live ChatGPT test in Windows Edge**. A custom message containing multiple lines and an empty paragraph was sent twice automatically, received two answers and stopped at **2/2 — Limit erreicht**. Version 0.2.4 fixes the live paragraph-spacing issue found in v0.2.3 while preserving exact prepared-draft edit protection. Browser fixtures separately cover generation waiting, rich-text/empty paragraphs, reload persistence without auto-start, draft protection and collapsed-panel controls. Current Worker deployment: `d09e03c3-a227-48fd-9e6e-e3c609cfdae1`. See [windows-live-test.md](windows-live-test.md); screenshots remain local.
 
 **Prior follow-up — v0.2.2:** the Windows live test exposed current-UI and cached-pane compatibility gaps. That correction passed 29 unit tests and a real installed-extension/live ChatGPT test in Windows Edge (controlled run: 0/1 → 1/1, answer received, automatic stop at the limit). See [windows-live-test.md](windows-live-test.md); screenshots remain local to the user. The 35-browser-check and native archive evidence below describes the 0.2.0 baseline. Current shared Safari JavaScript and native privacy wording have not been rebuilt on iOS.
 
@@ -22,7 +22,7 @@ This report distinguishes executed checks from prepared code. A browser viewport
 | Config/project structure | PASS — JSON/YAML and 3-target pbxproj parsed; plist/privacy/scheme XML parsed; extension source parity verified |
 | Web build | PASS — `npm run build` |
 | Worker build | PASS — `npm run dry-run` with Wrangler 4.158.0 and Assets binding; binding/runtime types generated |
-| Unit tests | PASS — baseline 16/16; current browser follow-up 33/33 via `npm test`, including custom follow-up text, active-conversation isolation and asynchronous composer safety |
+| Unit tests | PASS — baseline 16/16; current browser follow-up 35/35 via `npm test`, including custom follow-up paragraphs, active-conversation isolation and asynchronous composer safety |
 | Chromium browser tests | PASS — 8/8 against the deployed URL: bounded controls, scenarios, navigation/history, accessibility in light/system-dark/explicit-dark, Reduced Motion, 320px layout, keyboard, health, real contenteditable insertion and draft preservation on intercepted fixtures |
 | WebKit viewport tests | PASS — 24/24 checks across iPhone, iPad and MacBook profiles using Playwright WebKit 27.2 on Windows. This is not physical Safari validation. |
 | Packaged Windows extension | PASS — 3/3 checks: downloadable ZIP, actual Chromium extension loading/injection, explicit activation, bounded sends, duplicate prevention, stop/reset, draft preservation and automatic light/dark appearance |
@@ -31,7 +31,7 @@ This report distinguishes executed checks from prepared code. A browser viewport
 | Unsigned iOS device archive | PASS — final native source, including embedded Safari extension; not installable without signing |
 | Signed device archive / IPA / TestFlight | **NICHT GETESTET / NOT PRODUCED** — no signing identities or profiles configured |
 | Physical iPhone, iPad, Mac Safari | **NICHT GETESTET** |
-| Live ChatGPT conversation | PASS in Windows Edge with installed v0.2.2 on a dedicated non-sensitive test conversation; see the follow-up evidence. Automated browser fixtures remain separate from this manual live result. |
+| Live ChatGPT conversation | PASS in Windows Edge with installed v0.2.4: a custom multiline follow-up with an empty paragraph sent twice, answered twice and stopped at 2/2. Earlier v0.2.2 also passed a controlled one-send run. Automated fixtures remain separate from live-service results. |
 | VoiceOver and physical iOS website permissions | **NICHT GETESTET** |
 
 ## iOS external services

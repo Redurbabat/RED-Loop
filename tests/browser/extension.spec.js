@@ -63,3 +63,21 @@ test('packaged extension repeats the chosen multiline text after answers, stops 
   await page.reload();await expect(page.locator('#rl-prompt')).toHaveValue(prompt);await expect(page.locator('.rl-stop')).toBeDisabled();
   await expect(page.locator('.rl-counter')).toContainText('2 / 2');
 });
+
+for (const [name,prompt] of [['line break','Erster Schritt.\nZweiter Schritt.'],['blank paragraph','Erster Schritt.\n\nNeuer Absatz.']]) {
+  test(`packaged rich-text composer preserves a ${name}`,async({page})=>{
+    await openFixture(page);
+    await page.evaluate(()=>{
+      const editor=document.querySelector('#prompt-textarea');
+      editor.addEventListener('input',event=>{
+        if (!event.data?.includes('\n')) return;
+        editor.replaceChildren(...event.data.split('\n').map(line=>{const p=document.createElement('p');if(line)p.textContent=line;else p.append(document.createElement('br'));return p;}));
+      });
+      window.sentText=null;
+      document.querySelector('[data-testid="send-button"]').onclick=()=>{window.sentText=[...editor.querySelectorAll('p')].map(p=>p.textContent).join('\n');editor.textContent='';};
+    });
+    await page.locator('#rl-prompt').fill(prompt);await page.locator('#rl-limit').fill('1');await page.locator('.rl-start').click();
+    await expect.poll(()=>page.evaluate(()=>window.sentText),{timeout:12000}).toBe(prompt);
+    await expect(page.locator('.rl-status')).toContainText('Limit erreicht',{timeout:4000});
+  });
+}

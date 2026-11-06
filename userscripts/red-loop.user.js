@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.2.3
+// @version      0.2.4
 // @description  Opt-in, bounded automatic continuation for one ChatGPT conversation.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -15,7 +15,7 @@
   const MAX_STEPS = 50;
   const MAX_PROMPT_LENGTH = 4000;
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
-  const state = { running: false, count: 0, limit: 10, prompt: PROMPT, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '' };
+  const state = { running: false, count: 0, limit: 10, prompt: PROMPT, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '', composeText: '' };
   const key = () => PREFIX + (location.pathname.match(/(?:^|\/)c\/[^/]+/)?.[0] || location.pathname);
   let currentKey = key();
   const root = document.createElement('aside');
@@ -29,7 +29,7 @@
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Stopp</button><button class="rl-reset" type="button">Reset</button></div>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.2.3 · Nur dieser Chat · Tab muss aktiv bleiben · Keine unbegrenzte Ausführung</small></div>`;
+    <small>v0.2.4 · Nur dieser Chat · Tab muss aktiv bleiben · Keine unbegrenzte Ausführung</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -71,7 +71,7 @@
     const owner = form?.querySelector('[data-above-composer-conversation-id]')?.getAttribute('data-above-composer-conversation-id');
     return !owner || !id || owner === 'chatgpt:' + id;
   };
-  const isGenerating = () => [...document.querySelectorAll('button[data-testid="stop-button"],button[aria-label*="Stop generating"],button[aria-label*="Generierung stoppen"],form[data-chatgpt-composer] button[aria-label="Antwort stoppen"],form[data-chatgpt-composer] button[aria-label="Stop"]')].some(el => visible(el) && belongsToChat(el));
+  const isGenerating = () => [...document.querySelectorAll('button[data-testid="stop-button"],button[aria-label*="Stop generating"],button[aria-label*="Generierung stoppen"],form[data-chatgpt-composer] button[aria-label="Antwort stoppen"],form[data-chatgpt-composer] button[aria-label="Stop"],form[data-chatgpt-composer] button[aria-label="Stoppen"]')].some(el => visible(el) && belongsToChat(el));
   const messages = () => {
     const nodes = [...document.querySelectorAll('[data-message-author-role="assistant"],[data-markdown-text-style="assistant-message"]')].filter(el => visible(el) && belongsToChat(el));
     return nodes.filter(node => !nodes.some(parent => parent !== node && parent.contains(node)));
@@ -105,11 +105,20 @@
       if (!document.execCommand('insertText', false, value)) return false;
       el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
     }
-    return (el.innerText || el.value || '').trim() === value;
+    const inserted = (el.innerText || el.value || '').trim();
+    if (inserted === value) return true;
+    // Rich-text paragraphs add visual spacing in innerText. Serialize their
+    // actual line boundaries instead, preserving intentional empty paragraphs.
+    const blocks = [...el.childNodes].filter(node => node.nodeType !== 3 || node.textContent.trim());
+    if (!blocks.length || !blocks.every(node => node.nodeName === 'P')) return false;
+    const inlineText = node => node.nodeType === 3 ? node.textContent : node.nodeName === 'BR'
+      ? (node.classList.contains('ProseMirror-trailingBreak') ? '' : '\n')
+      : [...node.childNodes].map(inlineText).join('');
+    return blocks.map(p => { const text = inlineText(p); return text === '\n' && !p.textContent ? '' : text; }).join('\n').trim() === value;
   };
   const attemptSend = () => {
     const el = editor();
-    if (!el || (el.innerText || el.value || '').trim() !== state.prompt) return stop('Entwurf geändert – nicht gesendet');
+    if (!el || (el.innerText || el.value || '').trim() !== state.composeText) return stop('Entwurf geändert – nicht gesendet');
     if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen');
     const btn = sendButton();
     if (!btn || btn.disabled) {
@@ -152,6 +161,7 @@
     if (state.pending) return;
     state.pending = true;
     if (!insertPrompt(el, state.prompt)) return stop('Eingabe fehlgeschlagen – ChatGPT-Oberfläche prüfen');
+    state.composeText = (el.innerText || el.value || '').trim();
     state.composing = true; state.composeStarted = Date.now(); state.composeSignature = sig;
     attemptSend();
   };
