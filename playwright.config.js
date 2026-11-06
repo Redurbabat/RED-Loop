@@ -1,0 +1,12 @@
+import {defineConfig, devices} from '@playwright/test';
+export default defineConfig({
+  testDir:'tests/browser', fullyParallel:true, workers:2, reporter:[['list'],['json',{outputFile:'test-results/browser.json'}]],
+  use:{baseURL:'http://127.0.0.1:8787',trace:'retain-on-failure'},
+  webServer:{command:'npm run dev',url:'http://127.0.0.1:8787/health',reuseExistingServer:true,timeout:60000},
+  projects:[
+    {name:'windows-chromium',use:{...devices['Desktop Chrome'],viewport:{width:1440,height:1000}}},
+    {name:'iphone-webkit',use:{...devices['iPhone 13'],defaultBrowserType:'webkit'}},
+    {name:'ipad-webkit',use:{...devices['iPad (gen 7)'],defaultBrowserType:'webkit'}},
+    {name:'macbook-webkit',use:{...devices['Desktop Safari'],viewport:{width:1440,height:1000}}}
+  ]
+});

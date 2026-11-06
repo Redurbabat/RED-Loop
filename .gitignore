@@ -1,0 +1,16 @@
+node_modules/
+.wrangler/
+dist/
+build/
+test-results/
+playwright-report/
+.dev.vars*
+.env*
+*.p12
+*.p8
+*.mobileprovision
+*.ipa
+*.xcarchive/
+*.xcresult/
+xcuserdata/
+DerivedData/

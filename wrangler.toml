@@ -1,7 +1,16 @@
-name = "red-loop-preview"
+name = "red-loop"
 main = "cloudflare/src/index.js"
-compatibility_date = "2026-11-01"
+compatibility_date = "2026-11-06"
 workers_dev = true
 
 # Deploy with: npx wrangler deploy
 # Requires a Cloudflare account and Wrangler authentication.
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "404-page"
+
+[observability]
+enabled = true
