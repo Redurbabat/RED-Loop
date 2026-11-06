@@ -1,9 +1,6 @@
-# RED Loop iOS pipeline preparation.
-# A native Xcode project is NOT currently present in this repository.
-# This workflow deliberately fails clearly rather than claiming to build an IPA.
 workflows:
   ios-preview:
-    name: RED Loop iOS - prerequisites and build
+    name: RED Loop - simulator tests and unsigned archive
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
@@ -12,29 +9,36 @@ workflows:
       events:
         - push
       branch_patterns:
-        - pattern: 'feature/ios-*'
+        - pattern: 'codex/*'
           include: true
           source: true
     scripts:
-      - name: Verify native iOS project exists
-        script: |
-          set -eu
-          PROJECT="$(find . -type d -name '*.xcodeproj' -not -path './vendor/*' -print -quit)"
-          WORKSPACE="$(find . -type d -name '*.xcworkspace' -not -path './vendor/*' -print -quit)"
-          if [ -z "$PROJECT" ] && [ -z "$WORKSPACE" ]; then
-            echo "ERROR: No native iOS Xcode project/workspace exists in RED Loop."
-            echo "Create and commit the iOS app and Safari Web Extension before enabling IPA builds."
-            exit 1
-          fi
-          echo "Native Xcode project/workspace detected."
-      - name: Verify project builds for iOS simulator
-        script: |
-          set -eu
-          PROJECT="$(find . -type d -name '*.xcodeproj' -not -path './vendor/*' -print -quit)"
-          WORKSPACE="$(find . -type d -name '*.xcworkspace' -not -path './vendor/*' -print -quit)"
-          if [ -n "$WORKSPACE" ]; then
-            xcodebuild -list -workspace "$WORKSPACE"
-          else
-            xcodebuild -list -project "$PROJECT"
-          fi
-          echo "Project detected. Configure a concrete scheme, signing, and xcodebuild archive before producing an IPA."
+      - name: Build, test and archive the native app and Safari extension
+        script: bash scripts/ios-ci.sh
+    artifacts:
+      - build/*.log
+      - build/*.xcresult
+      - build/*.xcarchive
+      - build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
+  ios-signed:
+    name: RED Loop - signed iPhone IPA (manual, signing required)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+      groups:
+        - red_loop_signing
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.bbtred.redloop
+    scripts:
+      - name: Verify simulator path first
+        script: bash scripts/ios-ci.sh
+      - name: Apply securely imported profiles, archive and export IPA
+        script: bash scripts/ios-sign.sh
+    artifacts:
+      - build/*.log
+      - build/*.xcresult
+      - build/*.xcarchive
+      - build/ios/ipa/*.ipa
+      - build/REDLoop.xcarchive/dSYMs/*.dSYM

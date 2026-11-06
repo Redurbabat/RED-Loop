@@ -1,0 +1,590 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+/* Begin PBXBuildFile section */
+		19CBA8AFB27D4AEE5EE698BA = {
+			isa = PBXBuildFile;
+			fileRef = E5BA8D7F3F0BC7D2BFD4C23C;
+		};
+		B4384F91BCE980211259DA91 = {
+			isa = PBXBuildFile;
+			fileRef = 32BE2FEB34DF865B59B85B39;
+		};
+		8690EA2AAE792AEFA3645F36 = {
+			isa = PBXBuildFile;
+			fileRef = 023F1CFBDBAACC9ECD33947C;
+		};
+		36C7FDBA89D4FBF480445589 = {
+			isa = PBXBuildFile;
+			fileRef = DDD047A9B3828AE85CAAABE8;
+		};
+		E947DBC6F0E7387AD7F5AA33 = {
+			isa = PBXBuildFile;
+			fileRef = B1D521A32578C05596B79F0F;
+		};
+		8CED2D04B87AD49A83E3F17B = {
+			isa = PBXBuildFile;
+			fileRef = 361F74BE54050D4445DCDB61;
+		};
+		CA305EB708EABEF48849FE8D = {
+			isa = PBXBuildFile;
+			fileRef = 204D0DB0A73F5DECAE7387A8;
+		};
+		054FB4281826BBBEAF5B7C52 = {
+			isa = PBXBuildFile;
+			fileRef = F3359894334AE5458E1EAF3D;
+			settings = {
+				ATTRIBUTES = (
+					RemoveHeadersOnCopy,
+				);
+			};
+		};
+		6ACF84EF4E1361A67C0AA05F = {
+			isa = PBXBuildFile;
+			fileRef = FAA06955D9DE9E882E3D664F;
+		};
+		A07B662F4EFD1EB04FDE48A9 = {
+			isa = PBXBuildFile;
+			fileRef = DD10F4D1DF303DA53B122519;
+		};
+		C34318CCE0259F2031046E0E = {
+			isa = PBXBuildFile;
+			fileRef = CF9654BFDF0A1041D3F68C3B;
+		};
+		50F89A74F07C97586F615780 = {
+			isa = PBXBuildFile;
+			fileRef = 620C685F2616B43581CC276E;
+		};
+		867B724A7E9C1A3FAED4764B = {
+			isa = PBXBuildFile;
+			fileRef = 9FC3A7823FA502100DF6F769;
+		};
+/* End PBXBuildFile section */
+/* Begin PBXContainerItemProxy section */
+		F730EF21D00D80AC6533699F = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0;
+			proxyType = 1;
+			remoteGlobalIDString = 481B465E60A96525FE9E7EE8;
+			remoteInfo = REDLoopExtension;
+		};
+		70B9E58625F801B0D0A75885 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0;
+			proxyType = 1;
+			remoteGlobalIDString = F75109BEB4DD8800DA6B45F8;
+			remoteInfo = REDLoop;
+		};
+/* End PBXContainerItemProxy section */
+/* Begin PBXCopyFilesBuildPhase section */
+		36A5B7C0F10AEAA4D412D605 = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				054FB4281826BBBEAF5B7C52,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+/* Begin PBXFileReference section */
+		FAA06955D9DE9E882E3D664F = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/REDLoopApp.swift;
+			sourceTree = "<group>";
+		};
+		DD10F4D1DF303DA53B122519 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/LoopModel.swift;
+			sourceTree = "<group>";
+		};
+		CF9654BFDF0A1041D3F68C3B = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/DashboardView.swift;
+			sourceTree = "<group>";
+		};
+		E5BA8D7F3F0BC7D2BFD4C23C = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoopExtension/SafariWebExtensionHandler.swift;
+			sourceTree = "<group>";
+		};
+		9FC3A7823FA502100DF6F769 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoopTests/LoopModelTests.swift;
+			sourceTree = "<group>";
+		};
+		620C685F2616B43581CC276E = {
+			isa = PBXFileReference;
+			lastKnownFileType = folder.assetcatalog;
+			path = REDLoop/Assets.xcassets;
+			sourceTree = "<group>";
+		};
+		32BE2FEB34DF865B59B85B39 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.json;
+			path = REDLoopExtension/Resources/manifest.json;
+			sourceTree = "<group>";
+		};
+		023F1CFBDBAACC9ECD33947C = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.javascript;
+			path = "REDLoopExtension/Resources/red-loop.user.js";
+			sourceTree = "<group>";
+		};
+		DDD047A9B3828AE85CAAABE8 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.html;
+			path = REDLoopExtension/Resources/popup.html;
+			sourceTree = "<group>";
+		};
+		B1D521A32578C05596B79F0F = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.css;
+			path = REDLoopExtension/Resources/popup.css;
+			sourceTree = "<group>";
+		};
+		361F74BE54050D4445DCDB61 = {
+			isa = PBXFileReference;
+			lastKnownFileType = image.png;
+			path = REDLoopExtension/Resources/icon.png;
+			sourceTree = "<group>";
+		};
+		204D0DB0A73F5DECAE7387A8 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = REDLoop/PrivacyInfo.xcprivacy;
+			sourceTree = "<group>";
+		};
+		4E783A9E10D2A8ABA38CD11C = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.application;
+			path = REDLoop.app;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		F3359894334AE5458E1EAF3D = {
+			isa = PBXFileReference;
+			explicitFileType = "wrapper.app-extension";
+			path = REDLoopExtension.appex;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		6C7CCDEB3609F1FAA874E941 = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.cfbundle;
+			path = REDLoopTests.xctest;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXFileReference section */
+/* Begin PBXFrameworksBuildPhase section */
+		28012A7D8757D111BE28F5A5 = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BD92572B49AC16A86614498D = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E05DB79C430AA1B0BA487AFC = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+/* Begin PBXGroup section */
+		FBDC4F23F93125BBEEAE800C = {
+			isa = PBXGroup;
+			children = (
+				4E783A9E10D2A8ABA38CD11C,
+				F3359894334AE5458E1EAF3D,
+				6C7CCDEB3609F1FAA874E941,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		870B3294C0CBD48AF6BBCC1B = {
+			isa = PBXGroup;
+			children = (
+				FAA06955D9DE9E882E3D664F,
+				DD10F4D1DF303DA53B122519,
+				CF9654BFDF0A1041D3F68C3B,
+				E5BA8D7F3F0BC7D2BFD4C23C,
+				9FC3A7823FA502100DF6F769,
+				620C685F2616B43581CC276E,
+				204D0DB0A73F5DECAE7387A8,
+				32BE2FEB34DF865B59B85B39,
+				023F1CFBDBAACC9ECD33947C,
+				DDD047A9B3828AE85CAAABE8,
+				B1D521A32578C05596B79F0F,
+				361F74BE54050D4445DCDB61,
+				FBDC4F23F93125BBEEAE800C,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+/* Begin PBXNativeTarget section */
+		481B465E60A96525FE9E7EE8 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 46F8081D21959F0987D45DB9;
+			buildPhases = (
+				A32AD59716261A2F186B0101,
+				D729B8125343914FEABAD9BA,
+				28012A7D8757D111BE28F5A5,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = REDLoopExtension;
+			productName = REDLoopExtension;
+			productReference = F3359894334AE5458E1EAF3D;
+			productType = "com.apple.product-type.app-extension";
+		};
+		F75109BEB4DD8800DA6B45F8 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 388C1FCB1C8BF19EBF062851;
+			buildPhases = (
+				949D493B91791558E87BC5D7,
+				8ECC8B5D05B79F879ACDF1A2,
+				BD92572B49AC16A86614498D,
+				36A5B7C0F10AEAA4D412D605,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				65753756C83479BE7441E1A5,
+			);
+			name = REDLoop;
+			productName = REDLoop;
+			productReference = 4E783A9E10D2A8ABA38CD11C;
+			productType = "com.apple.product-type.application";
+		};
+		C062A5A4A7F4F37DD90F54CB = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 83059D859FCA9CF14A18F7BB;
+			buildPhases = (
+				77A03FEE20FE96AD9384861E,
+				D5C76E148680C094C001AC35,
+				E05DB79C430AA1B0BA487AFC,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				52733E98AEA72ADFB213904D,
+			);
+			name = REDLoopTests;
+			productName = REDLoopTests;
+			productReference = 6C7CCDEB3609F1FAA874E941;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+/* Begin PBXProject section */
+		98F54143AB4E86B28C3AFEE0 = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					C062A5A4A7F4F37DD90F54CB = {
+						TestTargetID = F75109BEB4DD8800DA6B45F8;
+					};
+				};
+			};
+			buildConfigurationList = 5810B6B376A3FEBC7E94DC88;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = de;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				de,
+				en,
+				Base,
+			);
+			mainGroup = 870B3294C0CBD48AF6BBCC1B;
+			productRefGroup = FBDC4F23F93125BBEEAE800C;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F75109BEB4DD8800DA6B45F8,
+				481B465E60A96525FE9E7EE8,
+				C062A5A4A7F4F37DD90F54CB,
+			);
+		};
+/* End PBXProject section */
+/* Begin PBXResourcesBuildPhase section */
+		D729B8125343914FEABAD9BA = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4384F91BCE980211259DA91,
+				8690EA2AAE792AEFA3645F36,
+				36C7FDBA89D4FBF480445589,
+				E947DBC6F0E7387AD7F5AA33,
+				8CED2D04B87AD49A83E3F17B,
+				CA305EB708EABEF48849FE8D,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8ECC8B5D05B79F879ACDF1A2 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				50F89A74F07C97586F615780,
+				CA305EB708EABEF48849FE8D,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5C76E148680C094C001AC35 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+/* Begin PBXSourcesBuildPhase section */
+		A32AD59716261A2F186B0101 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				19CBA8AFB27D4AEE5EE698BA,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		949D493B91791558E87BC5D7 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6ACF84EF4E1361A67C0AA05F,
+				A07B662F4EFD1EB04FDE48A9,
+				C34318CCE0259F2031046E0E,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		77A03FEE20FE96AD9384861E = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				867B724A7E9C1A3FAED4764B,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+/* Begin PBXTargetDependency section */
+		65753756C83479BE7441E1A5 = {
+			isa = PBXTargetDependency;
+			target = 481B465E60A96525FE9E7EE8;
+			targetProxy = F730EF21D00D80AC6533699F;
+		};
+		52733E98AEA72ADFB213904D = {
+			isa = PBXTargetDependency;
+			target = F75109BEB4DD8800DA6B45F8;
+			targetProxy = 70B9E58625F801B0D0A75885;
+		};
+/* End PBXTargetDependency section */
+/* Begin XCBuildConfiguration section */
+		89E1FD6268CC0F221A2BE178 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = iphoneos;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				MARKETING_VERSION = 0.2.0;
+				CURRENT_PROJECT_VERSION = 1;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				ENABLE_TESTABILITY = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		E6DE6C99132752C914FEF632 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = iphoneos;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				MARKETING_VERSION = 0.2.0;
+				CURRENT_PROJECT_VERSION = 1;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+			};
+			name = Release;
+		};
+		E9B2E96ABC5F6856F2BE79CF = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = REDLoop;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bbtred.redloop;
+				INFOPLIST_FILE = REDLoop/Info.plist;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				ENABLE_TESTABILITY = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		5A8C91857F674E16E2724F47 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = REDLoop;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bbtred.redloop;
+				INFOPLIST_FILE = REDLoop/Info.plist;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+			};
+			name = Release;
+		};
+		21B12CA184ED22B33BAD04F1 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = REDLoopExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bbtred.redloop.Extension;
+				INFOPLIST_FILE = REDLoopExtension/Info.plist;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				SKIP_INSTALL = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				ENABLE_TESTABILITY = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		D1883375A16458E5753D3696 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = REDLoopExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bbtred.redloop.Extension;
+				INFOPLIST_FILE = REDLoopExtension/Info.plist;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				SKIP_INSTALL = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+			};
+			name = Release;
+		};
+		FCB48D8F88BCDB0ED9FADFD7 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = REDLoopTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bbtred.redloop.Tests;
+				GENERATE_INFOPLIST_FILE = YES;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/REDLoop.app/REDLoop";
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				ENABLE_TESTABILITY = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		942EEBBACD6C88CAE7F29B29 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = REDLoopTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bbtred.redloop.Tests;
+				GENERATE_INFOPLIST_FILE = YES;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/REDLoop.app/REDLoop";
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+/* Begin XCConfigurationList section */
+		5810B6B376A3FEBC7E94DC88 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				89E1FD6268CC0F221A2BE178,
+				E6DE6C99132752C914FEF632,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		388C1FCB1C8BF19EBF062851 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E9B2E96ABC5F6856F2BE79CF,
+				5A8C91857F674E16E2724F47,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		46F8081D21959F0987D45DB9 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				21B12CA184ED22B33BAD04F1,
+				D1883375A16458E5753D3696,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		83059D859FCA9CF14A18F7BB = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCB48D8F88BCDB0ED9FADFD7,
+				942EEBBACD6C88CAE7F29B29,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0;
+}
