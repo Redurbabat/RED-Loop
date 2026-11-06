@@ -1,5 +1,15 @@
 # Windows live test and browser compatibility — 6 November 2026
 
+## Custom follow-up text — browser extension 0.2.3
+
+The page panel now includes **Automatischer Folgetext**. Enter a message (1–4000 characters, including multiple lines), choose a limit and press Start. After each completed answer the same text is sent again. The field is locked during execution; Stop enables editing, and Reset keeps the text while clearing the counter. The text is saved with the counter and limit in per-conversation browser-tab session storage. Reload never starts sending automatically.
+
+Executed for v0.2.3: **33/33 unit tests** and **12/12 focused browser checks**. The browser checks include the actual unpacked Chromium extension sending the exact multiline message twice, waiting during generation, stopping at 2/2 and restoring the text on reload without restarting. Existing editor/draft and panel-collapse checks passed across Chromium and WebKit iPhone/iPad/MacBook viewport profiles. These are intercepted local fixtures, separate from live-service testing. The source was installed in the existing Edge extension directory; the real Edge test below remains evidence for v0.2.2 until the updated extension is reloaded and tested.
+
+The downloadable ZIP and userscript were deployed with Cloudflare version `dbc03f48-a737-4206-9bc3-0d7bdc5994b4`. The shared Safari resource and native privacy wording were updated; v0.2.3 has not been compiled on iOS.
+
+## Prior live-service compatibility fix — 0.2.2
+
 The first manual Windows/Edge test exposed a real compatibility issue not present in the original fixtures: current ChatGPT uses a `data-chatgpt-composer` form, a `data-composer-markdown` contenteditable, assistant bodies marked with `data-markdown-text-style="assistant-message"`, and a localized Send button. Version 0.2.0 therefore stayed at “Warte auf eine ChatGPT-Antwort” even with an assistant answer present.
 
 ## Browser extension 0.2.2

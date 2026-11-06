@@ -5,6 +5,9 @@ test('real editor insertion, bounded send and duplicate guard on a local fixture
   await page.route('https://chatgpt.com/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><body><p id="untouched">Unrelated content</p><div data-message-author-role="assistant">An initial answer.</div><div id="prompt-textarea" contenteditable="true"></div><button data-testid="send-button">Send</button><script>window.sends=0;document.querySelector("button").onclick=()=>{window.sends++;document.querySelector("#prompt-textarea").textContent="";};</script></body></html>'}));
   await page.goto('https://chatgpt.com/c/red-loop-fixture');await page.clock.install();
   await page.addScriptTag({content:source});await page.addScriptTag({content:source});await expect(page.locator('#red-loop-root')).toHaveCount(1);
+  await expect(page.getByRole('textbox',{name:'Automatischer Folgetext'})).toBeVisible();
+  await page.locator('.rl-collapse').click();await expect(page.locator('#rl-prompt')).toBeHidden();await expect(page.locator('.rl-stop')).toBeVisible();
+  await page.locator('.rl-collapse').click();await expect(page.locator('#rl-prompt')).toBeVisible();
   await page.locator('#rl-limit').fill('2');await page.locator('.rl-start').click();await page.clock.fastForward(7500);
   expect(await page.evaluate(()=>window.sends)).toBe(1);await expect(page.locator('#untouched')).toHaveText('Unrelated content');
   await page.clock.fastForward(20000);expect(await page.evaluate(()=>window.sends)).toBe(1);

@@ -6,7 +6,7 @@ const source=readFileSync('userscripts/red-loop.user.js','utf8');
 function setup(saved, {modern=false,path='/c/test'}={}) {
   const html=modern ? '<body><section><h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4><div data-markdown-text-style="assistant-message">Done</div></section><form data-chatgpt-composer><div contenteditable="true" role="textbox" data-composer-markdown aria-label="ChatGPT fragen"></div><button type="button" aria-label="Senden">Send</button></form></body>' : '<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>';
   const dom=new JSDOM(html,{url:'https://chatgpt.com'+path,runScripts:'outside-only',pretendToBeVisual:true});
-  const w=dom.window; let tick,now=100000,sends=0;
+  const w=dom.window; let tick,now=100000,sends=0; const sent=[];
   Object.defineProperty(w.HTMLElement.prototype,'innerText',{get(){return this.textContent;},set(value){this.textContent=value;},configurable:true});
   w.HTMLElement.prototype.getClientRects=function(){return w.getComputedStyle(this).display==='none'?[]:[{width:200,height:40}];};
   w.document.hasFocus=()=>true; w.Date.now=()=>now; w.setInterval=fn=>{tick=fn;return 1;};
@@ -15,11 +15,47 @@ function setup(saved, {modern=false,path='/c/test'}={}) {
   const sendControl=w.document.querySelector('[data-testid="send-button"],button[aria-label="Senden"]');
   sendControl.onclick=()=>{
     sends++;const editor=sendControl.closest('form')?.querySelector('[data-composer-markdown]') || w.document.querySelector('textarea');
+    sent.push(editor.value || editor.textContent);
     if(editor instanceof w.HTMLTextAreaElement) editor.value='';else editor.textContent='';
   };
   w.eval(source);
-  return {w,dom,get sends(){return sends;},click:s=>w.document.querySelector(s).click(),advance:ms=>{now+=ms;tick();}};
+  return {w,dom,sent,get sends(){return sends;},click:s=>w.document.querySelector(s).click(),advance:ms=>{now+=ms;tick();}};
 }
+
+test('custom multiline follow-up repeats only after completed new responses and stops at the limit',()=>{
+  const f=setup(null,{modern:true});const prompt='Prüfe den nächsten Schritt.\nAntworte kurz mit dem Ergebnis.';
+  f.w.document.querySelector('#rl-prompt').value=prompt;f.w.document.querySelector('#rl-limit').value='2';f.click('.rl-start');
+  assert.equal(f.w.document.querySelector('#rl-prompt').disabled,true);
+  const stop=f.w.document.createElement('button');stop.setAttribute('data-testid','stop-button');f.w.document.body.append(stop);
+  f.advance(20000);assert.equal(f.sends,0);stop.remove();f.advance(7000);assert.deepEqual(f.sent,[prompt]);
+  f.advance(20000);assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Next response';f.advance(1500);f.advance(7000);
+  assert.deepEqual(f.sent,[prompt,prompt]);f.advance(1500);assert.match(f.w.document.querySelector('.rl-status').textContent,/Limit erreicht/);
+  assert.equal(f.w.document.querySelector('#rl-prompt').disabled,false);f.advance(20000);assert.equal(f.sends,2);f.dom.window.close();
+});
+
+test('custom prompt is saved per chat without auto-starting or leaking to another chat',()=>{
+  const f=setup({count:1,limit:3,prompt:'Saved text\nSecond line'});
+  const field=f.w.document.querySelector('#rl-prompt');assert.equal(field.value,'Saved text\nSecond line');f.advance(20000);assert.equal(f.sends,0);
+  field.value='Edited <text> & more';field.dispatchEvent(new f.w.Event('input'));
+  assert.equal(JSON.parse(f.w.sessionStorage.getItem('red-loop:v1:/c/test')).prompt,field.value);
+  f.w.history.pushState({},'', '/c/other');f.advance(1500);assert.notEqual(field.value,'Edited <text> & more');
+  f.w.history.pushState({},'', '/c/test');f.advance(1500);assert.equal(field.value,'Edited <text> & more');
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);f.dom.window.close();
+});
+
+test('blank and oversized follow-up texts cannot start, reset keeps the chosen text',()=>{
+  const f=setup();const field=f.w.document.querySelector('#rl-prompt');
+  for(const invalid of ['  \n ', 'x'.repeat(4001)]) {field.value=invalid;f.click('.rl-start');f.advance(20000);assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Folgetext/);}
+  field.value='Mein Folgetext';f.click('.rl-start');f.advance(7000);assert.deepEqual(f.sent,['Mein Folgetext']);
+  f.click('.rl-reset');assert.equal(field.value,'Mein Folgetext');assert.equal(field.disabled,false);assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);f.dom.window.close();
+});
+
+test('changing follow-up after Stop applies to the next run',()=>{
+  const f=setup();const field=f.w.document.querySelector('#rl-prompt');field.value='Erster Text';f.click('.rl-start');f.advance(7000);f.click('.rl-stop');
+  f.w.document.querySelector('[data-message-author-role]').textContent='New completed response';
+  field.value='Zweiter Text';f.click('.rl-start');f.advance(13000);assert.deepEqual(f.sent,['Erster Text','Zweiter Text']);f.dom.window.close();
+});
 test('saved counter survives load and does not auto-start',()=>{
   const f=setup({count:3,limit:7}); assert.match(f.w.document.querySelector('.rl-counter').textContent,/3 \/ 7/);f.advance(20000);assert.equal(f.sends,0);f.dom.window.close();
 });

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RED Loop",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Explizit gestartete, begrenzte Fortsetzungen im aktiven ChatGPT-Tab.",
   "host_permissions": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
   "content_scripts": [{"matches":["https://chatgpt.com/*","https://chat.openai.com/*"],"js":["red-loop.user.js"],"run_at":"document_idle","all_frames":false}],

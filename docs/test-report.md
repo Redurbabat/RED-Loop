@@ -2,7 +2,9 @@
 
 This report distinguishes executed checks from prepared code. A browser viewport profile is not a physical device test; parsing an Xcode project is not compilation.
 
-**Follow-up:** the Windows live test exposed current-UI and cached-pane compatibility gaps. Browser extension 0.2.2 corrects them and passes **29 unit tests and a real installed-extension/live ChatGPT test in Windows Edge** (controlled run: 0/1 → 1/1, answer received, automatic stop at the limit). See [windows-live-test.md](windows-live-test.md); the screenshot remains local to the user. The 35-browser-check and native archive evidence below describes the 0.2.0 baseline; the changed packaged Safari JavaScript has not been rebuilt on iOS during the follow-up. The current Worker deployment version is `27cdcb34-fc35-45fe-b1f3-0c2ab3846a97`.
+**Current follow-up — v0.2.3:** configurable automatic follow-up text passes **33 unit tests and 12 focused browser checks**, including a real loaded Chromium extension repeating the exact multiline text after responses and stopping at 2/2. Checks for generation waiting, reload persistence without auto-start, draft protection and collapsed-panel controls passed. Browser pages were intercepted local fixtures. The existing Edge install was updated; the real live-service success described below concerns v0.2.2. The current Worker deployment version is `dbc03f48-a737-4206-9bc3-0d7bdc5994b4`.
+
+**Prior follow-up — v0.2.2:** the Windows live test exposed current-UI and cached-pane compatibility gaps. That correction passed 29 unit tests and a real installed-extension/live ChatGPT test in Windows Edge (controlled run: 0/1 → 1/1, answer received, automatic stop at the limit). See [windows-live-test.md](windows-live-test.md); screenshots remain local to the user. The 35-browser-check and native archive evidence below describes the 0.2.0 baseline. Current shared Safari JavaScript and native privacy wording have not been rebuilt on iOS.
 
 ## Baseline delivery and verification
 
@@ -20,7 +22,7 @@ This report distinguishes executed checks from prepared code. A browser viewport
 | Config/project structure | PASS — JSON/YAML and 3-target pbxproj parsed; plist/privacy/scheme XML parsed; extension source parity verified |
 | Web build | PASS — `npm run build` |
 | Worker build | PASS — `npm run dry-run` with Wrangler 4.158.0 and Assets binding; binding/runtime types generated |
-| Unit tests | PASS — baseline 16/16; current browser follow-up 29/29 via `npm test`, including active-conversation isolation and asynchronous composer safety |
+| Unit tests | PASS — baseline 16/16; current browser follow-up 33/33 via `npm test`, including custom follow-up text, active-conversation isolation and asynchronous composer safety |
 | Chromium browser tests | PASS — 8/8 against the deployed URL: bounded controls, scenarios, navigation/history, accessibility in light/system-dark/explicit-dark, Reduced Motion, 320px layout, keyboard, health, real contenteditable insertion and draft preservation on intercepted fixtures |
 | WebKit viewport tests | PASS — 24/24 checks across iPhone, iPad and MacBook profiles using Playwright WebKit 27.2 on Windows. This is not physical Safari validation. |
 | Packaged Windows extension | PASS — 3/3 checks: downloadable ZIP, actual Chromium extension loading/injection, explicit activation, bounded sends, duplicate prevention, stop/reset, draft preservation and automatic light/dark appearance |

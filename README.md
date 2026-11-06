@@ -22,10 +22,10 @@ The responsive RED Morph interface includes light/dark/system appearance, keyboa
 1. Use the standalone [Userscripts Safari extension](https://github.com/quoid/userscripts) on iPhone/iPad/Mac, or a compatible userscript manager on Windows.
 2. Import `userscripts/red-loop.user.js` (also downloadable from the deployed dashboard's Integration view).
 3. Grant website access only to `chatgpt.com` (the legacy host is included for redirects).
-4. Open an existing `/c/...` conversation with an assistant response, choose a small limit and press **Start in the RED Loop panel on that page**.
+4. Open an existing `/c/...` conversation with an assistant response. Enter your repeated message in **Automatischer Folgetext** in the RED Loop panel, choose a small limit and press **Start**. After each completed response, the panel sends that text again until the limit or Stop.
 5. Keep the tab visible and focused. **Stopp** is always reachable, including in the minimized panel.
 
-The script never overwrites a draft or stores credentials. It stops on navigation, hidden tabs, focus loss, detected errors and missing composer. It waits for a new response after each send; an unchanged previous answer cannot trigger duplicate execution. Only counters and limits are kept in session storage; reload never restarts a run.
+The script never overwrites a composer draft or stores credentials. It stops on navigation, hidden tabs, focus loss, detected errors and missing composer. It waits for a new response after each send; an unchanged previous answer cannot trigger duplicate execution. Counters, limits and your chosen follow-up text (1–4000 characters) are kept in per-chat session storage in this browser tab; reload never restarts a run. Stop before editing the follow-up; Reset clears the counter and keeps the text.
 
 The Windows developer package has baseline tests as an actual loaded Chromium extension against intercepted fixtures, plus the real Edge/live-service follow-up below. A separate physical Chrome check is still outstanding. Safari distribution uses the native host described below.
 

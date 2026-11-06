@@ -36,7 +36,7 @@ test('packaged extension injects and sends only after explicit start; no duplica
   await page.waitForTimeout(13000);expect(await page.evaluate(()=>window.sends)).toBe(1);
   await page.locator('.rl-stop').click();await expect(page.locator('.rl-stop')).toBeDisabled();
   await page.locator('.rl-reset').click();await expect(page.locator('.rl-counter')).toContainText('0 / 2');
-  await page.screenshot({path:'docs/previews/windows-extension-fixture.png',fullPage:true});
+  await page.screenshot({path:'test-results/windows-extension-fixture.png',fullPage:true});
 });
 test('packaged extension preserves drafts and limits execution to one send',async({page})=>{
   await openFixture(page,'Keep this draft');await page.locator('.rl-start').click();
@@ -45,4 +45,21 @@ test('packaged extension preserves drafts and limits execution to one send',asyn
   await expect.poll(()=>page.evaluate(()=>window.sends),{timeout:12000}).toBe(1);
   await expect(page.locator('.rl-status')).toContainText('Limit erreicht',{timeout:4000});
   await page.waitForTimeout(1600);expect(await page.evaluate(()=>window.sends)).toBe(1);
+});
+
+test('packaged extension repeats the chosen multiline text after answers, stops and restores it on reload',async({page})=>{
+  await openFixture(page);const prompt='Mein nächster Schritt.\nBitte prüfe das Ergebnis.';
+  await page.evaluate(()=>{window.sent=[];document.querySelector('[data-testid="send-button"]').onclick=()=>{window.sent.push(document.querySelector('#prompt-textarea').innerText);document.querySelector('#prompt-textarea').textContent='';};});
+  await page.locator('#rl-prompt').fill(prompt);await page.locator('#rl-limit').fill('2');
+  await page.evaluate(()=>{const b=document.createElement('button');b.dataset.testid='stop-button';b.textContent='Generating';document.body.append(b);});
+  await page.locator('.rl-start').click();await expect(page.locator('#rl-prompt')).toBeDisabled();
+  await page.waitForTimeout(8000);expect(await page.evaluate(()=>window.sent)).toEqual([]);
+  await page.locator('[data-testid="stop-button"]').evaluate(el=>el.remove());
+  await expect.poll(()=>page.evaluate(()=>window.sent),{timeout:12000}).toEqual([prompt]);
+  await page.evaluate(()=>{document.querySelector('[data-message-author-role]').textContent='A second completed answer.';});
+  await expect.poll(()=>page.evaluate(()=>window.sent),{timeout:22000}).toEqual([prompt,prompt]);
+  await expect(page.locator('.rl-status')).toContainText('Limit erreicht',{timeout:4000});await expect(page.locator('#rl-prompt')).toBeEnabled();
+  await page.screenshot({path:'test-results/custom-follow-up-extension.png',fullPage:true});
+  await page.reload();await expect(page.locator('#rl-prompt')).toHaveValue(prompt);await expect(page.locator('.rl-stop')).toBeDisabled();
+  await expect(page.locator('.rl-counter')).toContainText('2 / 2');
 });

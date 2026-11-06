@@ -103,7 +103,7 @@ struct PrivacyView: View {
         List {
             Section("Lokal und begrenzt") {
                 Text("Keine Zugangsdaten, kein Analytics-SDK, keine Konversationen an Cloudflare. Die native Demo hält Zähler und Ereignisse nur im Arbeitsspeicher.")
-                Text("Die Erweiterung liest sichtbare Antworten lokal und speichert ausschließlich Zähler und Limits pro Chat im Sitzungsspeicher des Tabs. Fortsetzungen werden über die ChatGPT-Oberfläche an ChatGPT gesendet.")
+                Text("Die Erweiterung liest sichtbare Antworten lokal und speichert Zähler, Limits und deinen gewählten Folgetext pro Chat im Sitzungsspeicher des Tabs. Der Folgetext wird nach deinem Start über die ChatGPT-Oberfläche an ChatGPT gesendet.")
             }
             Section("Deine Kontrolle") {
                 Text("Expliziter Start, maximal 50 Fortsetzungen, jederzeit Stopp. Vorhandene Eingaben werden geschützt. Die Nutzung verbraucht ChatGPT-Kontingent und unterliegt den dort geltenden Bedingungen.")

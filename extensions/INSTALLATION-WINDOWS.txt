@@ -8,8 +8,11 @@ RED Loop fuer Windows — Edge und Chrome
 5. Den entpackten Ordner mit manifest.json auswaehlen.
 6. https://chatgpt.com im Browser oeffnen und eine bestehende
    Konversation mit einer Antwort laden. Vorhandene Tabs neu laden.
-7. Im RED-Loop-Panel ein kleines Limit waehlen (zuerst 1), dann Start.
+7. Im Feld "Automatischer Folgetext" den zu wiederholenden Text eintragen.
+   Er wird nach jeder fertigen ChatGPT-Antwort automatisch gesendet.
+   Ein kleines Limit waehlen (zuerst 1), dann Start.
    Stopp oder Reset sind jederzeit im Panel erreichbar.
+   Zum Aendern des Texts zuerst Stopp. Reset behaelt den Text.
 
 Die Erweiterung ist ein lokales Entwicklerpaket, kein Store-Eintrag.
 Es werden keine Zugangsdaten abgefragt. Nur der sichtbare aktive Tab

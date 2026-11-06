@@ -8,7 +8,9 @@ RED Loop is packaged as a Manifest V3 developer extension for Microsoft Edge and
 4. Choose **Load unpacked / Entpackte Erweiterung laden** and select the extracted folder containing `manifest.json`.
 5. Reload an existing `https://chatgpt.com/c/...` conversation. The RED Loop panel appears automatically; automation starts only when you press its Start button.
 
-Start with limit 1. Keep the conversation visible and focused. The panel stops for drafts, errors, focus/visibility changes and navigation. No API key, external chat relay, native host or background worker is needed. The toolbar popup provides local activation help; real controls are on the conversation page.
+Enter the text you want repeated in **Automatischer Folgetext**, choose a limit (start with 1), then press **Start**. The extension sends that text after each completed ChatGPT response until the limit is reached or you press Stop. It waits while ChatGPT generates and never sends twice for the same answer. Stop before changing the text. The text and counter are saved for this conversation in the browser tab's session storage; reloading does not restart sending.
+
+Keep the conversation visible and focused. The panel stops for drafts, errors, focus/visibility changes and navigation. No API key, external chat relay, native host or background worker is needed. The toolbar popup provides local activation help; real controls are on the conversation page.
 
 This is a developer package, not a Chrome Web Store or Edge Add-ons release. Managed-browser policy may block unpacked extensions. Keep the extracted folder in place. To update, replace its files and press Reload on the extension-management page. Remove the extension there when finished.
 

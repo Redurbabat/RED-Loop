@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.2.2
+// @version      0.2.3
 // @description  Opt-in, bounded automatic continuation for one ChatGPT conversation.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -13,8 +13,9 @@
   if (window.top !== window.self || document.getElementById('red-loop-root')) return;
   const PREFIX = 'red-loop:v1:';
   const MAX_STEPS = 50;
+  const MAX_PROMPT_LENGTH = 4000;
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
-  const state = { running: false, count: 0, limit: 10, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '' };
+  const state = { running: false, count: 0, limit: 10, prompt: PROMPT, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '' };
   const key = () => PREFIX + (location.pathname.match(/(?:^|\/)c\/[^/]+/)?.[0] || location.pathname);
   let currentKey = key();
   const root = document.createElement('aside');
@@ -22,10 +23,13 @@
   root.setAttribute('aria-label', 'RED Loop Steuerung');
   root.innerHTML = `<div class="rl-head"><strong>RED <span>Loop</span></strong><button class="rl-collapse" aria-label="Panel minimieren" aria-expanded="true" type="button">−</button></div>
     <div class="rl-body"><p class="rl-status" role="status" aria-live="polite">Bereit</p>
+    <label class="rl-prompt-label" for="rl-prompt">Automatischer Folgetext</label>
+    <textarea id="rl-prompt" rows="4" maxlength="4000" aria-describedby="rl-prompt-help"></textarea>
+    <p id="rl-prompt-help">Wird nach jeder fertigen Antwort gesendet. Aktivieren mit Start.</p>
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Stopp</button><button class="rl-reset" type="button">Reset</button></div>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.2.2 · Nur dieser Chat · Tab muss aktiv bleiben · Keine unbegrenzte Ausführung</small></div>`;
+    <small>v0.2.3 · Nur dieser Chat · Tab muss aktiv bleiben · Keine unbegrenzte Ausführung</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -33,23 +37,26 @@
   const $ = s => root.querySelector(s);
   const status = msg => { $('.rl-status').textContent = msg; };
   const persist = () => {
-    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit })); } catch {}
+    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, prompt: state.prompt })); } catch {}
   };
   const stop = msg => {
     state.running = false; state.pending = false; state.composing = false; persist();
     $('.rl-start').disabled = false; $('.rl-stop').disabled = true; $('#rl-limit').disabled = false;
+    $('#rl-prompt').disabled = false;
     status(msg || 'Gestoppt');
   };
   const load = () => {
     state.running = false; state.pending = false; state.composing = false;
     state.lastMessage = ''; state.submittedSignature = ''; state.awaiting = false; state.lastSubmit = 0;
-    state.count = 0; state.limit = 10;
+    state.count = 0; state.limit = 10; state.prompt = PROMPT;
     try {
       const saved = JSON.parse(sessionStorage.getItem(currentKey) || '{}');
       state.count = Number.isInteger(saved.count) ? Math.max(0, Math.min(MAX_STEPS, saved.count)) : 0;
       state.limit = Number.isInteger(saved.limit) ? Math.max(1, Math.min(MAX_STEPS, saved.limit)) : 10;
+      if (typeof saved.prompt === 'string' && saved.prompt.length <= MAX_PROMPT_LENGTH) state.prompt = saved.prompt;
     } catch {}
     $('#rl-limit').value = String(state.limit);
+    $('#rl-prompt').value = state.prompt;
     $('.rl-counter').textContent = state.count + ' / ' + state.limit + ' Fortsetzungen';
     stop('Bereit');
     status('Bereit · ' + state.count + '/' + state.limit);
@@ -102,7 +109,7 @@
   };
   const attemptSend = () => {
     const el = editor();
-    if (!el || (el.innerText || el.value || '').trim() !== PROMPT) return stop('Entwurf geändert – nicht gesendet');
+    if (!el || (el.innerText || el.value || '').trim() !== state.prompt) return stop('Entwurf geändert – nicht gesendet');
     if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen');
     const btn = sendButton();
     if (!btn || btn.disabled) {
@@ -144,7 +151,7 @@
     if ((el.innerText || el.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
     if (state.pending) return;
     state.pending = true;
-    if (!insertPrompt(el, PROMPT)) return stop('Eingabe fehlgeschlagen – ChatGPT-Oberfläche prüfen');
+    if (!insertPrompt(el, state.prompt)) return stop('Eingabe fehlgeschlagen – ChatGPT-Oberfläche prüfen');
     state.composing = true; state.composeStarted = Date.now(); state.composeSignature = sig;
     attemptSend();
   };
@@ -156,12 +163,19 @@
     if (el && (el.innerText || el.value || '').trim()) return status('Entwurf erkannt – nicht überschrieben');
     const n = Number($('#rl-limit').value);
     if (!Number.isInteger(n) || n < 1 || n > MAX_STEPS) return status('Bitte Limit von 1 bis 50 wählen');
+    const prompt = $('#rl-prompt').value.trim();
+    if (!prompt || prompt.length > MAX_PROMPT_LENGTH) return status('Bitte einen Folgetext mit 1 bis 4000 Zeichen eingeben');
     if (state.count >= n) state.count = 0;
-    state.limit = n; state.running = true; state.pending = false;
+    state.limit = n; state.prompt = prompt; state.running = true; state.pending = false;
+    $('#rl-prompt').value = prompt; $('#rl-prompt').disabled = true;
     $('.rl-counter').textContent = state.count + ' / ' + state.limit + ' Fortsetzungen';
     state.lastMessage = signature(); state.lastChange = Date.now();
     $('.rl-start').disabled = true; $('.rl-stop').disabled = false; $('#rl-limit').disabled = true;
     persist(); status('Aktiv · ' + state.count + '/' + state.limit);
+  });
+  $('#rl-prompt').addEventListener('input', () => {
+    if (state.running) return;
+    state.prompt = $('#rl-prompt').value; persist();
   });
   $('#rl-limit').addEventListener('change', () => {
     if (state.running) return;
@@ -188,7 +202,9 @@
   window.addEventListener('pagehide', () => { if (state.running) stop('Pausiert: Seite verlassen'); });
   window.addEventListener('blur', () => { if (state.running) stop('Gestoppt: Tab nicht im Fokus'); });
   load();
+  style.textContent += '#red-loop-root{max-height:calc(100dvh - 32px);overflow-y:auto}#red-loop-root .rl-prompt-label{display:block;margin-bottom:5px}#red-loop-root #rl-prompt{display:block;width:100%;resize:vertical;min-height:76px;max-height:160px;padding:8px;border:1px solid #ffffff55;border-radius:8px;background:#12151b;color:#fff;font:inherit;font-size:12px;line-height:1.45}#red-loop-root #rl-prompt:disabled{opacity:.6;resize:none}#red-loop-root #rl-prompt:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}#red-loop-root #rl-prompt-help{font-size:12px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-prompt{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root #rl-prompt-help{color:#65646c}#red-loop-root #rl-prompt:focus-visible{outline-color:#a9233b}}';
   style.textContent += '#red-loop-root button{min-height:44px}#red-loop-root .rl-counter{font-size:12px;color:#d6deeb}#red-loop-root.rl-min .rl-stop{display:block}#red-loop-root.rl-min .rl-body{display:block}#red-loop-root.rl-min .rl-body>*:not(.rl-row){display:none}#red-loop-root.rl-min .rl-row>label,#red-loop-root.rl-min .rl-row>input{display:none}@media(prefers-reduced-motion:reduce){#red-loop-root *{animation:none!important;transition:none!important}}';
   style.textContent += '@media(prefers-color-scheme:light){#red-loop-root{background:rgba(250,249,247,.97);color:#27282d;border-color:#bfb6ba;box-shadow:0 12px 40px #38312a18;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}#red-loop-root .rl-head span{color:#a9233b}#red-loop-root button{background:#f4f2ee;color:#27282d;border-color:#c7bfc2}#red-loop-root .rl-start{background:#a9233b;color:#fff;border-color:#a9233b}#red-loop-root input{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root .rl-status,#red-loop-root .rl-counter{color:#45434b}#red-loop-root small{color:#65646c}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline-color:#a9233b}}';
   window.setInterval(tick, 1500);
+  style.textContent += '#red-loop-root.rl-min #rl-prompt{display:none}';
 })();

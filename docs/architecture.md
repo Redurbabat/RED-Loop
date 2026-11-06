@@ -10,10 +10,10 @@
 
 - Maximum 50 continuations per explicitly started session, minimum 1.
 - Start is ignored during an active run. Cancellation invalidates pending demo callbacks.
-- The userscript waits for a stable assistant response, checks generation and draft states, then inserts a fixed continuation prompt into an empty editor.
+- The userscript waits for a stable assistant response, checks generation and draft states, then inserts the user-configured follow-up text into an empty editor. The text is locked during a run; only explicit Start activates it.
 - After sending, the previous response cannot trigger a second send. A new response must appear; a 90-second timeout stops an unacknowledged send.
 - Hidden tabs, focus loss, navigation, existing drafts and detected response errors stop real execution. Reload never auto-resumes a stored run.
-- Session storage contains only counters/limits per chat. Message text used for local change detection is kept in memory, never logged or transmitted to the worker.
+- Session storage contains counters, limits and the chosen follow-up text per chat. Assistant text used for local change detection is kept in memory. Neither is logged or transmitted to the Worker.
 - No `postMessage` command listener, broad host permissions, native credential bridge or background scheduler exists.
 - The extension handler returns version metadata only; no native messaging permission is requested.
 - Static asset responses carry a restrictive Content Security Policy, no-referrer policy, MIME protection and denied device capabilities. Mutating HTTP methods return 405; `/health` exposes no secrets.
