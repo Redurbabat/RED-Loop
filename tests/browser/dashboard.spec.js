@@ -23,10 +23,16 @@ test('responsive layout, dark mode, accessibility and reduced motion',async({pag
   expect(await page.locator('#start').evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0s');
   await page.screenshot({path:`docs/previews/${testInfo.project.name}-light.png`,fullPage:true});
   let results=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();expect(results.violations).toEqual([]);
+  await page.emulateMedia({colorScheme:'dark'});
+  results=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();expect(results.violations).toEqual([]);
   await page.locator('#theme').click();await page.locator('#theme').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   results=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();expect(results.violations).toEqual([]);
   await page.screenshot({path:`docs/previews/${testInfo.project.name}-dark.png`,fullPage:true});
+});
+test('narrow 320px screen remains usable',async({page})=>{
+  await page.setViewportSize({width:320,height:800});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.locator('#start')).toBeVisible();await page.locator('#start').click();await page.locator('#stop').click();await expect(page.locator('#status')).toHaveText('Gestoppt');
 });
 test('keyboard control and health',async({page,request})=>{
   await page.locator('#start').focus();await page.keyboard.press('Enter');await expect(page.locator('#stop')).toBeEnabled();
