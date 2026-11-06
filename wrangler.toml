@@ -1,0 +1,7 @@
+name = "red-loop-preview"
+main = "cloudflare/src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+# Deploy with: npx wrangler deploy
+# Requires a Cloudflare account and Wrangler authentication.
