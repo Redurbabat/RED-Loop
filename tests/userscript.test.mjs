@@ -8,11 +8,13 @@ function setup(saved, {modern=false,path='/c/test'}={}) {
   const dom=new JSDOM(html,{url:'https://chatgpt.com'+path,runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window; let tick,now=100000,sends=0;
   Object.defineProperty(w.HTMLElement.prototype,'innerText',{get(){return this.textContent;},set(value){this.textContent=value;},configurable:true});
+  w.HTMLElement.prototype.getClientRects=function(){return w.getComputedStyle(this).display==='none'?[]:[{width:200,height:40}];};
   w.document.hasFocus=()=>true; w.Date.now=()=>now; w.setInterval=fn=>{tick=fn;return 1;};
   if(saved) w.sessionStorage.setItem('red-loop:v1:/c/test',JSON.stringify(saved));
   w.document.execCommand=(command,unused,value)=>{if(command!=='insertText') return false;w.document.activeElement.textContent=value;return true;};
-  w.document.querySelector('[data-testid="send-button"],button[aria-label="Senden"]').onclick=()=>{
-    sends++;const editor=w.document.querySelector('textarea,[data-composer-markdown]');
+  const sendControl=w.document.querySelector('[data-testid="send-button"],button[aria-label="Senden"]');
+  sendControl.onclick=()=>{
+    sends++;const editor=sendControl.closest('form')?.querySelector('[data-composer-markdown]') || w.document.querySelector('textarea');
     if(editor instanceof w.HTMLTextAreaElement) editor.value='';else editor.textContent='';
   };
   w.eval(source);
@@ -68,6 +70,24 @@ test('empty or nested assistant markup cannot trigger duplicate continuation',()
   const f=setup(null,{modern:true});const body=f.w.document.querySelector('[data-markdown-text-style]');body.textContent='';
   f.click('.rl-start');f.advance(20000);assert.equal(f.sends,0);
   body.textContent='Done';body.parentElement.setAttribute('data-message-author-role','assistant');f.advance(1500);f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('hidden background chats cannot provide responses or overwrite their drafts',()=>{
+  const f=setup(null,{modern:true});const background=f.w.document.createElement('section');background.hidden=true;
+  background.innerHTML='<div data-markdown-text-style="assistant-message">Background answer</div><form data-chatgpt-composer><div data-composer-markdown contenteditable="true">Keep background draft</div><button aria-label="Senden">Send</button></form>';
+  f.w.document.body.append(background);f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  background.querySelector('[data-markdown-text-style]').textContent='Different background answer';f.advance(1500);f.advance(15000);
+  assert.equal(f.sends,1);assert.equal(background.querySelector('[data-composer-markdown]').textContent,'Keep background draft');f.dom.window.close();
+});
+test('offscreen cached messages and composers from another conversation are excluded by identity',()=>{
+  const f=setup(null,{modern:true});const background=f.w.document.createElement('section');
+  background.innerHTML='<div data-chatgpt-selection-conversation-id="other"><div data-markdown-text-style="assistant-message">Other chat</div></div><form data-chatgpt-composer><div data-above-composer-conversation-id="chatgpt:other"></div><div data-composer-markdown contenteditable="true">Private other draft</div><button aria-label="Senden">Send</button></form>';
+  f.w.document.body.prepend(background);f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  assert.equal(background.querySelector('[data-composer-markdown]').textContent,'Private other draft');f.dom.window.close();
+});
+test('hidden generation controls and loading errors cannot affect the active chat',()=>{
+  const f=setup(null,{modern:true});const background=f.w.document.createElement('section');background.setAttribute('aria-hidden','true');
+  background.innerHTML='<button data-testid="stop-button">Stop</button><div data-testid="error-message">Error</div><div><h4 data-conversation-role="assistant">Assistant</h4>Diese Antwort konnte nicht geladen werden</div>';
+  f.w.document.body.append(background);f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
 });
 test('start sends once; unchanged answer never triggers duplicate send',()=>{
   const f=setup(); f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.advance(15000);assert.equal(f.sends,1);

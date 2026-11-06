@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.2.1
+// @version      0.2.2
 // @description  Opt-in, bounded automatic continuation for one ChatGPT conversation.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -25,7 +25,7 @@
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Stopp</button><button class="rl-reset" type="button">Reset</button></div>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.2.1 · Nur dieser Chat · Tab muss aktiv bleiben · Keine unbegrenzte Ausführung</small></div>`;
+    <small>v0.2.2 · Nur dieser Chat · Tab muss aktiv bleiben · Keine unbegrenzte Ausführung</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -54,17 +54,28 @@
     stop('Bereit');
     status('Bereit · ' + state.count + '/' + state.limit);
   };
-  const isGenerating = () => !!document.querySelector('button[data-testid="stop-button"],button[aria-label*="Stop generating"],button[aria-label*="Generierung stoppen"],form[data-chatgpt-composer] button[aria-label="Antwort stoppen"],form[data-chatgpt-composer] button[aria-label="Stop"]');
+  const visible = el => !!el && !el.closest('[hidden],[inert],[aria-hidden="true"]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+  const conversationId = () => location.pathname.match(/(?:^|\/)c\/([^/]+)/)?.[1];
+  const belongsToChat = el => {
+    const id = conversationId();
+    const message = el.closest('[data-chatgpt-selection-conversation-id]');
+    if (message && id && message.getAttribute('data-chatgpt-selection-conversation-id') !== id) return false;
+    const form = el.closest('form[data-chatgpt-composer]');
+    const owner = form?.querySelector('[data-above-composer-conversation-id]')?.getAttribute('data-above-composer-conversation-id');
+    return !owner || !id || owner === 'chatgpt:' + id;
+  };
+  const isGenerating = () => [...document.querySelectorAll('button[data-testid="stop-button"],button[aria-label*="Stop generating"],button[aria-label*="Generierung stoppen"],form[data-chatgpt-composer] button[aria-label="Antwort stoppen"],form[data-chatgpt-composer] button[aria-label="Stop"]')].some(el => visible(el) && belongsToChat(el));
   const messages = () => {
-    const nodes = [...document.querySelectorAll('[data-message-author-role="assistant"],[data-markdown-text-style="assistant-message"]')];
+    const nodes = [...document.querySelectorAll('[data-message-author-role="assistant"],[data-markdown-text-style="assistant-message"]')].filter(el => visible(el) && belongsToChat(el));
     return nodes.filter(node => !nodes.some(parent => parent !== node && parent.contains(node)));
   };
   const lastAssistant = () => messages().at(-1);
-  const editor = () => document.querySelector('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea');
-  const sendButton = () => (editor()?.closest('form[data-chatgpt-composer]') || document).querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]');
+  const editor = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].find(el => visible(el) && belongsToChat(el));
+  const sendButton = () => [...(editor()?.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].find(visible);
   const hasResponseError = () => {
-    if (document.querySelector('[data-testid="conversation-turn-error"],[data-testid="error-message"]')) return true;
-    const latest = [...document.querySelectorAll('[data-conversation-role="assistant"]')].at(-1);
+    if ([...document.querySelectorAll('[data-testid="conversation-turn-error"],[data-testid="error-message"]')].some(visible)) return true;
+    if (/(?:diese antwort konnte nicht geladen werden|this response could not be loaded)/i.test(lastAssistant()?.innerText || '')) return true;
+    const latest = [...document.querySelectorAll('[data-conversation-role="assistant"]')].filter(visible).at(-1);
     return /(?:diese antwort konnte nicht geladen werden|this response could not be loaded)/i.test(latest?.parentElement?.innerText || '');
   };
   const signature = () => {
