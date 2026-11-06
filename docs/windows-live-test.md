@@ -21,4 +21,8 @@ The existing Edge extension directory was updated without adding host permission
 
 A dedicated, non-sensitive text test conversation was created. The initial answer loaded after the website's “Antwort neu laden” action. No unrelated conversation was continued and no credentials or conversation contents were sent to the Worker.
 
-The final automatic continuation test is pending the extension reload and verification of the visible `v0.2.2` panel. It must not be marked successful from the fixture/unit results alone. The preceding iOS build and full 35-browser-check evidence in `test-report.md` concern the 0.2.0 baseline; the changed Safari resource has not been rebuilt on iOS in this follow-up.
+**LIVE WINDOWS / EDGE TEST PASSED with the installed v0.2.2 extension.** After resetting the counter, limit 1 and explicit Start produced exactly one automatic continuation in that controlled run. The visible counter changed from `0 / 1` to `1 / 1`; ChatGPT returned the expected test acknowledgment. The panel then displayed “Limit erreicht” and disabled Stop. The test tab was left open with the completed result. The one-message assertion concerns the final controlled run after Reset.
+
+The screenshot is retained locally for the user. No screenshot, conversation URL or conversation content is exported to this repository.
+
+This is a real installed-extension/live-service result, separate from fixture/unit validation. The preceding iOS build and full 35-browser-check evidence in `test-report.md` concern the 0.2.0 baseline; the changed Safari resource has not been rebuilt on iOS in this follow-up. The 0.2.2 automated full browser suite was not rerun; its executed follow-up checks are the 29 unit tests, build/configuration checks and this manual live Edge test.

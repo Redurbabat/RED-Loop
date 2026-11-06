@@ -27,7 +27,9 @@ The responsive RED Morph interface includes light/dark/system appearance, keyboa
 
 The script never overwrites a draft or stores credentials. It stops on navigation, hidden tabs, focus loss, detected errors and missing composer. It waits for a new response after each send; an unchanged previous answer cannot trigger duplicate execution. Only counters and limits are kept in session storage; reload never restarts a run.
 
-The Windows developer package is tested as an actual loaded Chromium extension against intercepted fixtures. Manual installation in the user's Edge/Chrome profile and a live ChatGPT account remain separate acceptance steps. Safari distribution uses the native host described below.
+The Windows developer package has baseline tests as an actual loaded Chromium extension against intercepted fixtures, plus the real Edge/live-service follow-up below. A separate physical Chrome check is still outstanding. Safari distribution uses the native host described below.
+
+**Windows live follow-up:** extension v0.2.2 was also tested in the user's actual Edge browser against a dedicated live ChatGPT text conversation. The controlled run sent one continuation and stopped at 1/1. It supports the current composer/message markup and excludes cached background conversations. See [live evidence](docs/windows-live-test.md). The broader historical browser/iOS results refer to the earlier baseline as labeled in the report.
 
 ## Native iPhone/iPad host
 
