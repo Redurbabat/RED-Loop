@@ -15,9 +15,13 @@ RED Loop fuer Windows — Edge und Chrome
    Zum Aendern des Texts zuerst Stopp. Reset behaelt den Text.
 
 Die Erweiterung ist ein lokales Entwicklerpaket, kein Store-Eintrag.
-Es werden keine Zugangsdaten abgefragt. Nur der sichtbare aktive Tab
-kann fortsetzen. Entwuerfe werden nicht ueberschrieben. Tabwechsel,
-Fokusverlust, Navigation und erkannte Fehler stoppen den Loop.
+Es werden keine Zugangsdaten abgefragt. Fuer andere Programme oder Tabs:
+"Auch im Hintergrund weiterarbeiten" vor Start aktivieren. Fuer offene
+Aufgaben "Text fuer offene Aufgaben laden" waehlen. Browser und Chat
+offen lassen, PC wach halten. In Edge unter System und Leistung chatgpt.com
+zu "Diese Websites immer aktiv halten" hinzufuegen. Ohne Hintergrundmodus
+stoppt der Loop bei Fokusverlust. Entwuerfe, Fehler, Navigation und Limit
+stoppen beide Modi. Auftragstext stoppt auch bei Fertig- oder Rueckfragemarker.
 Das Dashboard steuert keine anderen Tabs.
 
 Der Ordner muss nach der Installation bestehen bleiben. Zum Update

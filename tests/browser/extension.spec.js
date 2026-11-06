@@ -9,6 +9,7 @@ const test=base.extend({
     await use(context);await context.close();
   }
 });
+
 test.setTimeout(90000);
 test('downloadable Windows package has a valid manifest and the canonical script',async({request})=>{
   const response=await request.get('/red-loop-browser-extension.zip');expect(response.ok()).toBe(true);
@@ -81,3 +82,13 @@ for (const [name,prompt] of [['line break','Erster Schritt.\nZweiter Schritt.'],
     await expect(page.locator('.rl-status')).toContainText('Limit erreicht',{timeout:4000});
   });
 }
+
+test('work preset stops after a returned completion marker',async({page})=>{
+  await openFixture(page);await page.locator('.rl-work').click();await page.locator('#rl-background').check();await page.locator('#rl-limit').fill('3');
+  await page.evaluate(()=>{document.querySelector('[data-testid="send-button"]').onclick=()=>{window.sends++;document.querySelector('#prompt-textarea').textContent='';const answer=document.querySelector('[data-message-author-role]');answer.style.whiteSpace='pre-wrap';answer.textContent='All fixture tasks verified.\n[RED_LOOP_FERTIG]';};});
+  await page.locator('.rl-start').click();
+  await expect.poll(()=>page.evaluate(()=>window.sends),{timeout:25000}).toBe(1);
+  await expect.poll(()=>page.locator('.rl-status').textContent(),{timeout:25000}).toBe('Auftrag abgeschlossen');
+  expect(await page.evaluate(()=>window.sends)).toBe(1);await expect(page.locator('.rl-stop')).toBeDisabled();
+  await page.screenshot({path:'test-results/background-work-completed.png',fullPage:true});
+});

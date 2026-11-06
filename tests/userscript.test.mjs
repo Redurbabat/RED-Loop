@@ -72,6 +72,36 @@ test('changing follow-up after Stop applies to the next run',()=>{
 test('saved counter survives load and does not auto-start',()=>{
   const f=setup({count:3,limit:7}); assert.match(f.w.document.querySelector('.rl-counter').textContent,/3 \/ 7/);f.advance(20000);assert.equal(f.sends,0);f.dom.window.close();
 });
+
+test('opt-in background mode continues through blur and a hidden document but pagehide stops it',()=>{
+  const f=setup();const background=f.w.document.querySelector('#rl-background');background.checked=true;background.dispatchEvent(new f.w.Event('change'));
+  f.click('.rl-start');assert.equal(background.disabled,true);f.w.document.hasFocus=()=>false;
+  Object.defineProperty(f.w.document,'hidden',{value:true,configurable:true});f.w.dispatchEvent(new f.w.Event('blur'));f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
+  f.advance(7000);assert.equal(f.sends,1);f.w.dispatchEvent(new f.w.Event('pagehide'));f.advance(20000);assert.equal(f.sends,1);assert.equal(background.disabled,false);f.dom.window.close();
+});
+
+test('foreground mode still stops when the browser loses focus',()=>{
+  const f=setup();f.click('.rl-start');f.w.dispatchEvent(new f.w.Event('blur'));f.advance(7000);assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Fokus/);f.dom.window.close();
+});
+
+test('background preference is per-chat and never auto-starts on load',()=>{
+  const f=setup({background:true,prompt:'Continue',limit:4});const check=f.w.document.querySelector('#rl-background');assert.equal(check.checked,true);
+  f.advance(20000);assert.equal(f.sends,0);f.w.history.pushState({},'', '/c/other');f.advance(1500);assert.equal(check.checked,false);
+  f.w.history.pushState({},'', '/c/test');f.advance(1500);assert.equal(check.checked,true);assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);f.dom.window.close();
+});
+
+for(const [marker,status] of [['[RED_LOOP_FERTIG]','Auftrag abgeschlossen'],['[RED_LOOP_RUECKFRAGE]','Rückfrage']]) {
+  test(`work preset stops after a completed answer with ${marker}`,()=>{
+    const f=setup();f.click('.rl-work');assert.match(f.w.document.querySelector('#rl-prompt').value,/offen/);f.advance(20000);assert.equal(f.sends,0);
+    f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.w.document.querySelector('[data-message-author-role]').textContent='Result\n'+marker;
+    f.advance(1500);f.advance(13000);assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,new RegExp(status));assert.equal(f.w.document.querySelector('.rl-work').disabled,false);f.dom.window.close();
+  });
+}
+
+test('quoted completion markers do not stop work and custom texts without markers are unaffected',()=>{
+  const f=setup();f.click('.rl-work');f.w.document.querySelector('[data-message-author-role]').textContent='The token [RED_LOOP_FERTIG] is explained here.';f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.click('.rl-reset');
+  f.w.document.querySelector('#rl-prompt').value='My text';f.w.document.querySelector('[data-message-author-role]').textContent='[RED_LOOP_FERTIG]';f.click('.rl-start');f.advance(7000);assert.equal(f.sends,2);f.dom.window.close();
+});
 test('current ChatGPT markup supports semantic composer and assistant body',()=>{
   const f=setup(null,{modern:true});f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
   f.advance(15000);assert.equal(f.sends,1);f.dom.window.close();

@@ -1,4 +1,12 @@
-# Windows live test and browser compatibility — 6 November 2026
+# Windows live test and browser compatibility — 6–7 November 2026
+
+## Background task mode — browser extension 0.3.0
+
+The user explicitly requested continuation while using other programs/tabs with the browser open. Version 0.3.0 adds an opt-in background checkbox and a work-prompt preset. Foreground mode remains the default. The preset asks for remaining-task work, verification, and standalone completion/user-input markers; requested markers stop the loop after the answer settles. Navigation, drafts, errors and the 1–50 limit still stop execution. This is assistant-reported completion, not independent task verification.
+
+Executed: **41/41 unit tests and 15 distinct focused browser checks across full/focused runs**. Unit checks cover hidden/unfocused operation, foreground stopping, pagehide, per-chat background preference and both stop markers. The actual loaded extension additionally passed completion-marker stopping. An initial attempt to assert natural visibility in automation was invalid because Playwright forces focus/visibility; it is not counted as a background success. Current real Edge background acceptance is pending the installed extension's reload and a live test. The v0.2.4 live result below remains separate.
+
+Current Cloudflare deployment: `28e630f5-959f-4d2f-b3c4-e33fb35b2c72`. Existing Edge files were updated to v0.3.0. For long runs the PC must remain awake and Edge must keep ChatGPT active; sleeping/suspended pages cannot execute. See [background-work.md](background-work.md). No overnight endurance or current iOS build is claimed.
 
 ## Live custom-text verification — browser extension 0.2.4
 
@@ -6,9 +14,9 @@ The real Edge test of v0.2.3 found a rich-text issue: paragraph spacing adds lin
 
 **LIVE WINDOWS / EDGE CUSTOM-TEXT TEST PASSED with installed v0.2.4.** In a dedicated benign text conversation, Reset, a custom message containing multiple lines and an empty paragraph, limit 2 and explicit Start produced two automatic sends. ChatGPT answered both. The panel reached **2 / 2 Fortsetzungen**, displayed **Limit erreicht**, re-enabled Start/text editing and disabled Stop. The completed test tab remains open. The screenshot stays local; no image, conversation URL or conversation content is exported to this repository.
 
-Executed current checks: **35/35 unit tests, 14/14 focused browser checks**, build, configuration/syntax and packaged-source parity. Browser fixtures cover exact multiline repetition, real HTML paragraphs and blank paragraphs, generation waiting, strict draft editing protection, stop/limits and reload persistence without auto-start. Chromium and WebKit viewport checks remain fixture tests; the installed Edge/live-service result above is separate.
+Executed for v0.2.4: **35/35 unit tests, 14/14 focused browser checks**, build, configuration/syntax and packaged-source parity. Browser fixtures cover exact multiline repetition, real HTML paragraphs and blank paragraphs, generation waiting, strict draft editing protection, stop/limits and reload persistence without auto-start. Chromium and WebKit viewport checks remain fixture tests; the installed Edge/live-service result above is separate.
 
-Current Cloudflare deployment: `d09e03c3-a227-48fd-9e6e-e3c609cfdae1`. The shared Safari resource has changed; current iOS packaging has not been rebuilt.
+The v0.2.4 Cloudflare deployment was `d09e03c3-a227-48fd-9e6e-e3c609cfdae1`. The shared Safari resource has changed; current iOS packaging has not been rebuilt.
 
 ## Custom follow-up field introduced in 0.2.3
 

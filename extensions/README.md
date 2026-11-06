@@ -10,7 +10,9 @@ RED Loop is packaged as a Manifest V3 developer extension for Microsoft Edge and
 
 Enter the text you want repeated in **Automatischer Folgetext**, choose a limit (start with 1), then press **Start**. The extension sends that text after each completed ChatGPT response until the limit is reached or you press Stop. It waits while ChatGPT generates and never sends twice for the same answer. Stop before changing the text. The text and counter are saved for this conversation in the browser tab's session storage; reloading does not restart sending.
 
-Keep the conversation visible and focused. The panel stops for drafts, errors, focus/visibility changes and navigation. No API key, external chat relay, native host or background worker is needed. The toolbar popup provides local activation help; real controls are on the conversation page.
+For ongoing task work, select **Text für offene Aufgaben laden**. The preset asks ChatGPT to work on remaining tasks and finish with a completion or user-input marker; the extension stops when that marker appears on its own line. It is an assistant-reported completion condition, not independent verification.
+
+Enable **Auch im Hintergrund weiterarbeiten** before Start to use other programs or browser tabs. Leave this chat/browser open and the PC awake. Without this option, focus/visibility changes still stop the loop. Drafts, errors, navigation and the limit stop both modes. In Edge, add `https://chatgpt.com` under **Settings → System and performance → Performance → Always keep these sites active** for long runs; sleeping tabs pause the page ([Microsoft guidance](https://support.microsoft.com/en-us/edge/learn-about-performance-features-in-microsoft-edge)). The extension cannot run during PC sleep, page suspension or browser closure. No API key, external chat relay, native host or background worker is needed.
 
 This is a developer package, not a Chrome Web Store or Edge Add-ons release. Managed-browser policy may block unpacked extensions. Keep the extracted folder in place. To update, replace its files and press Reload on the extension-management page. Remove the extension there when finished.
 

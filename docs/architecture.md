@@ -12,8 +12,9 @@
 - Start is ignored during an active run. Cancellation invalidates pending demo callbacks.
 - The userscript waits for a stable assistant response, checks generation and draft states, then inserts the user-configured follow-up text into an empty editor. The text is locked during a run; only explicit Start activates it.
 - After sending, the previous response cannot trigger a second send. A new response must appear; a 90-second timeout stops an unacknowledged send.
-- Hidden tabs, focus loss, navigation, existing drafts and detected response errors stop real execution. Reload never auto-resumes a stored run.
-- Session storage contains counters, limits and the chosen follow-up text per chat. Assistant text used for local change detection is kept in memory. Neither is logged or transmitted to the Worker.
+- Navigation, existing drafts and detected response errors stop real execution. Hidden tabs/focus loss also stop the default foreground mode. An explicit per-chat background option allows polling and sending without focus while the browser page remains executable. Reload never auto-resumes a stored run.
+- Session storage contains counters, limits, follow-up text and the background preference per chat. Assistant text used for local change detection is kept in memory. Neither is logged or transmitted to the Worker.
+- The work preset requests a standalone completion or user-input marker. After generation ends and the answer stabilizes, a requested marker stops the loop. Tokens quoted inside other text and markers not requested by the configured prompt do not stop custom-message runs. This uses the assistant's report, not an independent task evaluator.
 - No `postMessage` command listener, broad host permissions, native credential bridge or background scheduler exists.
 - The extension handler returns version metadata only; no native messaging permission is requested.
 - Static asset responses carry a restrictive Content Security Policy, no-referrer policy, MIME protection and denied device capabilities. Mutating HTTP methods return 405; `/health` exposes no secrets.
