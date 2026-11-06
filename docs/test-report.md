@@ -23,8 +23,8 @@ This report distinguishes executed checks from prepared code. A browser viewport
 | WebKit viewport tests | PASS — 24/24 checks across iPhone, iPad and MacBook profiles using Playwright WebKit 27.2 on Windows. This is not physical Safari validation. |
 | Packaged Windows extension | PASS — 3/3 checks: downloadable ZIP, actual Chromium extension loading/injection, explicit activation, bounded sends, duplicate prevention, stop/reset, draft preservation and automatic light/dark appearance |
 | Cloudflare deployment | PASS — actual Wrangler upload and trigger deployment; live HTTP health verified |
-| iOS simulator build/XCTest | PASS for initial native build; final source verification is in progress (links below) |
-| Unsigned iOS device archive | PASS for initial native build, including embedded Safari extension; not installable without signing |
+| iOS simulator build/XCTest | PASS — final native source `92a947f`, Codemagic/Xcode 26.6, four model test cases; final build finished successfully |
+| Unsigned iOS device archive | PASS — final native source, including embedded Safari extension; not installable without signing |
 | Signed device archive / IPA / TestFlight | **NICHT GETESTET / NOT PRODUCED** — no signing identities or profiles configured |
 | Physical iPhone, iPad, Mac Safari | **NICHT GETESTET** |
 | Live ChatGPT conversation | **NICHT GETESTET** — browser tests use fake intercepted pages, never send into a real account |
@@ -42,9 +42,11 @@ https://codemagic.io/app/6aeddc59edd02d4de06b9379/build/6aeddcf6e348ff611c865e9b
 
 This first build targets `dac3634`; the log reports `ARCHIVE SUCCEEDED`, after the script's successful `xcodebuild test` stage. It emitted simulator app, XCTest result bundle, logs and an unsigned device archive.
 
-Final native source verification, including navigation/rotation fixes and shared extension styling, targets `92a947f`:
+Final native source verification, including navigation/rotation fixes and shared extension styling, **finished successfully** at `92a947f` in 3m 51s:
 
 https://codemagic.io/app/6aeddc59edd02d4de06b9379/build/6aede10324e1ec237556d2e1
+
+The final run reports `ARCHIVE SUCCEEDED`; simulator tests completed before the archive under `set -euo pipefail`. Subsequent commits change documentation and browser test assertions only; `git diff 92a947f -- ios scripts/ios-ci.sh scripts/ios-sign.sh codemagic.yaml` is empty. Native source and build configuration therefore match the successful build.
 
 Final browser evidence comprises 35 distinct checks. One full run passed all 35. Following the extension appearance change, a second full run passed 34 and exposed an overly strict timing assumption in the stop test: an iPhone-profile step could complete before the automated Stop click. The assertion now records the count at Stop and verifies it remains unchanged; the corrected test passed on all four profiles. It uses limit 50 during this stop check so a slow click cannot race with normal completion. No failing assertion is left unresolved.
 
@@ -58,7 +60,6 @@ Screenshots under `docs/previews/` are captured from the actual web dashboard by
 
 ## Remaining acceptance work
 
-- Complete the Codemagic simulator/XCTest and unsigned archive run for the final native source.
 - Provide signing through Codemagic secure settings for an installable iPhone/TestFlight build.
 - Execute physical Safari/iPhone checks, including extension activation, Website Access, VoiceOver, rotation, focus/visibility stops and a non-sensitive live conversation with limit 1.
 - Review and merge PR #2 only after the user accepts the changes. The agent does not merge it.
