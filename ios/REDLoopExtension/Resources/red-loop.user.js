@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.2.0
+// @version      0.2.1
 // @description  Opt-in, bounded automatic continuation for one ChatGPT conversation.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -14,8 +14,8 @@
   const PREFIX = 'red-loop:v1:';
   const MAX_STEPS = 50;
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
-  const state = { running: false, count: 0, limit: 10, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false };
-  const key = () => PREFIX + (location.pathname.match(/^\/c\/[^/]+/)?.[0] || location.pathname);
+  const state = { running: false, count: 0, limit: 10, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '' };
+  const key = () => PREFIX + (location.pathname.match(/(?:^|\/)c\/[^/]+/)?.[0] || location.pathname);
   let currentKey = key();
   const root = document.createElement('aside');
   root.id = 'red-loop-root';
@@ -25,7 +25,7 @@
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Stopp</button><button class="rl-reset" type="button">Reset</button></div>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>Nur dieser Chat · Tab muss aktiv bleiben · Keine unbegrenzte Ausführung</small></div>`;
+    <small>v0.2.1 · Nur dieser Chat · Tab muss aktiv bleiben · Keine unbegrenzte Ausführung</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -36,12 +36,12 @@
     try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit })); } catch {}
   };
   const stop = msg => {
-    state.running = false; state.pending = false; persist();
+    state.running = false; state.pending = false; state.composing = false; persist();
     $('.rl-start').disabled = false; $('.rl-stop').disabled = true; $('#rl-limit').disabled = false;
     status(msg || 'Gestoppt');
   };
   const load = () => {
-    state.running = false; state.pending = false;
+    state.running = false; state.pending = false; state.composing = false;
     state.lastMessage = ''; state.submittedSignature = ''; state.awaiting = false; state.lastSubmit = 0;
     state.count = 0; state.limit = 10;
     try {
@@ -54,14 +54,23 @@
     stop('Bereit');
     status('Bereit · ' + state.count + '/' + state.limit);
   };
-  const isGenerating = () => !!document.querySelector('button[data-testid="stop-button"],button[aria-label*="Stop generating"],button[aria-label*="Generierung stoppen"]');
-  const messages = () => [...document.querySelectorAll('[data-message-author-role="assistant"]')];
+  const isGenerating = () => !!document.querySelector('button[data-testid="stop-button"],button[aria-label*="Stop generating"],button[aria-label*="Generierung stoppen"],form[data-chatgpt-composer] button[aria-label="Antwort stoppen"],form[data-chatgpt-composer] button[aria-label="Stop"]');
+  const messages = () => {
+    const nodes = [...document.querySelectorAll('[data-message-author-role="assistant"],[data-markdown-text-style="assistant-message"]')];
+    return nodes.filter(node => !nodes.some(parent => parent !== node && parent.contains(node)));
+  };
   const lastAssistant = () => messages().at(-1);
-  const editor = () => document.querySelector('#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea');
-  const sendButton = () => document.querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"]');
+  const editor = () => document.querySelector('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea');
+  const sendButton = () => (editor()?.closest('form[data-chatgpt-composer]') || document).querySelector('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]');
+  const hasResponseError = () => {
+    if (document.querySelector('[data-testid="conversation-turn-error"],[data-testid="error-message"]')) return true;
+    const latest = [...document.querySelectorAll('[data-conversation-role="assistant"]')].at(-1);
+    return /(?:diese antwort konnte nicht geladen werden|this response could not be loaded)/i.test(latest?.parentElement?.innerText || '');
+  };
   const signature = () => {
     const m = lastAssistant();
-    return m ? String(messages().length) + ':' + (m.innerText || '').trim().slice(-400) : '';
+    const text = (m?.innerText || '').trim();
+    return text ? String(messages().length) + ':' + text.slice(-400) : '';
   };
   const insertPrompt = (el, value) => {
     el.focus();
@@ -80,13 +89,31 @@
     }
     return (el.innerText || el.value || '').trim() === value;
   };
+  const attemptSend = () => {
+    const el = editor();
+    if (!el || (el.innerText || el.value || '').trim() !== PROMPT) return stop('Entwurf geändert – nicht gesendet');
+    if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen');
+    const btn = sendButton();
+    if (!btn || btn.disabled) {
+      if (Date.now() - state.composeStarted >= 6000) return stop('Senden nicht verfügbar – bitte prüfen');
+      return status('Bereite Fortsetzung vor …');
+    }
+    btn.click();
+    state.composing = false; state.count += 1;
+    state.submittedSignature = state.composeSignature; state.awaiting = true;
+    state.lastSubmit = Date.now(); state.lastChange = Date.now();
+    persist();
+    $('.rl-counter').textContent = state.count + ' / ' + state.limit + ' Fortsetzungen';
+    status('Fortsetzung ' + state.count + '/' + state.limit + ' gesendet');
+  };
   const tick = () => {
     if (key() !== currentKey) { stop('Gestoppt: Konversation gewechselt'); currentKey = key(); load(); return; }
     if (!state.running || document.hidden || !document.hasFocus()) return;
+    if (state.composing) return attemptSend();
     if (state.count >= state.limit) return stop('Limit erreicht');
     const draft = editor();
     if (draft && (draft.innerText || draft.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
-    if (document.querySelector('[data-testid="conversation-turn-error"], [data-testid="error-message"]')) return stop('Antwortfehler erkannt');
+    if (hasResponseError()) return stop('Antwortfehler erkannt');
     if (isGenerating()) { status('ChatGPT antwortet …'); return; }
     const sig = signature();
     if (!sig) return status('Warte auf eine ChatGPT-Antwort …');
@@ -107,20 +134,12 @@
     if (state.pending) return;
     state.pending = true;
     if (!insertPrompt(el, PROMPT)) return stop('Eingabe fehlgeschlagen – ChatGPT-Oberfläche prüfen');
-    const btn = sendButton();
-    if (!btn || btn.disabled) return stop('Senden nicht verfügbar – bitte prüfen');
-    btn.click();
-    state.count += 1;
-    state.submittedSignature = sig; state.awaiting = true;
-    state.lastSubmit = Date.now();
-    state.lastChange = Date.now();
-    persist();
-    $('.rl-counter').textContent = state.count + ' / ' + state.limit + ' Fortsetzungen';
-    status('Fortsetzung ' + state.count + '/' + state.limit + ' gesendet');
+    state.composing = true; state.composeStarted = Date.now(); state.composeSignature = sig;
+    attemptSend();
   };
   $('.rl-start').addEventListener('click', () => {
     if (state.running) return;
-    if (!/^\/c\/[^/]+/.test(location.pathname)) return status('Bitte eine bestehende Konversation öffnen');
+    if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return status('Bitte eine bestehende Konversation öffnen');
     if (document.hidden || !document.hasFocus()) return status('Bitte diesen Tab aktivieren');
     const el = editor();
     if (el && (el.innerText || el.value || '').trim()) return status('Entwurf erkannt – nicht überschrieben');
@@ -128,9 +147,18 @@
     if (!Number.isInteger(n) || n < 1 || n > MAX_STEPS) return status('Bitte Limit von 1 bis 50 wählen');
     if (state.count >= n) state.count = 0;
     state.limit = n; state.running = true; state.pending = false;
+    $('.rl-counter').textContent = state.count + ' / ' + state.limit + ' Fortsetzungen';
     state.lastMessage = signature(); state.lastChange = Date.now();
     $('.rl-start').disabled = true; $('.rl-stop').disabled = false; $('#rl-limit').disabled = true;
     persist(); status('Aktiv · ' + state.count + '/' + state.limit);
+  });
+  $('#rl-limit').addEventListener('change', () => {
+    if (state.running) return;
+    const n = Number($('#rl-limit').value);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_STEPS) return status('Bitte Limit von 1 bis 50 wählen');
+    state.limit = n; persist();
+    $('.rl-counter').textContent = state.count + ' / ' + state.limit + ' Fortsetzungen';
+    status('Bereit · ' + state.count + '/' + state.limit);
   });
   $('.rl-stop').addEventListener('click', () => stop('Manuell gestoppt'));
   $('.rl-reset').addEventListener('click', () => {

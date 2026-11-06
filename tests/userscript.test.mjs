@@ -3,18 +3,71 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 const source=readFileSync('userscripts/red-loop.user.js','utf8');
-function setup(saved) {
-  const dom=new JSDOM('<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>',{url:'https://chatgpt.com/c/test',runScripts:'outside-only',pretendToBeVisual:true});
+function setup(saved, {modern=false,path='/c/test'}={}) {
+  const html=modern ? '<body><section><h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4><div data-markdown-text-style="assistant-message">Done</div></section><form data-chatgpt-composer><div contenteditable="true" role="textbox" data-composer-markdown aria-label="ChatGPT fragen"></div><button type="button" aria-label="Senden">Send</button></form></body>' : '<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>';
+  const dom=new JSDOM(html,{url:'https://chatgpt.com'+path,runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window; let tick,now=100000,sends=0;
   Object.defineProperty(w.HTMLElement.prototype,'innerText',{get(){return this.textContent;},set(value){this.textContent=value;},configurable:true});
   w.document.hasFocus=()=>true; w.Date.now=()=>now; w.setInterval=fn=>{tick=fn;return 1;};
   if(saved) w.sessionStorage.setItem('red-loop:v1:/c/test',JSON.stringify(saved));
-  w.document.querySelector('[data-testid="send-button"]').onclick=()=>{sends++;w.document.querySelector('textarea').value='';};
+  w.document.execCommand=(command,unused,value)=>{if(command!=='insertText') return false;w.document.activeElement.textContent=value;return true;};
+  w.document.querySelector('[data-testid="send-button"],button[aria-label="Senden"]').onclick=()=>{
+    sends++;const editor=w.document.querySelector('textarea,[data-composer-markdown]');
+    if(editor instanceof w.HTMLTextAreaElement) editor.value='';else editor.textContent='';
+  };
   w.eval(source);
   return {w,dom,get sends(){return sends;},click:s=>w.document.querySelector(s).click(),advance:ms=>{now+=ms;tick();}};
 }
 test('saved counter survives load and does not auto-start',()=>{
   const f=setup({count:3,limit:7}); assert.match(f.w.document.querySelector('.rl-counter').textContent,/3 \/ 7/);f.advance(20000);assert.equal(f.sends,0);f.dom.window.close();
+});
+test('current ChatGPT markup supports semantic composer and assistant body',()=>{
+  const f=setup(null,{modern:true});f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.advance(15000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('a delayed send button is awaited without duplicate insertion',()=>{
+  const f=setup(null,{modern:true});const button=f.w.document.querySelector('button[aria-label="Senden"]');
+  button.disabled=true;f.click('.rl-start');f.advance(7000);assert.equal(f.sends,0);
+  const prompt=f.w.document.querySelector('[data-composer-markdown]').textContent;
+  f.advance(1500);assert.equal(f.w.document.querySelector('[data-composer-markdown]').textContent,prompt);
+  button.disabled=false;f.advance(1500);assert.equal(f.sends,1);f.advance(15000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('stop cancels a prepared message before a delayed send becomes available',()=>{
+  const f=setup(null,{modern:true});const button=f.w.document.querySelector('button[aria-label="Senden"]');
+  button.disabled=true;f.click('.rl-start');f.advance(7000);f.click('.rl-stop');button.disabled=false;
+  f.advance(9000);assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Manuell gestoppt/);f.dom.window.close();
+});
+test('editing a prepared message cancels submission and preserves the edit',()=>{
+  const f=setup(null,{modern:true});const button=f.w.document.querySelector('button[aria-label="Senden"]');
+  button.disabled=true;f.click('.rl-start');f.advance(7000);
+  const editor=f.w.document.querySelector('[data-composer-markdown]');editor.textContent='Keep my change';button.disabled=false;f.advance(1500);
+  assert.equal(f.sends,0);assert.equal(editor.textContent,'Keep my change');assert.match(f.w.document.querySelector('.rl-status').textContent,/Entwurf geändert/);f.dom.window.close();
+});
+test('a permanently unavailable send button times out safely',()=>{
+  const f=setup(null,{modern:true});f.w.document.querySelector('button[aria-label="Senden"]').disabled=true;
+  f.click('.rl-start');f.advance(7000);f.advance(6000);assert.equal(f.sends,0);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Senden nicht verfügbar/);assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);f.dom.window.close();
+});
+test('current response loading errors stop even without an assistant body',()=>{
+  const f=setup(null,{modern:true});f.w.document.querySelector('[data-markdown-text-style]').textContent='Diese Antwort konnte nicht geladen werden';
+  f.click('.rl-start');f.advance(1500);assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Antwortfehler/);f.dom.window.close();
+});
+test('a recovered latest answer is not blocked by a historical loading error',()=>{
+  const f=setup(null,{modern:true});const old=f.w.document.createElement('section');old.innerHTML='<h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4><p>Diese Antwort konnte nicht geladen werden</p>';
+  f.w.document.body.prepend(old);f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('project conversation paths retain the same per-chat counters',()=>{
+  const f=setup({count:3,limit:5},{modern:true,path:'/g/g-p-project/c/test'});
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-counter').textContent,/4 \/ 5/);f.dom.window.close();
+});
+test('changing the limit updates the displayed counter without starting',()=>{
+  const f=setup();const input=f.w.document.querySelector('#rl-limit');input.value='1';input.dispatchEvent(new f.w.Event('change'));
+  assert.match(f.w.document.querySelector('.rl-counter').textContent,/0 \/ 1/);f.advance(20000);assert.equal(f.sends,0);f.dom.window.close();
+});
+test('empty or nested assistant markup cannot trigger duplicate continuation',()=>{
+  const f=setup(null,{modern:true});const body=f.w.document.querySelector('[data-markdown-text-style]');body.textContent='';
+  f.click('.rl-start');f.advance(20000);assert.equal(f.sends,0);
+  body.textContent='Done';body.parentElement.setAttribute('data-message-author-role','assistant');f.advance(1500);f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
 });
 test('start sends once; unchanged answer never triggers duplicate send',()=>{
   const f=setup(); f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.advance(15000);assert.equal(f.sends,1);
