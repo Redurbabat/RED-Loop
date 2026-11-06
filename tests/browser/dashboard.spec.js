@@ -5,7 +5,9 @@ test('bounded start, stop, reset, messages and no duplicates',async({page})=>{
   await page.locator('#limit').fill('2');await page.locator('#start').click();await expect(page.locator('#start')).toBeDisabled();
   await expect(page.locator('#count')).toHaveText('02',{timeout:7000});await expect(page.locator('#status')).toHaveText('Limit erreicht');
   await expect(page.locator('.message.assistant')).toHaveCount(2);await page.locator('#reset').click();await expect(page.locator('#count')).toHaveText('00');
-  await page.locator('#start').click();await page.locator('#stop').click();await page.waitForTimeout(1800);await expect(page.locator('#count')).toHaveText('00');await expect(page.locator('#status')).toHaveText('Gestoppt');
+  await page.locator('#limit').fill('50');await page.locator('#start').click();await page.locator('#stop').click();
+  const stoppedAt=await page.locator('#count').textContent();await page.waitForTimeout(1800);
+  await expect(page.locator('#count')).toHaveText(stoppedAt);await expect(page.locator('#status')).toHaveText('Gestoppt');
 });
 test('invalid limits and safe failure',async({page})=>{
   for(const value of ['0','51','1.5']){await page.locator('#limit').fill(value);await page.locator('#start').click();await expect(page.locator('#error')).toBeVisible();}

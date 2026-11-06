@@ -1,46 +1,70 @@
 # RED Loop
 
-**RED Loop** is an experimental, opt-in Safari userscript for continuing an individual ChatGPT conversation in a bounded loop. The current release is **not** a standalone iOS app.
+RED Loop provides a **working browser-local demo**, a bounded ChatGPT userscript, and a native SwiftUI iOS host with an embedded Safari Web Extension. The web dashboard and native demo do not control other browser tabs.
 
-## Current prototype (v0.1)
+## Try the demo locally
 
-- Floating Start / Stop control on chatgpt.com
-- Independent per-conversation counters and limits (1–50)
-- Waits for an assistant message to remain stable before continuing
-- Stops on a draft, detected error, hidden tab, or navigation away
-- Does not overwrite an existing message draft
-- Does not use an API key or send conversations to a separate server
+Requires Node.js 22 or newer.
 
-## Install on iPhone
+```sh
+npm ci
+npm run dev
+```
 
-1. Install the open-source [Userscripts Safari extension](https://github.com/quoid/userscripts) using its official distribution instructions.
-2. Enable its Safari extension in iOS Settings → Safari → Extensions and grant permission for chatgpt.com.
-3. Add [userscripts/red-loop.user.js](userscripts/red-loop.user.js) to the Userscripts directory using the extension's documented import procedure.
-4. Open **chatgpt.com** in Safari, open a conversation, and start RED Loop from the floating control.
-5. Choose a maximum continuation count and press **Start**. Use **Stopp** at any time.
+Open **http://127.0.0.1:8787**. Choose a limit (1–50), press **Demo starten**, observe the simulated messages and counter, then try **Stopp** and **Zurücksetzen**. The scenario menu lets you test response errors and existing-draft protection without credentials. Leaving the dashboard or hiding the tab stops the demo.
 
-The script needs an existing assistant response. It does **not** initiate a new conversation on its own.
+The responsive RED Morph interface includes light/dark/system appearance, keyboard controls, accessible status/error announcements, progress, bounded activity history, and Reduced Motion support. Demo content stays in tab memory; only the chosen appearance is saved locally.
 
-## Important limitations
+## Real browser integration
 
-- **Unverified on a physical iPhone:** ChatGPT's DOM and Safari's extension behavior can change; testing is required.
-- Safari may suspend background tabs. This script explicitly stops when its tab is hidden. It **cannot** keep several tabs running simultaneously or work with the iPhone locked.
-- It sends follow-up messages into an existing chat; it cannot extend ChatGPT's server-side response duration or guarantee useful work.
-- Each continuation consumes ChatGPT usage. Choose a small limit initially.
-- The automation is intentionally bounded and requires a user-initiated start.
-- No integration with the ChatGPT API, GitHub automation, or remote agent processes yet.
+**Windows / Edge / Chrome:** [download the ready-to-load extension ZIP](https://red-loop.redurbabat7.workers.dev/red-loop-browser-extension.zip), extract it, open `edge://extensions` or `chrome://extensions`, enable Developer mode and choose **Load unpacked**. Select the extracted folder and reload the ChatGPT tab. A userscript manager is not required for this path. [Detailed Windows instructions](extensions/README.md).
 
-## Architecture and upstream research
+1. Use the standalone [Userscripts Safari extension](https://github.com/quoid/userscripts) on iPhone/iPad/Mac, or a compatible userscript manager on Windows.
+2. Import `userscripts/red-loop.user.js` (also downloadable from the deployed dashboard's Integration view).
+3. Grant website access only to `chatgpt.com` (the legacy host is included for redirects).
+4. Open an existing `/c/...` conversation with an assistant response, choose a small limit and press **Start in the RED Loop panel on that page**.
+5. Keep the tab visible and focused. **Stopp** is always reachable, including in the minimized panel.
 
-[quoid/userscripts](https://github.com/quoid/userscripts) is the recommended **separate host Safari extension**, licensed GPL-3.0. RED Loop does not currently vendor or copy its source. [shenruisi/Stay](https://github.com/shenruisi/Stay) is an alternative implementation reference, not a dependency. Before distributing a standalone iOS application, review source licenses, Apple signing requirements, and Safari Web Extension packaging.
+The script never overwrites a draft or stores credentials. It stops on navigation, hidden tabs, focus loss, detected errors and missing composer. It waits for a new response after each send; an unchanged previous answer cannot trigger duplicate execution. Only counters and limits are kept in session storage; reload never restarts a run.
 
-## Roadmap
+The Windows developer package is tested as an actual loaded Chromium extension against intercepted fixtures. Manual installation in the user's Edge/Chrome profile and a live ChatGPT account remain separate acceptance steps. Safari distribution uses the native host described below.
 
-1. Test on iPhone Safari; adapt editor/send selectors to the live site.
-2. Add explicit per-chat state inspection, recovery UI, and automated tests.
-3. Create a native SwiftUI container and Safari Web Extension with RED Loop branding.
-4. Validate permissions, accessibility, privacy, and App Store distribution constraints.
+## Native iPhone/iPad host
 
-## Safety
+Open `ios/REDLoop.xcodeproj` in Xcode on a Mac and select the shared **REDLoop** scheme. The project contains:
 
-RED Loop never stores credentials. Do not paste API keys or sensitive information into the automation settings. Stop the script if ChatGPT produces an error, asks for confirmation, or enters a task requiring human judgment.
+- SwiftUI demo dashboard, bounded controls, scenarios, events and privacy information.
+- Activation/permission troubleshooting for the embedded Safari Web Extension.
+- App, extension and XCTest targets; iOS/iPadOS 17+ deployment target.
+- App icons, adaptive semantic colors, Reduce Motion and Dynamic Type layouts.
+
+The host's start/stop buttons control only its own demo. Activate the extension in **Settings → Apps → Safari → Extensions → RED Loop**, grant `chatgpt.com` access, and start real continuations from the page panel. No background, lock-screen execution or multi-tab automation is promised.
+
+An Apple signing identity and matching **app and extension** provisioning profiles are required for installation on a physical iPhone. This repository contains no signing secrets. See [deployment instructions](docs/deployment.md).
+
+## Checks
+
+```sh
+npm run build
+npm run check
+npm test
+npx playwright install chromium webkit
+npm run test:browser
+npm run dry-run
+```
+
+`check` verifies JS syntax, JSON/YAML, Xcode project structure and extension-source parity. It is **not an iOS compilation**. Browser tests include four platform viewport profiles, light/dark accessibility scans, keyboard and Reduced Motion, navigation and safety scenarios. Userscript browser tests run against intercepted local fixtures, never a live conversation.
+
+On macOS, `bash scripts/ios-ci.sh` executes XCTest on an available iPhone simulator and creates an unsigned device archive. Codemagic workflows use the same scripts. [Test evidence](docs/test-report.md) distinguishes each validation level and lists untested items.
+
+## Documentation and source
+
+- [Deployment and signing](docs/deployment.md)
+- [Architecture and safety boundaries](docs/architecture.md)
+- [RED Morph design tokens](docs/brand-spec.md)
+- [Platform web previews](docs/previews/)
+- [Test report and remaining blockers](docs/test-report.md)
+
+The pre-existing `vendor/userscripts/` snapshot is retained unchanged and is not linked into the new RED Loop app. It has its own GPL-3.0 license. The optional standalone Userscripts host remains a separate product.
+
+ChatGPT's DOM can change. Automation consumes usage and is subject to the service's terms and limits. Physical Safari/iPhone verification is required before treating this test preview as a release.
