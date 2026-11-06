@@ -65,6 +65,7 @@
   };
   const insertPrompt = (el, value) => {
     el.focus();
+    if ((el.innerText || el.value || '').trim()) return false;
     if (el instanceof HTMLTextAreaElement) {
       const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
       if (!setter) return false;
@@ -101,7 +102,7 @@
     const m = lastAssistant();
     if (!m || /(?:something went wrong|etwas ist schiefgelaufen|rate limit|try again|erneut versuchen)/i.test(m.innerText || '')) return stop('Antwortfehler erkannt');
     const el = editor();
-    if (!el) return status('Eingabefeld nicht gefunden');
+    if (!el) return stop('Eingabefeld nicht gefunden – bitte Oberfläche prüfen');
     if ((el.innerText || el.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
     if (state.pending) return;
     state.pending = true;
@@ -145,6 +146,7 @@
     if (document.hidden && state.running) stop('Pausiert: Safari-Tab nicht aktiv');
   });
   window.addEventListener('pagehide', () => { if (state.running) stop('Pausiert: Seite verlassen'); });
+  window.addEventListener('blur', () => { if (state.running) stop('Gestoppt: Tab nicht im Fokus'); });
   load();
   style.textContent += '#red-loop-root button{min-height:44px}#red-loop-root .rl-counter{font-size:12px;color:#d6deeb}#red-loop-root.rl-min .rl-stop{display:block}#red-loop-root.rl-min .rl-body{display:block}#red-loop-root.rl-min .rl-body>*:not(.rl-row){display:none}#red-loop-root.rl-min .rl-row>label,#red-loop-root.rl-min .rl-row>input{display:none}@media(prefers-reduced-motion:reduce){#red-loop-root *{animation:none!important;transition:none!important}}';
   window.setInterval(tick, 1500);
