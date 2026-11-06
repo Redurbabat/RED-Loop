@@ -17,10 +17,11 @@ struct GlassPanel<Content: View>: View {
 
 struct DashboardView: View {
     @StateObject private var model = LoopModel()
+    @State private var selectedTab = 0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -59,12 +60,13 @@ struct DashboardView: View {
                         }
                     }.padding(24).frame(maxWidth: 700).frame(maxWidth: .infinity)
                 }.background(Color("Canvas")).navigationTitle("RED Loop").navigationBarTitleDisplayMode(.inline)
-            }.tabItem { Label("Dashboard", systemImage: "circle.grid.2x2") }
-            NavigationStack { ActivationView() }.tabItem { Label("Safari", systemImage: "safari") }
-            NavigationStack { PrivacyView() }.tabItem { Label("Datenschutz", systemImage: "hand.raised") }
+            }.tabItem { Label("Dashboard", systemImage: "circle.grid.2x2") }.tag(0)
+            NavigationStack { ActivationView() }.tabItem { Label("Safari", systemImage: "safari") }.tag(1)
+            NavigationStack { PrivacyView() }.tabItem { Label("Datenschutz", systemImage: "hand.raised") }.tag(2)
         }.tint(Morph.accent)
             .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: model.status)
             .onChange(of: scenePhase) { _, phase in if phase != .active { model.stop() } }
+            .onChange(of: selectedTab) { _, tab in if tab != 0 { model.stop() } }
     }
     @ViewBuilder private var controls: some View {
         Button(action: { model.start() }) { Label("Demo starten", systemImage: "play.fill").frame(maxWidth: .infinity, minHeight: 44) }
