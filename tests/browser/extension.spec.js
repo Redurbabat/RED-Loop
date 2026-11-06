@@ -1,18 +1,32 @@
 import {test as base,expect,chromium} from '@playwright/test';
 import path from 'node:path';
+import {unzipSync} from 'fflate';
+import {readFileSync} from 'node:fs';
 const test=base.extend({
   context:async({},use)=>{
     const extension=path.resolve('extensions/chromium');
-    const context=await chromium.launchPersistentContext('',{channel:'chromium',headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
+    const context=await chromium.launchPersistentContext('',{channel:'chromium',headless:true,ignoreDefaultArgs:['--disable-extensions'],args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
     await use(context);await context.close();
   }
 });
 test.setTimeout(90000);
+test('downloadable Windows package has a valid manifest and the canonical script',async({request})=>{
+  const response=await request.get('/red-loop-browser-extension.zip');expect(response.ok()).toBe(true);
+  const zip=unzipSync(await response.body());
+  const manifest=JSON.parse(new TextDecoder().decode(zip['manifest.json']));
+  expect(manifest.manifest_version).toBe(3);expect(manifest.host_permissions).not.toContain('<all_urls>');
+  expect(new TextDecoder().decode(zip['red-loop.user.js'])).toBe(readFileSync('userscripts/red-loop.user.js','utf8'));
+  expect(zip['popup.html']).toBeTruthy();expect(zip['INSTALLATION-WINDOWS.txt']).toBeTruthy();
+});
 async function openFixture(page,draft='') {
   const body = `<!doctype html><html lang="de"><head><title>RED Loop extension test fixture</title></head><body><h1>Local extension test</h1><div data-message-author-role="assistant">A finished local fixture answer.</div><div id="prompt-textarea" contenteditable="true">${draft}</div><button data-testid="send-button">Send fixture</button><script>window.sends=0;document.querySelector('button').onclick=()=>{window.sends++;document.querySelector('#prompt-textarea').textContent='';};</script></body></html>`;
   await page.route('https://chatgpt.com/**', route => route.fulfill({contentType:'text/html', body}));
   await page.goto('https://chatgpt.com/c/extension-fixture');await page.bringToFront();
   await expect(page.locator('#red-loop-root')).toBeVisible();
+  await page.emulateMedia({colorScheme:'light'});
+  await expect(page.locator('#red-loop-root')).toHaveCSS('color','rgb(39, 40, 45)');
+  await page.emulateMedia({colorScheme:'dark'});
+  await expect(page.locator('#red-loop-root')).toHaveCSS('color','rgb(247, 247, 249)');
 }
 test('packaged extension injects and sends only after explicit start; no duplicate send',async({page})=>{
   test.setTimeout(40000);await openFixture(page);

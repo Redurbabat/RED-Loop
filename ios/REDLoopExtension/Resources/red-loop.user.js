@@ -20,7 +20,7 @@
   const root = document.createElement('aside');
   root.id = 'red-loop-root';
   root.setAttribute('aria-label', 'RED Loop Steuerung');
-  root.innerHTML = `<div class="rl-head"><strong>RED <span>Loop</span></strong><button class="rl-collapse" aria-label="Panel minimieren" type="button">−</button></div>
+  root.innerHTML = `<div class="rl-head"><strong>RED <span>Loop</span></strong><button class="rl-collapse" aria-label="Panel minimieren" aria-expanded="true" type="button">−</button></div>
     <div class="rl-body"><p class="rl-status" role="status" aria-live="polite">Bereit</p>
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Stopp</button><button class="rl-reset" type="button">Reset</button></div>
@@ -141,6 +141,7 @@
     const collapsed = root.classList.toggle('rl-min');
     $('.rl-collapse').textContent = collapsed ? '+' : '−';
     $('.rl-collapse').setAttribute('aria-label', collapsed ? 'Panel öffnen' : 'Panel minimieren');
+    $('.rl-collapse').setAttribute('aria-expanded', String(!collapsed));
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && state.running) stop('Pausiert: Browser-Tab nicht aktiv');
@@ -149,5 +150,6 @@
   window.addEventListener('blur', () => { if (state.running) stop('Gestoppt: Tab nicht im Fokus'); });
   load();
   style.textContent += '#red-loop-root button{min-height:44px}#red-loop-root .rl-counter{font-size:12px;color:#d6deeb}#red-loop-root.rl-min .rl-stop{display:block}#red-loop-root.rl-min .rl-body{display:block}#red-loop-root.rl-min .rl-body>*:not(.rl-row){display:none}#red-loop-root.rl-min .rl-row>label,#red-loop-root.rl-min .rl-row>input{display:none}@media(prefers-reduced-motion:reduce){#red-loop-root *{animation:none!important;transition:none!important}}';
+  style.textContent += '@media(prefers-color-scheme:light){#red-loop-root{background:rgba(250,249,247,.97);color:#27282d;border-color:#bfb6ba;box-shadow:0 12px 40px #38312a18;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}#red-loop-root .rl-head span{color:#a9233b}#red-loop-root button{background:#f4f2ee;color:#27282d;border-color:#c7bfc2}#red-loop-root .rl-start{background:#a9233b;color:#fff;border-color:#a9233b}#red-loop-root input{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root .rl-status,#red-loop-root .rl-counter{color:#45434b}#red-loop-root small{color:#65646c}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline-color:#a9233b}}';
   window.setInterval(tick, 1500);
 })();
