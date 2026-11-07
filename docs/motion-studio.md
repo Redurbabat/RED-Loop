@@ -4,7 +4,7 @@ Open `/motion-studio.html` from the RED Loop dashboard.
 
 ## Purpose
 
-An original, self-contained documentation and animation workspace with a searchable sidebar, eight live Canvas 2D studies, desktop/tablet/iPhone preview sizes, configurable motion properties, an integrated source-code view, an always-current setup recipe, validated shareable scene presets and a PNG snapshot export. The interface uses RED Loop's existing brand direction; it does **not** reproduce React Bits Pro's proprietary sources, copy, branding or assets.
+An original, self-contained documentation and animation workspace with a searchable sidebar, ten live Canvas 2D studies, MacBook/Windows/tablet/iPhone/Android responsive preview widths, configurable motion properties, an integrated source-code view, an always-current setup recipe, validated shareable scene presets and a PNG snapshot export. The interface uses RED Loop's existing brand direction; it does **not** reproduce React Bits Pro's proprietary sources, copy, branding or assets.
 
 Reference for the interaction pattern: https://pro.reactbits.dev/docs/components/spectral-drape?browse=components (visual research only; no premium code copied).
 
@@ -18,6 +18,8 @@ Reference for the interaction pattern: https://pro.reactbits.dev/docs/components
 - Red Resonance — concentric controlled signal rings
 - Glass Filament — layered optical filament ribbons with restrained lens glow
 - Iris Caustics — refracted, responsive elliptical light contours
+- Prism Veil — translucent interleaved optical glass panels with directional reflection edges
+- Vector Bloom — responsive radial vector fields and controlled central bloom
 
 ## Architecture
 
@@ -40,7 +42,7 @@ engine.setPlaying(false);
 engine.destroy();
 ```
 
-The engine retains its last visual frame when stopped. It pauses when the document is hidden and disables running motion under `prefers-reduced-motion: reduce`. It caps the backing buffer at approximately 1.6 megapixels, clamps tunable parameters, eases pointer motion while playing and redraws on resize or pointer interaction. It cancels queued frames during cleanup. No playback begins on page load. Users can press Ctrl/Cmd+K or / to focus search, Escape to clear/close, and navigate the catalog with standard native buttons. Primary touch controls, color swatches, category filters and preview-size controls have 44px minimum touch targets. On compact screens, the closed catalog becomes inert and keyboard focus returns to its toggle on dismissal.
+The engine retains its last visual frame when stopped. It pauses when the document is hidden and disables running motion under `prefers-reduced-motion: reduce`. It caps the backing buffer at approximately 1.6 megapixels, clamps tunable parameters, eases pointer motion while playing and redraws on resize or pointer interaction. It cancels queued frames during cleanup. No playback begins on page load. Users can press Ctrl/Cmd+K or / to focus search, Escape to clear/close, and navigate the catalog with standard native buttons. Primary touch controls, color swatches, category filters and preview-size controls have 44px minimum touch targets. On compact screens, the closed catalog becomes inert and keyboard focus returns to its toggle on dismissal. Touch pointer cancellation releases the scene focus cleanly.
 
 ## Preservation inventory
 
@@ -94,3 +96,11 @@ The **Einbau** source sample is regenerated from the selected scene and current 
 Focused local Node execution: `node --test tests/motion-studio.test.mjs tests/motion-presets.test.mjs` — 9 passing tests. Local embedded Chromium checks at 1440, 768 and 390 pixels confirm the dynamic snippet, PNG download, scene selection, sidebar focus restoration, no uncaught JavaScript exceptions and no horizontal overflow. The isolated embedded checks do not prove server routing, copy permissions, native Safari/Android support or deployment correctness.
 
 New Playwright checks on served pages cover preset URL hydration and a PNG download, and repair the prior unsupported `fill()` call on `input[type=range]`. Full GitHub CI execution and physical-device validation remain separate release gates.
+
+## Cross-device preview improvements (November 2026)
+
+The studio provides **five browser viewport presets**: MacBook (wide rounded stage), Windows (wide squarer stage), tablet (up to 700px), iPhone (up to 355px) and Android (up to 390px). Device choice is a visual width and frame simulation, not a native operating-system runtime. Its list scrolls horizontally on narrow screens without growing the document width, and buttons remain at least 44px high.
+
+**Prism Veil** and **Vector Bloom** use original Canvas 2D geometry with no external shaders, premium assets or additional dependencies. Both are static at rest and react to pointer/touch input or explicit playback. Pointer-cancel is handled to avoid stale touch focus during scroll cancellation. Motion remains disabled by the system's reduced-motion setting.
+
+Node tests now cover ten unique scenes, preview profile markup, drawing and pointer event disposal. New Playwright coverage selects each platform preview and both scenes and checks for horizontal overflow. Full CI and physical-device verification remain release gates; adding tests does not prove a successful remote run.
