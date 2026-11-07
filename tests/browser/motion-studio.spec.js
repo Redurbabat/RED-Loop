@@ -13,8 +13,9 @@ test.describe('RED Loop Motion Studio', () => {
     await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(1)
     await page.locator('[data-scene="glass-filament"]').click()
     await expect(page.locator('#ui-loop-title')).toContainText('Glass')
-    await page.locator('#ui-loop-density').fill('72')
+    await page.locator('#ui-loop-density').evaluate(input => { input.value = '72'; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })) })
     await expect(page.locator('#ui-loop-density-output')).toHaveText('72')
+    await expect(page).toHaveURL(/density=72/)
     const pixels = await page.locator('#ui-loop-canvas').evaluate(canvas => canvas.width * canvas.height)
     expect(pixels).toBeGreaterThan(0)
     expect(pixels).toBeLessThanOrEqual(1605000)
@@ -50,4 +51,25 @@ test.describe('RED Loop Motion Studio', () => {
     await expect(page.locator('#ui-loop-play')).toBeDisabled()
     await expect(page.locator('#ui-loop-motion-pref')).toHaveText('Reduziert')
   })
+})
+
+test('preset links restore scene and controls without saving private data', async ({ page }) => {
+  await page.goto('/motion-studio.html?scene=iris-caustics&density=70&depth=30&speed=20&hue=195')
+  await expect(page.locator('#ui-loop-title')).toContainText('Iris')
+  await expect(page.locator('#ui-loop-density')).toHaveValue('70')
+  await expect(page.locator('#ui-loop-depth')).toHaveValue('30')
+  await page.locator('#ui-loop-tab-usage').click()
+  await expect(page.locator('#ui-loop-usage-source')).toContainText("scene: 'iris-caustics', density: 70, depth: 30, speed: 20, hue: 195")
+})
+
+test('export generates a scene-specific PNG download', async ({ page, browserName }) => {
+  if (browserName === 'webkit') {
+    await page.locator('#ui-loop-save-image').click()
+    await expect(page.locator('#ui-loop-toast')).toContainText('PNG zum Herunterladen vorbereitet')
+    return
+  }
+  const downloadPromise = page.waitForEvent('download')
+  await page.locator('#ui-loop-save-image').click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toBe('red-loop-spectral-fold.png')
 })
