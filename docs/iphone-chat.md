@@ -12,6 +12,12 @@ Die App zeigt chatgpt.com in einem `WKWebView` und legt das RED-Loop-Panel darü
 
 Nach einer Pause setzt Start denselben Lauf mit demselben Zähler fort. Der Zähler gilt pro Unterhaltung und steht im Sitzungsspeicher der Seite; ein Neuladen startet nie von selbst neu.
 
+## Mitteilung beim Anhalten
+
+Hält der Loop von selbst an, meldet sich die App mit einer lokalen Mitteilung samt Grund und Zählerstand: „Auftrag abgeschlossen", „ChatGPT hat eine Rückfrage", „Limit erreicht" oder „Loop angehalten" mit der Statuszeile des Panels. Damit musst du das iPhone nicht im Blick behalten, während es auf dem Tisch liegt.
+
+Eine Pause, die du selbst auslöst, und ein Stopp beim Wechsel der Unterhaltung werden **nicht** gemeldet — die hast du verursacht. Die Erlaubnis für Mitteilungen fragt die App erst beim ersten Start eines Laufs, nicht beim Öffnen. Die Mitteilung erscheint auch im Vordergrund, weil der Loop ohnehin nur dort läuft. Abschaltbar unter „Melden, wenn der Loop anhält" im Menü des Chat-Tabs. Nichts wird im Voraus geplant und nichts verlässt das Gerät.
+
 ## Wann der Loop von selbst anhält
 
 - `[RED_LOOP_FERTIG]` oder `[RED_LOOP_RUECKFRAGE]` als letzte nichtleere Zeile einer fertigen Antwort. Beides fordert der voreingestellte Folgetext ausdrücklich an. **Das ist die Aussage des Assistenten; RED Loop prüft nicht nach, ob die Arbeit wirklich erledigt ist.**

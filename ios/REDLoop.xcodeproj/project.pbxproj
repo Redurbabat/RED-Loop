@@ -42,6 +42,10 @@
 				);
 			};
 		};
+		143B3AC788B85E2CE6BD8E1D = {
+			isa = PBXBuildFile;
+			fileRef = 5F1DD0EE73466676586DCBBE;
+		};
 		DA5DF0D0B825DBCC6EFDAC88 = {
 			isa = PBXBuildFile;
 			fileRef = 21B33B52E2E8042A933CF295;
@@ -81,6 +85,10 @@
 		766B156912A6F25A077ABC1C = {
 			isa = PBXBuildFile;
 			fileRef = 238EC04F1AB931A33679491B;
+		};
+		EF759BE97A9411E6289649B9 = {
+			isa = PBXBuildFile;
+			fileRef = 600BBB952830ADC6F1BAC5E2;
 		};
 		64C1F41A637F6E53F59F434C = {
 			isa = PBXBuildFile;
@@ -125,6 +133,12 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 /* Begin PBXFileReference section */
+		5F1DD0EE73466676586DCBBE = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/ChatNotifier.swift;
+			sourceTree = "<group>";
+		};
 		21B33B52E2E8042A933CF295 = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
@@ -177,6 +191,12 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = REDLoopExtension/SafariWebExtensionHandler.swift;
+			sourceTree = "<group>";
+		};
+		600BBB952830ADC6F1BAC5E2 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoopTests/ChatNotifierTests.swift;
 			sourceTree = "<group>";
 		};
 		4E7A001B92BA46E5F9D390D6 = {
@@ -301,6 +321,7 @@
 		870B3294C0CBD48AF6BBCC1B = {
 			isa = PBXGroup;
 			children = (
+				5F1DD0EE73466676586DCBBE,
 				21B33B52E2E8042A933CF295,
 				8EDA90BCDF6EA206B8221086,
 				117C9B25477E298EF3C263B0,
@@ -310,6 +331,7 @@
 				DD10F4D1DF303DA53B122519,
 				FAA06955D9DE9E882E3D664F,
 				E5BA8D7F3F0BC7D2BFD4C23C,
+				600BBB952830ADC6F1BAC5E2,
 				4E7A001B92BA46E5F9D390D6,
 				7E57D39E434BCACF3412E4CC,
 				9FC3A7823FA502100DF6F769,
@@ -459,6 +481,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				143B3AC788B85E2CE6BD8E1D,
 				DA5DF0D0B825DBCC6EFDAC88,
 				1DA5A65D03029F60AC692B18,
 				C6BD20BDD8A2D1E63B99FA31,
@@ -474,6 +497,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EF759BE97A9411E6289649B9,
 				64C1F41A637F6E53F59F434C,
 				E330D3567497CBDC54203778,
 				867B724A7E9C1A3FAED4764B,

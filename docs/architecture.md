@@ -25,6 +25,7 @@
 - The app fetches the script over HTTPS from the host of the stored connection only, without its token, and validates content markers, the complete file ending and a 256 KiB ceiling before use; a rejected download never replaces the cached copy. This is a content check, not a trust check: whoever can publish to that Worker decides code that runs in the signed-in ChatGPT page, and the fetch can be switched off in favor of the bundled copy.
 - Suspension recovery: when the page becomes visible again, the waiting windows restart instead of reporting a stall, because iOS freezes timers while the app is not in the foreground. Explicit stop conditions are unaffected.
 - The in-app view keeps only ChatGPT, its sign-in services and the offered identity providers; any other main-frame navigation is handed to the system browser. Pause is reachable from the app chrome; Start stays in the panel.
+- A run that ends on its own posts one local notification with the reason and counter. Stops the user caused — a pause, a reset, a conversation change — stay silent, authorization is requested at the first Start rather than at launch, nothing is scheduled in advance, and the notification can be switched off.
 - The extension handler returns version metadata only; no native messaging permission is requested.
 - Static asset responses carry a restrictive Content Security Policy, no-referrer policy, MIME protection and denied device capabilities. Mutating methods are accepted only on authenticated API routes; `/health` exposes no secrets.
 

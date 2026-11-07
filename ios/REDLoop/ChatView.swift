@@ -76,16 +76,23 @@ final class ChatController: ObservableObject {
     @Published var useCloudScript: Bool {
         didSet { UserDefaults.standard.set(useCloudScript, forKey: ChatController.cloudPreference) }
     }
+    @Published var notifyOnStop: Bool {
+        didSet { UserDefaults.standard.set(notifyOnStop, forKey: ChatController.notifyPreference) }
+    }
     private static let cloudPreference = "red-loop.chat.cloud-script"
+    private static let notifyPreference = "red-loop.chat.notify-on-stop"
     private static let panelInset = 12
     private let bridge = ChatBridge()
+    private let notifier = ChatNotifier()
     private let makeLoader: () -> ChatScriptLoader
 
     init(makeLoader: @escaping () -> ChatScriptLoader = { ChatScriptLoader() }) {
         self.makeLoader = makeLoader
         let defaults = UserDefaults.standard
-        if defaults.object(forKey: ChatController.cloudPreference) == nil { defaults.set(true, forKey: ChatController.cloudPreference) }
+        for key in [ChatController.cloudPreference, ChatController.notifyPreference]
+        where defaults.object(forKey: key) == nil { defaults.set(true, forKey: key) }
         useCloudScript = defaults.bool(forKey: ChatController.cloudPreference)
+        notifyOnStop = defaults.bool(forKey: ChatController.notifyPreference)
         bridge.controller = self
     }
 
@@ -136,9 +143,13 @@ final class ChatController: ObservableObject {
     }
 
     func apply(_ state: ChatLoopState) {
+        let previous = loop
         loop = state
         // A running loop needs the screen awake; iOS suspends the page otherwise.
         UIApplication.shared.isIdleTimerDisabled = state.running
+        if state.running && !previous.running { notifier.requestAuthorizationIfNeeded() }
+        guard notifyOnStop, let notice = ChatStopClassifier.notice(previous: previous, current: state) else { return }
+        notifier.announce(notice)
     }
 
     func finishedLoading(_ url: URL?) {
@@ -219,6 +230,7 @@ struct ChatView: View {
                         Button("Neu laden", systemImage: "arrow.clockwise") { controller.reload() }
                         Button("Zur Chatübersicht", systemImage: "house") { controller.openStart() }
                         Divider()
+                        Toggle("Melden, wenn der Loop anhält", isOn: $controller.notifyOnStop)
                         Toggle("Skript von Cloudflare laden", isOn: $controller.useCloudScript)
                         Button("Skript neu laden", systemImage: "arrow.down.doc") { Task { await controller.prepare(force: true) } }
                         Divider()
@@ -300,6 +312,7 @@ struct ChatInfoView: View {
                 Text("3. Erste Antwort abwarten. Im RED-Loop-Panel steht der Folgetext für offene Aufgaben bereit, „Endlos bis Pause“ ist aktiv.")
                 Text("4. Start drücken. Nach jeder fertigen Antwort sendet das Panel den Folgetext erneut, bis du Pause drückst.")
                 Text("Pause ist unten in der App immer erreichbar. Start bleibt im Panel, damit Limit und Folgetext vorher geprüft werden.")
+                Text("Du musst nicht zusehen: Hält der Loop von selbst an – Fertigmeldung, Rückfrage, Limit oder Fehler – meldet sich die App mit einer Mitteilung samt Grund. Eine Pause, die du selbst auslöst, meldet sie nicht. Abschaltbar im Menü des Chat-Tabs.")
             }
             Section("Wann der Loop selbst anhält") {
                 Text("Bei [RED_LOOP_FERTIG] oder [RED_LOOP_RUECKFRAGE] als letzter Zeile einer fertigen Antwort, bei einem erkannten Antwortfehler, bei einem eigenen Entwurf im Eingabefeld, beim Wechsel der Unterhaltung und wenn das Eingabefeld fehlt.")

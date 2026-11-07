@@ -47,13 +47,13 @@ The app's **Chat** tab loads `chatgpt.com` in an in-app web view and puts the RE
 
 The panel is the same script as in the browser. The app loads it as `/red-loop-webview.js` from the configured private Worker, so a fix for a changed ChatGPT layout ships with `wrangler deploy` instead of a new app build; the last successful download and the bundled copy are the fallbacks, and the fetch can be switched off in the Chat tab's menu. Whoever can publish to that Worker decides code that runs in the signed-in ChatGPT page.
 
-The loop runs only while the app is in the foreground, and the screen stays awake during a run. Locking the phone or switching apps makes iOS suspend the page; on return the panel keeps waiting instead of reporting a stall, and if iOS discarded the page it reports that it paused, so one Start resumes the same run with the same counter. For work after closing the app, use cloud jobs. Automatic continuations consume ChatGPT quota continuously. **This view has not been verified on a physical iPhone.** [Flow, limits and script delivery](docs/iphone-chat.md).
+When a run ends on its own — completion marker, question, limit or error — the app posts a local notification with the reason and the counter, so the phone can lie on the desk unwatched; a pause you triggered yourself stays silent. The loop runs only while the app is in the foreground, and the screen stays awake during a run. Locking the phone or switching apps makes iOS suspend the page; on return the panel keeps waiting instead of reporting a stall, and if iOS discarded the page it reports that it paused, so one Start resumes the same run with the same counter. For work after closing the app, use cloud jobs. Automatic continuations consume ChatGPT quota continuously. **This view has not been verified on a physical iPhone.** [Flow, limits and script delivery](docs/iphone-chat.md).
 
 ## Native iPhone/iPad host
 
 Open `ios/REDLoop.xcodeproj` in Xcode on a Mac and select the shared **REDLoop** scheme. The project contains:
 
-- In-app ChatGPT view with the injected continuation panel, native pause, script source switch and app-only sign-out.
+- In-app ChatGPT view with the injected continuation panel, native pause, stop notifications, script source switch and app-only sign-out.
 - Private cloud client: connection, job creation, progress, controls and artifact sharing.
 - Separate SwiftUI demo dashboard, bounded controls, scenarios, events and privacy information.
 - Activation/permission troubleshooting for the embedded Safari Web Extension.
