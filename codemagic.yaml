@@ -12,6 +12,9 @@ workflows:
         - pattern: 'codex/*'
           include: true
           source: true
+        - pattern: 'claude/*'
+          include: true
+          source: true
     scripts:
       - name: Build, test and archive the native app and Safari extension
         script: bash scripts/ios-ci.sh
