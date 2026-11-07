@@ -1,10 +1,13 @@
 import {scenes,createMotionEngine} from './motion-engine.js';
+import {defaultMotionSettings,readMotionPreset,serializeMotionPreset,formatMotionUsage} from './motion-presets.js';
 
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
-const defaults=Object.freeze({density:58,depth:58,speed:42,hue:340});
+const defaults=defaultMotionSettings;
+const sceneIds=scenes.map(item=>item.id);
+const initialPreset=readMotionPreset(location.search,sceneIds);
 const favoriteIds=new Set();
-let active=scenes.find(item=>item.id===new URL(location.href).searchParams.get('scene'))||scenes[0];
+let active=scenes.find(item=>item.id===initialPreset.scene)||scenes[0];
 let category='Alle',search='',sourceText='',view='preview';
 const searchInput=$('#ui-loop-search');
 const status=$('#ui-loop-animation-status');
@@ -54,6 +57,30 @@ function updateCatalog(){
   $('#ui-loop-result-count').textContent=String(filtered.length).padStart(2,'0');
   $$('#ui-loop-filters button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.category===category)));
 }
+function currentPreset(){return {scene:active.id,...engine.settings};}
+function presetUrl(){
+  const url=new URL(location.href);
+  url.search=serializeMotionPreset(currentPreset(),url.search);
+  return url;
+}
+function updateAddress(mode='replaceState'){
+  history[mode]({scene:active.id},'',presetUrl());
+}
+function refreshUsage(){
+  const snippet=formatMotionUsage(currentPreset());
+  $('#ui-loop-usage-source').textContent=snippet;
+  return snippet;
+}
+function applySettings(values){
+  engine.configure(values);
+  for(const [key,value] of Object.entries(defaults)){
+    const input=$('#ui-loop-'+key);
+    input.value=String(values[key]??value);
+    $('#ui-loop-'+key+'-output').textContent=String(input.value)+({depth:'%',speed:'%',hue:'°'}[key]||'');
+  }
+  $('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
+  refreshUsage();
+}
 function selectScene(id,historyChange=false){
   const next=scenes.find(item=>item.id===id);
   if(!next)return;
@@ -72,7 +99,8 @@ function selectScene(id,historyChange=false){
   $('#ui-loop-favorite').setAttribute('aria-label',fav?'Aus Favoriten entfernen':'Zu Favoriten hinzufügen');
   $('#ui-loop-favorite').textContent=(fav?'★':'☆')+(fav?' Gemerkt':' Merken');
   $('#ui-loop-canvas').setAttribute('aria-label',next.description+' Einstellungen über die Regler unterhalb.');
-  if(historyChange){const url=new URL(location.href);url.searchParams.set('scene',id);history.pushState({scene:id},'',url);}
+  refreshUsage();
+  if(historyChange)updateAddress('pushState');
   updateCatalog();
 }
 
@@ -89,7 +117,7 @@ window.addEventListener('keydown',event=>{
   if((event.key==='/'&&!typing&&!event.ctrlKey&&!event.metaKey)||(event.key.toLowerCase()==='k'&&(event.metaKey||event.ctrlKey))){event.preventDefault();setCatalogOpen(true);searchInput.focus();searchInput.select();}
   if(event.key==='Escape')setCatalogOpen(false);
 });
-window.addEventListener('popstate',()=>selectScene(new URL(location.href).searchParams.get('scene')||scenes[0].id));
+window.addEventListener('popstate',()=>{const preset=readMotionPreset(location.search,sceneIds);applySettings(preset);selectScene(preset.scene);});
 
 for(const key of ['density','depth','speed','hue']){
   const input=$('#ui-loop-'+key),output=$('#ui-loop-'+key+'-output');
@@ -97,16 +125,15 @@ for(const key of ['density','depth','speed','hue']){
     const value=Number(input.value);
     output.textContent=String(value)+({depth:'%',speed:'%',hue:'°'}[key]||'');
     engine.configure({[key]:value});
-    $$('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
+    $('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
+    refreshUsage();
   });
+  input.addEventListener('change',()=>updateAddress());
 }
 function reset(){
-  engine.setPlaying(false);engine.configure(defaults);
-  for(const [key,value] of Object.entries(defaults)){
-    $('#ui-loop-'+key).value=String(value);
-    $('#ui-loop-'+key+'-output').textContent=String(value)+({depth:'%',speed:'%',hue:'°'}[key]||'');
-  }
-  $$('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===defaults.hue)));
+  engine.setPlaying(false);
+  applySettings(defaults);
+  updateAddress();
   notify('Einstellungen zurückgesetzt');
 }
 $('#ui-loop-reset').addEventListener('click',reset);
@@ -117,13 +144,29 @@ play.addEventListener('click',()=>{
 $$('.ui-loop-swatches button').forEach(button=>button.addEventListener('click',()=>{
   $('#ui-loop-hue').value=button.dataset.hue;
   $('#ui-loop-hue').dispatchEvent(new Event('input',{bubbles:true}));
+  $('#ui-loop-hue').dispatchEvent(new Event('change',{bubbles:true}));
 }));
 $('#ui-loop-favorite').addEventListener('click',()=>{
   if(favoriteIds.has(active.id))favoriteIds.delete(active.id);else favoriteIds.add(active.id);
   selectScene(active.id);notify(favoriteIds.has(active.id)?'In dieser Sitzung gemerkt':'Aus Merkliste entfernt');
 });
-$('#ui-loop-copy-link').addEventListener('click',()=>{
-  const url=new URL(location.href);url.searchParams.set('scene',active.id);copy(url.toString(),'Link');
+$('#ui-loop-copy-link').addEventListener('click',()=>copy(presetUrl().toString(),'Voreinstellungslink'));
+$('#ui-loop-save-image').addEventListener('click',async()=>{
+  const button=$('#ui-loop-save-image');
+  button.disabled=true;
+  engine.setPlaying(false);
+  try {
+    const blob=await new Promise(resolve=>$('#ui-loop-canvas').toBlob(resolve,'image/png'));
+    if(!blob)throw new Error('PNG not available');
+    const objectUrl=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=objectUrl;
+    link.download='red-loop-'+active.id+'.png';
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(objectUrl),30000);
+    notify('PNG zum Herunterladen vorbereitet');
+  } catch {notify('PNG-Export fehlgeschlagen. Bitte später erneut versuchen.');}
+  finally {button.disabled=false;}
 });
 
 $$('.ui-loop-device-buttons button').forEach(button=>button.addEventListener('click',()=>{
@@ -152,9 +195,7 @@ $('#ui-loop-tab-code').addEventListener('click',async()=>{
 });
 $('#ui-loop-tab-usage').addEventListener('click',()=>updateView('usage'));
 $('#ui-loop-copy-source').addEventListener('click',()=>sourceText?copy(sourceText,'Quellcode'):notify('Quellcode ist noch nicht verfügbar'));
-const usage=`import { createMotionEngine } from './motion-engine.js';\n\nconst canvas = document.querySelector('#preview');\nconst engine = createMotionEngine(canvas);\nengine.configure({ scene: 'spectral-fold', density: 58, depth: 58, speed: 42, hue: 340 });\n\n// Animation ausschließlich nach Nutzeraktion starten:\ndocument.querySelector('#play').addEventListener('click', () => {\n  engine.setPlaying(!engine.running);\n});\n\n// Beim Entfernen der Vorschau:\n// engine.destroy();`;
-$('#ui-loop-usage-source').textContent=usage;
-$('#ui-loop-copy-usage').addEventListener('click',()=>copy(usage,'Beispiel'));
+$('#ui-loop-copy-usage').addEventListener('click',()=>copy(refreshUsage(),'Einbaubeispiel'));
 
 function updateMotionPreference(){
   $('#ui-loop-motion-pref').textContent=mql.matches?'Reduziert':'Standard';
@@ -164,7 +205,7 @@ function updateMotionPreference(){
 }
 mql.addEventListener('change',updateMotionPreference);
 updateMotionPreference();
-initializeFilters();selectScene(active.id);
+initializeFilters();applySettings(initialPreset);selectScene(initialPreset.scene);
 
 window.addEventListener('pagehide',()=>engine.setPlaying(false));
 const catalogButton=$('#ui-loop-mobile-catalog');

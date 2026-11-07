@@ -202,7 +202,7 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
     if(destroyed||!width||!height)return;
     paintBackground();
     ctx.save();
-    const t=clock*config.speed/42;
+    const t=clock;
     switch(config.scene){
       case 'chromatic-current':current(t);break;
       case 'orbit-wake':orbit(t);break;
@@ -219,7 +219,7 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
   function tick(now){
     if(!running||destroyed)return;
     const delta=clamp((now-last)/1000,0,.06);last=now;
-    clock+=delta;
+    clock+=delta*config.speed/42;
     const easing=1-Math.exp(-12*delta);
     pointer.x+=(targetPointer.x-pointer.x)*easing;
     pointer.y+=(targetPointer.y-pointer.y)*easing;
