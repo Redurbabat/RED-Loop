@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createMotionEngine,scenes} from '../web/motion-engine.js';
 
-test('six unique original materials with descriptive metadata',()=>{
-  assert.equal(scenes.length,6);
-  assert.equal(new Set(scenes.map(item=>item.id)).size,6);
+test('eight unique original materials with descriptive metadata',()=>{
+  assert.equal(scenes.length,8);
+  assert.equal(new Set(scenes.map(item=>item.id)).size,8);
   for(const scene of scenes){
     assert.ok(scene.name && scene.category && scene.description.length>25);
     assert.ok(Array.isArray(scene.tags) && scene.tags.length>=3);
@@ -20,6 +20,8 @@ test('studio HTML has core landmarks, accessible controls and no inline scripts'
   assert.match(html,/id="ui-loop-play"/);
   assert.match(html,/id="ui-loop-search"/);
   assert.match(html,/id="ui-loop-code-panel"/);
+  assert.match(html,/id="ui-loop-result-count">08/);
+  assert.match(html,/data-device="mobile"/);
   assert.doesNotMatch(html,/<script(?![^>]*src=)[^>]*>/i);
 });
 
@@ -67,4 +69,45 @@ test('render engine is idle by default, clamps settings, and respects reduced mo
       if(value===undefined)delete globalThis[name];else globalThis[name]=value;
     }
   }
+});
+
+test('all studies draw at idle, observe safe memory cap and release queued frames',()=>{
+  const old={window:globalThis.window,document:globalThis.document,ResizeObserver:globalThis.ResizeObserver,requestAnimationFrame:globalThis.requestAnimationFrame,cancelAnimationFrame:globalThis.cancelAnimationFrame};
+  let width=480,height=300,drawCalls=0,serial=0;const raf=new Map();
+  const listeners=new Map();
+  const context=new Proxy({}, {get(target,key){
+    if(key==='createRadialGradient')return ()=>({addColorStop(){}});
+    if(key==='fill'||key==='stroke')return ()=>{drawCalls++};
+    return target[key]??(()=>{});
+  },set(target,key,value){target[key]=value;return true;}});
+  const canvas={width:0,height:0,getContext:()=>context,getBoundingClientRect:()=>({width,height,left:0,top:0}),addEventListener:(k,fn)=>listeners.set(k,fn),removeEventListener:k=>listeners.delete(k)};
+  globalThis.window={devicePixelRatio:3,matchMedia:()=>({matches:false,addEventListener(){},removeEventListener(){}})};
+  globalThis.document={hidden:false,addEventListener(){},removeEventListener(){}};
+  globalThis.ResizeObserver=class {observe(){} disconnect(){}};
+  globalThis.requestAnimationFrame=fn=>{const id=++serial;raf.set(id,fn);return id};
+  globalThis.cancelAnimationFrame=id=>raf.delete(id);
+  function next(){const snapshot=[...raf];raf.clear();for(const [,fn] of snapshot)fn(1000)}
+  try {
+    const engine=createMotionEngine(canvas);
+    assert.equal(engine.running,false);
+    for(const scene of scenes){engine.configure({scene:scene.id});next();}
+    assert.ok(drawCalls>100,'drawing work occurred for every scene');
+    assert.equal(engine.settings.scene,'iris-caustics');
+    listeners.get('pointermove')({clientX:180,clientY:100});next();
+    listeners.get('pointerleave')();next();
+    width=2600;height=1600;engine.resize();
+    assert.ok(canvas.width*canvas.height<=1605000,'large canvases stay near 1.6MP budget');
+    engine.destroy();
+    assert.equal(raf.size,0,'no pending animation frame survives destroy');
+    assert.equal(listeners.size,0,'pointer event listeners are removed');
+  } finally {
+    for(const [name,value] of Object.entries(old)){if(value===undefined)delete globalThis[name];else globalThis[name]=value}
+  }
+});
+
+test('compact catalog uses inert state and returns focus after closing',()=>{
+  const script=readFileSync(new URL('../web/motion-studio.js',import.meta.url),'utf8');
+  assert.match(script,/catalogSidebar\.inert=compactViewport\.matches&&!next/);
+  assert.match(script,/catalogSidebar\.contains\(document\.activeElement\)/);
+  assert.match(script,/compactViewport\.addEventListener\('change'/);
 });
