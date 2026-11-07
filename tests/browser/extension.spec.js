@@ -96,6 +96,27 @@ test('work preset stops after a returned completion marker',async({page})=>{
   await page.screenshot({path:'test-results/background-work-completed.png',fullPage:true});
 });
 
+test('packaged endless mode continues past the numeric limit and pause keeps the counter',async({page})=>{
+  test.setTimeout(150000);await openFixture(page);
+  await page.evaluate(()=>{window.sends=0;document.querySelector('[data-testid="send-button"]').onclick=()=>{
+    window.sends++;document.querySelector('#prompt-textarea').textContent='';
+    document.querySelector('[data-message-author-role]').textContent='Fixture answer number '+window.sends+'.';
+  };});
+  await page.locator('#rl-limit').fill('1');await page.locator('#rl-endless').check();
+  await expect(page.locator('#rl-limit')).toBeDisabled();await expect(page.locator('.rl-counter')).toContainText('0 / ∞');
+  await page.locator('.rl-start').click();await expect(page.locator('#rl-endless')).toBeDisabled();
+  await expect.poll(()=>page.evaluate(()=>window.sends),{timeout:70000}).toBeGreaterThanOrEqual(3);
+  await page.locator('.rl-stop').click();await expect(page.locator('.rl-status')).toContainText('Pausiert');
+  const paused=await page.evaluate(()=>window.sends);
+  await expect(page.locator('.rl-counter')).toContainText(`${paused} / ∞`);
+  await page.waitForTimeout(16000);expect(await page.evaluate(()=>window.sends)).toBe(paused);
+  await page.locator('.rl-start').click();
+  await expect.poll(()=>page.evaluate(()=>window.sends),{timeout:30000}).toBeGreaterThan(paused);
+  await page.locator('.rl-stop').click();
+  await expect(page.locator('.rl-counter')).toContainText('/ ∞');
+  await expect(page.locator('#rl-endless')).toBeEnabled();
+});
+
 test.describe('natural background visibility',()=>{
   test.use({naturalVisibility:true});
   test.describe.configure({mode:'serial'});

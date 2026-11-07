@@ -16,7 +16,7 @@ export default {
     } else if (!['GET', 'HEAD'].includes(request.method)) {
       response = Response.json({error: 'Nur GET und HEAD werden unterstützt.'}, {status: 405, headers: {allow: 'GET, HEAD'}});
     } else if (url.pathname === '/health') {
-      response = Response.json({status: 'ok', service: 'red-loop', version: SERVICE_VERSION, mode: 'cloud-jobs-and-local-demo', storesConversations: false, storesJobs:true});
+      response = Response.json({status: 'ok', service: 'red-loop', version: SERVICE_VERSION, mode: 'cloud-jobs-and-local-demo', storesConversations: false, storesJobs:true, webviewScript: '/red-loop-webview.js'});
     } else {
       try { response = await env.ASSETS.fetch(request); }
       catch { response = Response.json({error: 'Die Oberfläche ist vorübergehend nicht verfügbar.'}, {status: 503}); }

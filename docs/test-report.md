@@ -2,7 +2,21 @@
 
 This report distinguishes executed checks from prepared code. A browser viewport profile is not a physical device test; parsing an Xcode project is not compilation.
 
-## Current cloud release — 0.4.0 (7 November 2026)
+## Current release — 0.5.0, in-app ChatGPT view and endless mode (7 November 2026)
+
+What was executed for this change, in a Linux container without Xcode and without an installed WebKit browser:
+
+- **86/86 unit tests passed**, including six new cases for the shared script: endless mode continuing past the numeric limit, pause keeping the counter and Start resuming it, endless still stopping at a requested completion marker, the in-app host defaults with counter-only status reporting, an ignored foreign host object, the origin guard refusing `example.com` and `chatgpt.com.example.com`, and suspension recovery after a ten-minute frozen clock.
+- **22/23 executed Chromium browser checks passed** against the real local Worker, including every packaged-extension check with the new panel (endless checkbox, Pause label, revised help text) and two new real-browser checks:
+  - the loaded Chromium extension in endless mode sent **three continuations past a numeric limit of 1**, Pause then held the counter through 16 further seconds, and Start resumed the same run;
+  - the script injected the way the app injects it (`window.__RED_LOOP_HOST__` plus a stubbed `webkit.messageHandlers.redLoop`) came up with the work preset, endless mode and no foreground option, sent one continuation, and reported `{type:'state', running, count, endless}` with **no follow-up text and no answer text in the messages**.
+  The one failure is environmental: the natural-visibility check spawns its own headed Chromium, which refuses to start as root in this container (`Running as root without --no-sandbox is not supported`). It is unchanged code and passed in the v0.3.1 run recorded below.
+- **Not executed here:** the three WebKit viewport profiles (no WebKit browser installed in this container) and everything iOS. `npm run build`, `npm run check` and the Wrangler dry-run passed; the Xcode project was regenerated with the two new Swift files and the bundled script resource and parses with three targets.
+- **The Swift code has not been compiled.** `ChatScript.swift`, `ChatView.swift` and the **13 new XCTest cases** in `ChatScriptTests.swift` are prepared code. They cover the HTTPS-only script URL, content validation of error pages and truncated downloads, cloud→cache→bundle precedence, a rejected download never replacing the cache, the bundled copy being the published script, inset clamping, panel-state parsing bounds, and the origin/navigation allowlists. Codemagic **main → ios-preview** must run them.
+- **No physical iPhone verification.** The in-app ChatGPT view has never run against the live service. Whether ChatGPT loads and stays signed in inside a `WKWebView`, and whether its bot protection accepts that view, is untested. App Store review of an app that embeds and automates a third-party service is also unassessed.
+- No deployment was performed for 0.5.0. `/health` on the live Worker still reports the previous version until `npm run deploy` runs.
+
+## Previous cloud release — 0.4.0 (7 November 2026)
 
 - Actual Cloudflare deployment: `32d10441-eb4d-4480-b600-71c83a522666` at [RED Loop](https://red-loop.redurbabat7.workers.dev/), with SQLite `JOBS` and Workers AI `AI` bindings.
 - **80/80 unit tests passed**, including 23 cloud engine/API/provider/research tests and nine web-console tests.

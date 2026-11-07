@@ -40,7 +40,7 @@ test('every private API authenticates before status, mutations, routing or DO ac
 
 test('status contract reports actual binding configuration and no secret',async()=>{
   const f=await fixture();const env=environment(f.engine);const response=await worker.fetch(request('/api/v1/status'),env);const body=await response.json();
-  assert.equal(body.service,'red-loop');assert.equal(body.version,'0.4.0');assert.equal(body.provider,'workers-ai');assert.equal(body.configured,true);assert.ok(body.capabilities.includes('persistent_jobs'));assert.equal(JSON.stringify(body).includes(env.RED_LOOP_TOKEN),false);
+  assert.equal(body.service,'red-loop');assert.equal(body.version,'0.5.0');assert.equal(body.provider,'workers-ai');assert.equal(body.configured,true);assert.ok(body.capabilities.includes('persistent_jobs'));assert.equal(JSON.stringify(body).includes(env.RED_LOOP_TOKEN),false);
   delete env.AI;assert.equal((await (await worker.fetch(request('/api/v1/status'),env)).json()).configured,false);
 });
 

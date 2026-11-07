@@ -1,4 +1,4 @@
-export const SERVICE_VERSION = '0.4.0';
+export const SERVICE_VERSION = '0.5.0';
 export const LIMITS = Object.freeze({jobs:20, prompt:20000, title:120, steps:50, durationMinutes:480, requestBytes:131072, stepOutput:12000, summary:1600, artifacts:12, artifactBytes:24576, workspaceBytes:262144, recordBytes:98304, modelResponseBytes:131072, researchBytes:131072, researchText:6000});
 export const CAPABILITIES = Object.freeze(['persistent_jobs','bounded_steps','text_artifacts','public_documentation_read','pause_resume_stop']);
 export class ApiError extends Error {

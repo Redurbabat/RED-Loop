@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 const source=readFileSync('userscripts/red-loop.user.js','utf8');
-function setup(saved, {modern=false,path='/c/test',paragraphs=false}={}) {
+function setup(saved, {modern=false,path='/c/test',paragraphs=false,host=null}={}) {
   const html=modern ? '<body><section><h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4><div data-markdown-text-style="assistant-message">Done</div></section><form data-chatgpt-composer><div contenteditable="true" role="textbox" data-composer-markdown aria-label="ChatGPT fragen"></div><button type="button" aria-label="Senden">Send</button></form></body>' : '<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>';
   const dom=new JSDOM(html,{url:'https://chatgpt.com'+path,runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window; let tick,now=100000,sends=0; const sent=[];
@@ -18,8 +18,11 @@ function setup(saved, {modern=false,path='/c/test',paragraphs=false}={}) {
     sent.push(editor.children.length && [...editor.children].every(el=>el.tagName==='P') ? [...editor.children].map(p=>p.textContent).join('\n') : editor.value || editor.textContent);
     if(editor instanceof w.HTMLTextAreaElement) editor.value='';else editor.textContent='';
   };
+  const posted=[];
+  if(host){w.__RED_LOOP_HOST__=host;w.webkit={messageHandlers:{redLoop:{postMessage:value=>posted.push(value)}}};}
   w.eval(source);
-  return {w,dom,sent,get sends(){return sends;},click:s=>w.document.querySelector(s).click(),advance:ms=>{now+=ms;tick();}};
+  // advance runs the interval; warp only moves the clock, like a suspended app.
+  return {w,dom,sent,posted,get sends(){return sends;},click:s=>w.document.querySelector(s).click(),advance:ms=>{now+=ms;tick();},warp:ms=>{now+=ms;}};
 }
 
 test('rich-text paragraph rendering supports multiline prompts including intentional blank lines',()=>{
@@ -177,7 +180,7 @@ test('a delayed send button is awaited without duplicate insertion',()=>{
 test('stop cancels a prepared message before a delayed send becomes available',()=>{
   const f=setup(null,{modern:true});const button=f.w.document.querySelector('button[aria-label="Senden"]');
   button.disabled=true;f.click('.rl-start');f.advance(7000);f.click('.rl-stop');button.disabled=false;
-  f.advance(9000);assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Manuell gestoppt/);f.dom.window.close();
+  f.advance(9000);assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Pausiert/);f.dom.window.close();
 });
 test('editing a prepared message cancels submission and preserves the edit',()=>{
   const f=setup(null,{modern:true});const button=f.w.document.querySelector('button[aria-label="Senden"]');
@@ -245,4 +248,73 @@ test('navigation loads separate counters and stops; visibility stops',()=>{
 test('answer errors stop without send; limit stops exactly',()=>{
   const f=setup();f.w.document.querySelector('#rl-limit').value='1';f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.advance(1500);assert.match(f.w.document.querySelector('.rl-status').textContent,/Limit erreicht/);f.click('.rl-reset');
   f.w.document.querySelector('[data-message-author-role]').textContent='Something went wrong';f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/Antwortfehler/);f.dom.window.close();
+});
+
+test('endless mode continues past the numeric limit, pauses on request and resumes with the same counter',()=>{
+  const f=setup();const endless=f.w.document.querySelector('#rl-endless');
+  f.w.document.querySelector('#rl-limit').value='1';
+  endless.checked=true;endless.dispatchEvent(new f.w.Event('change'));
+  assert.equal(f.w.document.querySelector('#rl-limit').disabled,true);
+  assert.match(f.w.document.querySelector('.rl-counter').textContent,/0 \/ ∞/);
+  f.click('.rl-start');assert.equal(endless.disabled,true);
+  f.advance(7000);assert.equal(f.sends,1);
+  for(let i=2;i<=4;i++){
+    f.w.document.querySelector('[data-message-author-role]').textContent='Antwort '+i;
+    f.advance(1500);f.advance(13000);assert.equal(f.sends,i,'send '+i+' past the numeric limit');
+  }
+  assert.match(f.w.document.querySelector('.rl-counter').textContent,/4 \/ ∞/);
+  f.click('.rl-stop');assert.match(f.w.document.querySelector('.rl-status').textContent,/Pausiert/);assert.equal(endless.disabled,false);
+  f.w.document.querySelector('[data-message-author-role]').textContent='Antwort nach Pause';
+  f.advance(20000);assert.equal(f.sends,4,'a paused loop sends nothing');
+  f.click('.rl-start');f.advance(13000);assert.equal(f.sends,5);
+  assert.match(f.w.document.querySelector('.rl-counter').textContent,/5 \/ ∞/);f.dom.window.close();
+});
+
+test('endless mode still stops at the requested completion marker',()=>{
+  const f=setup();f.click('.rl-work');
+  const endless=f.w.document.querySelector('#rl-endless');endless.checked=true;endless.dispatchEvent(new f.w.Event('change'));
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-message-author-role]').textContent='Ergebnis\n[RED_LOOP_FERTIG]';
+  f.advance(1500);f.advance(13000);assert.equal(f.sends,1);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Auftrag abgeschlossen/);f.dom.window.close();
+});
+
+test('the in-app host starts with the work preset and endless mode and gets counter-only status',()=>{
+  const f=setup(null,{modern:true,host:{app:'ios-webview',bottomInset:84}});
+  assert.match(f.w.document.querySelector('#rl-prompt').value,/offen/);
+  assert.equal(f.w.document.querySelector('#rl-endless').checked,true);
+  assert.equal(f.w.document.querySelector('#rl-background').checked,true);
+  assert.ok(f.w.document.getElementById('red-loop-root').classList.contains('rl-embedded'));
+  f.w.document.hasFocus=()=>false;
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1,'an unfocused app view still continues');
+  const last=f.posted.at(-1);
+  assert.equal(last.type,'state');assert.equal(last.running,true);assert.equal(last.endless,true);assert.equal(last.count,1);
+  assert.ok(!JSON.stringify(f.posted).includes('offen'),'no follow-up or answer text reaches the native host');
+  f.click('.rl-stop');assert.equal(f.posted.at(-1).running,false);f.dom.window.close();
+});
+
+test('an ignored host object leaves the browser defaults untouched',()=>{
+  const f=setup(null,{modern:true,host:{app:'something-else'}});
+  assert.equal(f.w.document.querySelector('#rl-endless').checked,false);
+  assert.equal(f.w.document.querySelector('#rl-background').checked,false);
+  assert.equal(f.posted.length,0);f.dom.window.close();
+});
+
+test('the shared script refuses every origin other than the ChatGPT hosts',()=>{
+  for(const url of ['https://example.com/c/test','https://chatgpt.com.example.com/c/test']) {
+    const dom=new JSDOM('<body><div data-message-author-role="assistant">Done</div></body>',{url,runScripts:'outside-only',pretendToBeVisual:true});
+    dom.window.eval(source);
+    assert.equal(dom.window.document.getElementById('red-loop-root'),null,url);dom.window.close();
+  }
+});
+
+test('a suspended app resumes waiting instead of reporting a missing response',()=>{
+  const f=setup(null,{modern:true,host:{app:'ios-webview'}});
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  Object.defineProperty(f.w.document,'hidden',{value:true,configurable:true});f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
+  f.warp(600000);
+  Object.defineProperty(f.w.document,'hidden',{value:false,configurable:true});f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
+  f.advance(1500);assert.match(f.w.document.querySelector('.rl-status').textContent,/Warte auf neue Antwort/);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Antwort nach Rückkehr';
+  f.advance(1500);f.advance(13000);assert.equal(f.sends,2);f.dom.window.close();
 });
