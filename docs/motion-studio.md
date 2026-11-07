@@ -4,7 +4,7 @@ Open `/motion-studio.html` from the RED Loop dashboard.
 
 ## Purpose
 
-An original, self-contained documentation and animation workspace with a searchable sidebar, six live Canvas 2D studies, desktop/tablet/iPhone preview sizes, configurable motion properties, an integrated source-code view, a copyable setup recipe, and accessible controls. The interface uses RED Loop's existing brand direction; it does **not** reproduce React Bits Pro's proprietary sources, copy, branding or assets.
+An original, self-contained documentation and animation workspace with a searchable sidebar, eight live Canvas 2D studies, desktop/tablet/iPhone preview sizes, configurable motion properties, an integrated source-code view, a copyable setup recipe, and accessible controls. The interface uses RED Loop's existing brand direction; it does **not** reproduce React Bits Pro's proprietary sources, copy, branding or assets.
 
 Reference for the interaction pattern: https://pro.reactbits.dev/docs/components/spectral-drape?browse=components (visual research only; no premium code copied).
 
@@ -16,6 +16,8 @@ Reference for the interaction pattern: https://pro.reactbits.dev/docs/components
 - Satin Ridges — softly lit virtual cloth contour
 - Signal Matrix — point grid responding to pointer proximity
 - Red Resonance — concentric controlled signal rings
+- Glass Filament — layered optical filament ribbons with restrained lens glow
+- Iris Caustics — refracted, responsive elliptical light contours
 
 ## Architecture
 
@@ -36,7 +38,7 @@ engine.setPlaying(false);
 engine.destroy();
 ```
 
-The engine retains its last visual frame when stopped. It pauses when the document is hidden and disables running motion under `prefers-reduced-motion: reduce`. It caps device pixel ratio, clamps tunable parameters and redraws on resize or pointer interaction. No playback begins on page load. Users can press Ctrl/Cmd+K or / to focus search, Escape to clear/close, and navigate the catalog with standard native buttons. Touch targets are designed for at least 44px where actionable.
+The engine retains its last visual frame when stopped. It pauses when the document is hidden and disables running motion under `prefers-reduced-motion: reduce`. It caps the backing buffer at approximately 1.6 megapixels, clamps tunable parameters, eases pointer motion while playing and redraws on resize or pointer interaction. It cancels queued frames during cleanup. No playback begins on page load. Users can press Ctrl/Cmd+K or / to focus search, Escape to clear/close, and navigate the catalog with standard native buttons. Primary touch controls, color swatches, category filters and preview-size controls have 44px minimum touch targets. On compact screens, the closed catalog becomes inert and keyboard focus returns to its toggle on dismissal.
 
 ## Preservation inventory
 
@@ -64,4 +66,12 @@ npm run test:browser
 
 Before merge, inspect the studio at 390px, 768px and 1440px, using mouse/touch and keyboard, light/dark and reduced motion. Test code-tab loading and clipboard permissions with an HTTPS origin.
 
-Local pre-commit validation performed for this contribution: `node --check` on both modules and `node --test tests/motion-studio.test.mjs` (three passing tests). The full repository build, all tests, device screenshots and deployed Worker verification have **not** been run in this session.
+Local pre-commit validation performed for this contribution: `node --check` on both modules and `node --test tests/motion-studio.test.mjs` (five passing tests). The full repository build, all tests, device screenshots and deployed Worker verification have **not** been run in this session.
+
+## November 2026 motion refinement
+
+- Two new scenes are original implementations, without copying third-party visual assets.
+- Canvas uses a roughly 1.6MP buffer budget to bound high-DPI memory and retains readable static frames.
+- While playing, pointer position moves toward the target using frame-time-based easing; when paused, pointer response remains direct without starting a perpetual loop.
+- Responsive mobile catalog uses `inert` when closed and restores focus to the catalog control after selection/Escape.
+- Local targeted tests: `node --test tests/motion-studio.test.mjs` — 5 passed; `node --check` for both motion modules — passed. Full repository CI and physical-device validation must be checked separately.
