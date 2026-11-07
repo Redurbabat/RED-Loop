@@ -20,6 +20,7 @@ test('studio HTML has core landmarks, accessible controls and no inline scripts'
   assert.match(html,/id="ui-loop-play"/);
   assert.match(html,/id="ui-loop-search"/);
   assert.match(html,/id="ui-loop-code-panel"/);
+  assert.match(html,/id="ui-loop-save-image"/);
   assert.match(html,/id="ui-loop-result-count">08/);
   assert.match(html,/data-device="mobile"/);
   assert.doesNotMatch(html,/<script(?![^>]*src=)[^>]*>/i);
