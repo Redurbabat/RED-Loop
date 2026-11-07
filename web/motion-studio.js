@@ -83,7 +83,7 @@ function initializeFilters(){
   updateCatalog();
 }
 searchInput.addEventListener('input',()=>{search=searchInput.value.trim();updateCatalog();});
-searchInput.addEventListener('keydown',event=>{if(event.key==='Escape'){searchInput.value='';search='';updateCatalog();searchInput.blur();}});
+searchInput.addEventListener('keydown',event=>{if(event.key==='Escape'){searchInput.value='';search='';updateCatalog();if(!compactViewport.matches)searchInput.blur();}});
 window.addEventListener('keydown',event=>{
   const typing=event.target instanceof Element&&Boolean(event.target.closest('input,textarea,select,[contenteditable="true"]'));
   if((event.key==='/'&&!typing&&!event.ctrlKey&&!event.metaKey)||(event.key.toLowerCase()==='k'&&(event.metaKey||event.ctrlKey))){event.preventDefault();setCatalogOpen(true);searchInput.focus();searchInput.select();}
