@@ -4,7 +4,7 @@ Open `/motion-studio.html` from the RED Loop dashboard.
 
 ## Purpose
 
-An original, self-contained documentation and animation workspace with a searchable sidebar, eight live Canvas 2D studies, desktop/tablet/iPhone preview sizes, configurable motion properties, an integrated source-code view, a copyable setup recipe, and accessible controls. The interface uses RED Loop's existing brand direction; it does **not** reproduce React Bits Pro's proprietary sources, copy, branding or assets.
+An original, self-contained documentation and animation workspace with a searchable sidebar, eight live Canvas 2D studies, desktop/tablet/iPhone preview sizes, configurable motion properties, an integrated source-code view, an always-current setup recipe, validated shareable scene presets and a PNG snapshot export. The interface uses RED Loop's existing brand direction; it does **not** reproduce React Bits Pro's proprietary sources, copy, branding or assets.
 
 Reference for the interaction pattern: https://pro.reactbits.dev/docs/components/spectral-drape?browse=components (visual research only; no premium code copied).
 
@@ -25,7 +25,9 @@ Reference for the interaction pattern: https://pro.reactbits.dev/docs/components
 - `web/motion-studio.css`: namespaced responsive styles and light/dark/system preferences
 - `web/motion-studio.js`: catalog filtering, state, keyboard search, clipboard, sliders, device widths and code tabs
 - `web/motion-engine.js`: zero-dependency Canvas 2D renderer with `createMotionEngine(canvas, options)`
+- `web/motion-presets.js`: pure URL validation, serialization and code-snippet formatting
 - `tests/motion-studio.test.mjs`: Node tests for metadata, document structure and engine control semantics
+- `tests/motion-presets.test.mjs`: Node tests for safe deep-link parsing, serialization and code output
 
 ### Reusable engine API
 
@@ -53,7 +55,7 @@ The engine retains its last visual frame when stopped. It pauses when the docume
 
 ## Safety & quality
 
-The studio does not start cloud jobs, send ChatGPT messages, store credentials or persist input data. Bookmarked study selection is stored in a shareable URL; the session-only favorite list has no storage. Clipboard operations show success only after the API resolves, and show an error otherwise. The browser-local preview is not a SwiftUI or Android implementation.
+The studio does not start cloud jobs, send ChatGPT messages, store credentials or persist input data. Selected scene and all four slider values are encoded in the shareable URL (`scene`, `density`, `depth`, `speed`, `hue`), not saved to local storage. The session-only favorite list has no storage. Clipboard operations show success only after the API resolves, and show an error otherwise. The browser-local preview is not a SwiftUI or Android implementation.
 
 ### Tests and verification
 
@@ -75,3 +77,20 @@ Local pre-commit validation performed for this contribution: `node --check` on b
 - While playing, pointer position moves toward the target using frame-time-based easing; when paused, pointer response remains direct without starting a perpetual loop.
 - Responsive mobile catalog uses `inert` when closed and restores focus to the catalog control after selection/Escape.
 - Local targeted tests: `node --test tests/motion-studio.test.mjs` — 5 passed; `node --check` for both motion modules — passed. Full repository CI and physical-device validation must be checked separately.
+
+## Shareable presets and PNG snapshots
+
+The **Preset-Link kopieren** action includes the current scene, density, depth, speed and hue. Out-of-range or malformed query values fall back to safe numeric values; unknown scenes return to the first study. The address bar is updated on slider commit, scene selection and reset, and Back/Forward restores both scene and controls. Query serialization preserves unrelated parameters.
+
+Example URL:
+`/motion-studio.html?scene=glass-filament&density=72&depth=58&speed=42&hue=255`
+
+The **PNG exportieren** action pauses the canvas and prepares a scene-specific file such as `red-loop-glass-filament.png`. It uses the browser's in-memory Canvas API and temporary object URLs only. The export contains the rendered effect, not the surrounding RED Loop interface. Any failure is reported without claiming a completed download.
+
+The **Einbau** source sample is regenerated from the selected scene and current controls; its source is original and requires no third-party registry subscription. Motion speed changes maintain phase continuity rather than jumping between positions.
+
+## Follow-up validation
+
+Focused local Node execution: `node --test tests/motion-studio.test.mjs tests/motion-presets.test.mjs` — 9 passing tests. Local embedded Chromium checks at 1440, 768 and 390 pixels confirm the dynamic snippet, PNG download, scene selection, sidebar focus restoration, no uncaught JavaScript exceptions and no horizontal overflow. The isolated embedded checks do not prove server routing, copy permissions, native Safari/Android support or deployment correctness.
+
+New Playwright checks on served pages cover preset URL hydration and a PNG download, and repair the prior unsupported `fill()` call on `input[type=range]`. Full GitHub CI execution and physical-device validation remain separate release gates.
