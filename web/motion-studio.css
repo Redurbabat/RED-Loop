@@ -137,3 +137,12 @@ button,input,a{font:inherit}button{cursor:pointer}button:disabled{cursor:not-all
 @media(prefers-contrast:more){.ui-loop-scene-item[aria-current=true],.ui-loop-filter button[aria-pressed=true],.ui-loop-swatches button[aria-pressed=true]{outline:2px solid var(--ui-loop-text);outline-offset:1px}.ui-loop-search,.ui-loop-workspace,.ui-loop-heading-tools button{border-color:var(--ui-loop-muted)}}
 @media(prefers-reduced-transparency:reduce){.ui-loop-topbar{background:var(--ui-loop-bg)}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.ui-loop-sidebar,.ui-loop-stage,.ui-loop-scene-item,.ui-loop-heading-tools button,.ui-loop-back,.ui-loop-filter button,.ui-loop-tabs button,.ui-loop-device-buttons button{transition:none!important;animation:none!important}}
+/* Motion Studio: 44px minimum controls and focus-safe compact catalog. */
+.ui-loop-filter button{min-height:44px;padding-inline:14px}
+.ui-loop-heading-tools button,.ui-loop-preview-footer button,.ui-loop-code-head button,.ui-loop-usage-panel button{min-height:44px}
+.ui-loop-device-buttons button{min-height:44px;padding-inline:10px}
+.ui-loop-viewport-header{height:auto;min-height:54px;padding-block:5px}
+.ui-loop-swatches button{width:44px;height:44px}
+.ui-loop-sidebar[inert]{pointer-events:none}
+@media(max-width:550px){.ui-loop-viewport-header{gap:5px}.ui-loop-device-buttons button{min-height:44px;padding:7px 8px}.ui-loop-viewport-dots{display:none}}
+@media(prefers-reduced-motion:reduce){.ui-loop-stage,.ui-loop-sidebar,.ui-loop-scene-item{transition:none}}
