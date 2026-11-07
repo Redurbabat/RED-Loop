@@ -38,7 +38,7 @@ function createButton(scene){
   button.dataset.scene=scene.id;
   button.setAttribute('aria-current',scene.id===active.id?'true':'false');
   const icon=document.createElement('span');icon.className='ui-loop-scene-icon';icon.setAttribute('aria-hidden','true');
-  icon.textContent={'spectral-fold':'✧','chromatic-current':'≈','orbit-wake':'◎','satin-ridges':'≋','signal-matrix':'⊞','red-resonance':'◉','glass-filament':'⌁','iris-caustics':'◌'}[scene.id];
+  icon.textContent={'spectral-fold':'✧','chromatic-current':'≈','orbit-wake':'◎','satin-ridges':'≋','signal-matrix':'⊞','red-resonance':'◉','glass-filament':'⌁','iris-caustics':'◌','prism-veil':'◇','vector-bloom':'✺'}[scene.id];
   const body=document.createElement('span');body.className='ui-loop-scene-body';
   const title=document.createElement('strong');title.textContent=scene.name;
   const subtitle=document.createElement('small');subtitle.textContent=scene.category;
@@ -171,6 +171,8 @@ $('#ui-loop-save-image').addEventListener('click',async()=>{
 
 $$('.ui-loop-device-buttons button').forEach(button=>button.addEventListener('click',()=>{
   const device=button.dataset.device;
+  const permittedDevices=['macbook','windows','tablet','iphone','android'];
+  if(!permittedDevices.includes(device))return;
   $('#ui-loop-stage').dataset.device=device;
   $('#ui-loop-dim').textContent=device.toUpperCase();
   $$('.ui-loop-device-buttons button').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
