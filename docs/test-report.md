@@ -2,7 +2,23 @@
 
 This report distinguishes executed checks from prepared code. A browser viewport profile is not a physical device test; parsing an Xcode project is not compilation.
 
-**Current follow-up — v0.3.1:** **48 unit tests and 17 focused browser checks passed across full/focused runs**. The packaged extension sent from a genuinely hidden, unfocused native Chromium page: the send handler recorded `document.hidden === true` and `document.hasFocus() === false`, then completion stopped further sends. This uses an isolated temporary browser/profile and `connectOverCDP({noDefaults:true})`; no user browser/account or visibility emulation is involved. A foreground test separately verifies stopping on real focus loss. Its initial extra requirement that the unfocused page also be hidden was removed; the corrected test passed. Version 0.3.1 also prevents premature stops from another chat's errors, ordinary retry advice or nonfinal completion markers. Current deployment: `e21cc58e-7207-4c57-81fc-74cd09ef36e0`.
+## Current cloud release — 0.4.0 (7 November 2026)
+
+- Actual Cloudflare deployment: `32d10441-eb4d-4480-b600-71c83a522666` at [RED Loop](https://red-loop.redurbabat7.workers.dev/), with SQLite `JOBS` and Workers AI `AI` bindings.
+- **80/80 unit tests passed**, including 23 cloud engine/API/provider/research tests and nine web-console tests.
+- **52/52 browser checks passed** with the real local Worker, across Chromium and iPhone/iPad/Mac WebKit profiles. Twenty of these exercise the new private cloud console. Provider data in browser checks is intercepted local fixture data; no real conversations are used.
+- Build, syntax/config/project checks and Wrangler deployment dry-run passed. Xcode project regenerated with all native Cloud files and three targets.
+- **14/14 real private API checks passed**: unauthenticated access denied, configured Workers AI, idempotent create and conflict rejection, a genuine model step completed via server alarm, requested text artifact persisted/downloaded, private download enforced, Pause/Resume/Stop persisted. No app or browser performed the task scheduling. The live test used two explicitly bounded non-sensitive jobs, one completed and one stopped.
+- Private access token generated outside Git and uploaded via Wrangler secret input. It is absent from public packages and this report. The web client keeps it in RAM; the native client uses Keychain.
+- Native 0.4.0 has **nine new XCTest cases prepared**, plus four existing demo cases. **The current Cloud SwiftUI client and its tests have not been compiled/executed on macOS.** Earlier successful native builds below concern the earlier baseline only. The user will start Codemagic manually using **main → ios-preview**.
+- `ios-preview` now packages `build/ios/unsigned/REDLoop-unsigned.ipa` after tests/archive; this is an unsigned artifact requiring signing. No 0.4.0 IPA or TestFlight installation is claimed before that build/signing step.
+- Cloud tools produce text/code artifacts and read allowed public documentation. They cannot run a shell, modify the laptop or control existing ChatGPT conversations. Limits and unavailable capabilities are explicit.
+
+The user explicitly requested moving the tested implementation to `main` on 7 November 2026. This supersedes the original no-merge handoff requirement; earlier branch statements below describe historical evidence.
+
+## Earlier browser integration evidence
+
+**Prior follow-up — v0.3.1:** **48 unit tests and 17 focused browser checks passed across full/focused runs**. The packaged extension sent from a genuinely hidden, unfocused native Chromium page: the send handler recorded `document.hidden === true` and `document.hasFocus() === false`, then completion stopped further sends. This uses an isolated temporary browser/profile and `connectOverCDP({noDefaults:true})`; no user browser/account or visibility emulation is involved. A foreground test separately verifies stopping on real focus loss. Its initial extra requirement that the unfocused page also be hidden was removed; the corrected test passed. Version 0.3.1 also prevents premature stops from another chat's errors, ordinary retry advice or nonfinal completion markers. Current deployment: `e21cc58e-7207-4c57-81fc-74cd09ef36e0`.
 
 **Real Edge work-preset run — v0.3.0:** two benign text steps were automatically requested and acknowledged, then the final marker stopped the loop at **2/3 — Auftrag abgeschlossen**. The test tab and screenshot stay local. This proves live task continuation/completion; natural hidden-tab acceptance is the separate v0.3.1 fixture result above. No overnight endurance or current iOS compilation is claimed. See [background-work.md](background-work.md) and [windows-live-test.md](windows-live-test.md).
 
@@ -70,4 +86,4 @@ Screenshots under `docs/previews/` are captured from the actual web dashboard by
 
 - Provide signing through Codemagic secure settings for an installable iPhone/TestFlight build.
 - Execute physical Safari/iPhone checks, including extension activation, Website Access, VoiceOver, rotation, focus/visibility stops and a non-sensitive live conversation with limit 1.
-- Review and merge PR #2 only after the user accepts the changes. The agent does not merge it.
+- The user authorized main publication on 7 November 2026; current native 0.4.0 still needs the user-started Codemagic build/signing and physical-device acceptance.

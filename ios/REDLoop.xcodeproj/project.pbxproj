@@ -42,21 +42,37 @@
 				);
 			};
 		};
-		6ACF84EF4E1361A67C0AA05F = {
+		C6BD20BDD8A2D1E63B99FA31 = {
 			isa = PBXBuildFile;
-			fileRef = FAA06955D9DE9E882E3D664F;
+			fileRef = 117C9B25477E298EF3C263B0;
 		};
-		A07B662F4EFD1EB04FDE48A9 = {
+		5BDC680343F1C0261C2A3084 = {
 			isa = PBXBuildFile;
-			fileRef = DD10F4D1DF303DA53B122519;
+			fileRef = 93A1AD7C55DBE62A0EB8B0F5;
+		};
+		0D2E9F41B826FFF99EBD77A1 = {
+			isa = PBXBuildFile;
+			fileRef = DAE9712FC8A306D306F53BAC;
 		};
 		C34318CCE0259F2031046E0E = {
 			isa = PBXBuildFile;
 			fileRef = CF9654BFDF0A1041D3F68C3B;
 		};
+		A07B662F4EFD1EB04FDE48A9 = {
+			isa = PBXBuildFile;
+			fileRef = DD10F4D1DF303DA53B122519;
+		};
+		6ACF84EF4E1361A67C0AA05F = {
+			isa = PBXBuildFile;
+			fileRef = FAA06955D9DE9E882E3D664F;
+		};
 		50F89A74F07C97586F615780 = {
 			isa = PBXBuildFile;
 			fileRef = 620C685F2616B43581CC276E;
+		};
+		E330D3567497CBDC54203778 = {
+			isa = PBXBuildFile;
+			fileRef = 7E57D39E434BCACF3412E4CC;
 		};
 		867B724A7E9C1A3FAED4764B = {
 			isa = PBXBuildFile;
@@ -93,16 +109,22 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 /* Begin PBXFileReference section */
-		FAA06955D9DE9E882E3D664F = {
+		117C9B25477E298EF3C263B0 = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
-			path = REDLoop/REDLoopApp.swift;
+			path = REDLoop/CloudAPI.swift;
 			sourceTree = "<group>";
 		};
-		DD10F4D1DF303DA53B122519 = {
+		93A1AD7C55DBE62A0EB8B0F5 = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
-			path = REDLoop/LoopModel.swift;
+			path = REDLoop/CloudStore.swift;
+			sourceTree = "<group>";
+		};
+		DAE9712FC8A306D306F53BAC = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/CloudViews.swift;
 			sourceTree = "<group>";
 		};
 		CF9654BFDF0A1041D3F68C3B = {
@@ -111,10 +133,28 @@
 			path = REDLoop/DashboardView.swift;
 			sourceTree = "<group>";
 		};
+		DD10F4D1DF303DA53B122519 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/LoopModel.swift;
+			sourceTree = "<group>";
+		};
+		FAA06955D9DE9E882E3D664F = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/REDLoopApp.swift;
+			sourceTree = "<group>";
+		};
 		E5BA8D7F3F0BC7D2BFD4C23C = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = REDLoopExtension/SafariWebExtensionHandler.swift;
+			sourceTree = "<group>";
+		};
+		7E57D39E434BCACF3412E4CC = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoopTests/CloudAPITests.swift;
 			sourceTree = "<group>";
 		};
 		9FC3A7823FA502100DF6F769 = {
@@ -221,10 +261,14 @@
 		870B3294C0CBD48AF6BBCC1B = {
 			isa = PBXGroup;
 			children = (
-				FAA06955D9DE9E882E3D664F,
-				DD10F4D1DF303DA53B122519,
+				117C9B25477E298EF3C263B0,
+				93A1AD7C55DBE62A0EB8B0F5,
+				DAE9712FC8A306D306F53BAC,
 				CF9654BFDF0A1041D3F68C3B,
+				DD10F4D1DF303DA53B122519,
+				FAA06955D9DE9E882E3D664F,
 				E5BA8D7F3F0BC7D2BFD4C23C,
+				7E57D39E434BCACF3412E4CC,
 				9FC3A7823FA502100DF6F769,
 				620C685F2616B43581CC276E,
 				204D0DB0A73F5DECAE7387A8,
@@ -370,9 +414,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6ACF84EF4E1361A67C0AA05F,
-				A07B662F4EFD1EB04FDE48A9,
+				C6BD20BDD8A2D1E63B99FA31,
+				5BDC680343F1C0261C2A3084,
+				0D2E9F41B826FFF99EBD77A1,
 				C34318CCE0259F2031046E0E,
+				A07B662F4EFD1EB04FDE48A9,
+				6ACF84EF4E1361A67C0AA05F,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -380,6 +427,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E330D3567497CBDC54203778,
 				867B724A7E9C1A3FAED4764B,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -407,7 +455,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.4.0;
 				CURRENT_PROJECT_VERSION = 1;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -426,7 +474,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.4.0;
 				CURRENT_PROJECT_VERSION = 1;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";

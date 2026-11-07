@@ -10,9 +10,9 @@ def obj(key_name, isa, **props):
 def file(path, kind): return obj(path, 'PBXFileReference', lastKnownFileType=kind, path=path, sourceTree='<group>')
 def build(ref): return obj('build:'+ref, 'PBXBuildFile', fileRef=ref)
 def phase(name, kind, files): return obj(name,kind,buildActionMask=2147483647,files=[build(f) for f in files],runOnlyForDeploymentPostprocessing=0)
-app_files=[file('REDLoop/'+name,'sourcecode.swift') for name in ['REDLoopApp.swift','LoopModel.swift','DashboardView.swift']]
+app_files=[file(str(path.relative_to(root)).replace('\\','/'),'sourcecode.swift') for path in sorted((root/'REDLoop').glob('*.swift'))]
 ext_files=[file('REDLoopExtension/SafariWebExtensionHandler.swift','sourcecode.swift')]
-test_files=[file('REDLoopTests/LoopModelTests.swift','sourcecode.swift')]
+test_files=[file(str(path.relative_to(root)).replace('\\','/'),'sourcecode.swift') for path in sorted((root/'REDLoopTests').glob('*.swift'))]
 assets=file('REDLoop/Assets.xcassets','folder.assetcatalog')
 resources=[file('REDLoopExtension/Resources/'+name,kind) for name,kind in [('manifest.json','text.json'),('red-loop.user.js','sourcecode.javascript'),('popup.html','text.html'),('popup.css','text.css'),('icon.png','image.png')]]
 privacy=file('REDLoop/PrivacyInfo.xcprivacy','text.xml')
@@ -30,7 +30,7 @@ def configs(name, settings):
         else: s.update(DEBUG_INFORMATION_FORMAT='dwarf-with-dsym')
         configs.append(obj(name+mode,'XCBuildConfiguration',buildSettings=s,name=mode))
     return obj(name+'config-list','XCConfigurationList',buildConfigurations=configs,defaultConfigurationIsVisible=0,defaultConfigurationName='Release')
-base=dict(SDKROOT='iphoneos',IPHONEOS_DEPLOYMENT_TARGET='17.0',SWIFT_VERSION='5.0',TARGETED_DEVICE_FAMILY='1,2',CLANG_ENABLE_MODULES='YES',CODE_SIGN_STYLE='Automatic',MARKETING_VERSION='0.2.0',CURRENT_PROJECT_VERSION='1',SWIFT_EMIT_LOC_STRINGS='YES')
+base=dict(SDKROOT='iphoneos',IPHONEOS_DEPLOYMENT_TARGET='17.0',SWIFT_VERSION='5.0',TARGETED_DEVICE_FAMILY='1,2',CLANG_ENABLE_MODULES='YES',CODE_SIGN_STYLE='Automatic',MARKETING_VERSION='0.4.0',CURRENT_PROJECT_VERSION='1',SWIFT_EMIT_LOC_STRINGS='YES')
 project_config=configs('project',base)
 app_config=configs('app',dict(PRODUCT_NAME='REDLoop',PRODUCT_BUNDLE_IDENTIFIER='com.bbtred.redloop',INFOPLIST_FILE='REDLoop/Info.plist',ASSETCATALOG_COMPILER_APPICON_NAME='AppIcon',ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME='AccentColor',LD_RUNPATH_SEARCH_PATHS=['$(inherited)','@executable_path/Frameworks']))
 ext_config=configs('ext',dict(PRODUCT_NAME='REDLoopExtension',PRODUCT_BUNDLE_IDENTIFIER='com.bbtred.redloop.Extension',INFOPLIST_FILE='REDLoopExtension/Info.plist',APPLICATION_EXTENSION_API_ONLY='YES',SKIP_INSTALL='YES',LD_RUNPATH_SEARCH_PATHS=['$(inherited)','@executable_path/Frameworks','@executable_path/../../Frameworks']))

@@ -1,5 +1,5 @@
 name = "red-loop"
-main = "cloudflare/src/index.js"
+main = "cloudflare/src/worker.js"
 compatibility_date = "2026-11-06"
 workers_dev = true
 
@@ -14,3 +14,14 @@ not_found_handling = "404-page"
 
 [observability]
 enabled = true
+
+[[durable_objects.bindings]]
+name = "JOBS"
+class_name = "RedLoopJobs"
+
+[[migrations]]
+tag = "v1-cloud-jobs"
+new_sqlite_classes = ["RedLoopJobs"]
+
+[ai]
+binding = "AI"

@@ -1,0 +1,19 @@
+# Local browser fixtures: real Worker/SQLite runtime, no remote AI or credentials.
+name = "red-loop-browser-tests"
+main = "cloudflare/src/worker.js"
+compatibility_date = "2026-11-06"
+workers_dev = false
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "404-page"
+
+[[durable_objects.bindings]]
+name = "JOBS"
+class_name = "RedLoopJobs"
+
+[[migrations]]
+tag = "v1-cloud-jobs"
+new_sqlite_classes = ["RedLoopJobs"]

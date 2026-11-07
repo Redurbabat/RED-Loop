@@ -1,6 +1,14 @@
 # RED Loop
 
-RED Loop provides a **working browser-local demo**, a bounded ChatGPT userscript, and a native SwiftUI iOS host with an embedded Safari Web Extension. The web dashboard and native demo do not control other browser tabs.
+RED Loop provides a **private Cloudflare workspace**, an iPhone client, a browser-local demo and a bounded ChatGPT extension. Cloud jobs keep working when the phone is locked or the laptop is off. They create downloadable text/code artifacts and read supported public documentation; they do not control existing ChatGPT chats or the user's computer.
+
+## Cloud jobs on iPhone and web
+
+Open [RED Loop](https://red-loop.redurbabat7.workers.dev/) and choose **Cloud-Aufträge**, or use the native app's Cloud view. Connect using the private workspace token, enter an assignment and choose step/time limits. Track the result, download artifacts, pause, resume or stop. The web console keeps the token only in memory; the iPhone client uses the device Keychain.
+
+Cloudflare Workers AI is the default model provider. Jobs and results persist in a SQLite Durable Object; alarms schedule work independently of the client. A provider outage, an unavailable capability, an ambiguous interruption or a limit produces an explicit status. This is a single-owner preview with bounded storage and execution. [Setup, API and capability details](docs/cloud-jobs.md).
+
+Codemagic's `ios-preview` workflow tests the app and creates an **unsigned IPA** for separate signing. The manual `ios-signed` workflow exports an App Store IPA once Apple identities and both app/extension profiles are configured. A signed TestFlight or appropriately provisioned build is required to install on an iPhone. [Installation and signing](docs/deployment.md).
 
 ## Try the demo locally
 
@@ -37,12 +45,13 @@ The Windows developer package has baseline tests as an actual loaded Chromium ex
 
 Open `ios/REDLoop.xcodeproj` in Xcode on a Mac and select the shared **REDLoop** scheme. The project contains:
 
-- SwiftUI demo dashboard, bounded controls, scenarios, events and privacy information.
+- Private cloud client: connection, job creation, progress, controls and artifact sharing.
+- Separate SwiftUI demo dashboard, bounded controls, scenarios, events and privacy information.
 - Activation/permission troubleshooting for the embedded Safari Web Extension.
 - App, extension and XCTest targets; iOS/iPadOS 17+ deployment target.
 - App icons, adaptive semantic colors, Reduce Motion and Dynamic Type layouts.
 
-The host's start/stop buttons control only its own demo. Activate the extension in **Settings → Apps → Safari → Extensions → RED Loop**, grant `chatgpt.com` access, and start real continuations from the page panel. No background, lock-screen execution or multi-tab automation is promised.
+Cloud controls act on the private server workspace. Demo controls affect only the local demo. For the separate Safari integration, activate the extension in **Settings → Apps → Safari → Extensions → RED Loop**, grant `chatgpt.com` access, and start real continuations from the page panel. Safari background suspension does not affect cloud jobs.
 
 An Apple signing identity and matching **app and extension** provisioning profiles are required for installation on a physical iPhone. This repository contains no signing secrets. See [deployment instructions](docs/deployment.md).
 

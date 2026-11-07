@@ -1,6 +1,6 @@
 # Platform web previews
 
-These screenshots come from the actual deployed dashboard, captured by automated browsers. They do not represent native SwiftUI screenshots or physical device validation.
+These screenshots come from the implemented web dashboard, captured by automated browsers. The current 0.4.0 capture uses a local Worker and intercepted non-sensitive cloud fixtures. They do not represent native SwiftUI screenshots, real provider results or physical device validation.
 
 | Profile | Light | Dark |
 |---|---|---|
@@ -10,3 +10,5 @@ These screenshots come from the actual deployed dashboard, captured by automated
 | Windows desktop, Chromium | [Preview](windows-chromium-light.png) | [Preview](windows-chromium-dark.png) |
 
 [Loaded Windows extension on a local test fixture](windows-extension-fixture.png). The fixture uses simulated chat HTML, with no connection to a live conversation.
+
+Cloud console: [Windows light](cloud-console-windows-chromium-light.png), [Windows dark](cloud-console-windows-chromium-dark.png), [iPhone light](cloud-console-iphone-webkit-light.png), [iPhone dark](cloud-console-iphone-webkit-dark.png). These use local fixture jobs and no real credentials.

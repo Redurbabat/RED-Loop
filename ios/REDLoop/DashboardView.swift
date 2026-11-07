@@ -15,58 +15,46 @@ struct GlassPanel<Content: View>: View {
     }
 }
 
-struct DashboardView: View {
+struct LocalDemoView: View {
     @StateObject private var model = LoopModel()
-    @State private var selectedTab = 0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        TabView(selection: $selectedTab) {
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        Text("BBT RED / RED MORPH").font(.caption.monospaced()).foregroundStyle(.secondary)
-                        Text("Kontrollierter\nFortschritt.").font(.largeTitle.weight(.medium)).tracking(-1)
-                        Label("Demo-Modus · Lokal auf diesem Gerät", systemImage: "circle.inset.filled").font(.caption).foregroundStyle(Morph.accent)
-                        GlassPanel {
-                            HStack { Text("Loop-Steuerung").font(.headline); Spacer(); Text("LOKAL").font(.caption.monospaced()).foregroundStyle(.secondary) }
-                            VStack(spacing: 8) {
-                                Text(model.count, format: .number).font(.system(size: 72, weight: .light, design: .rounded)).monospacedDigit()
-                                    .contentTransition(.numericText()).accessibilityLabel("\(model.count) von \(model.limit) Fortsetzungen")
-                                Text(model.status.rawValue).font(.subheadline)
-                            }.frame(maxWidth: .infinity).padding(.vertical, 16)
-                            ProgressView(value: Double(model.count), total: Double(max(1, model.limit)))
-                                .accessibilityLabel("Fortschritt").accessibilityValue("\(model.count) von \(model.limit)")
-                            Stepper("Limit: \(model.limit)", value: $model.limit, in: 1...50).disabled(model.isRunning)
-                            Picker("Testszenario", selection: $model.scenario) {
-                                ForEach(LoopModel.Scenario.allCases) { scenario in Text(scenario.rawValue).tag(scenario) }
-                            }.disabled(model.isRunning)
-                            if let error = model.errorMessage {
-                                Label(error, systemImage: "exclamationmark.triangle").font(.subheadline).foregroundStyle(Morph.accent)
-                            }
-                            ViewThatFits {
-                                HStack(spacing: 12) { controls }
-                                VStack(spacing: 12) { controls }
-                            }
-                            Button("Zurücksetzen", action: model.reset).frame(minHeight: 44).frame(maxWidth: .infinity)
-                            Text("Simulierte Schritte. Diese App steuert keinen Safari-Tab. Starte echte Fortsetzungen im RED-Loop-Panel auf chatgpt.com.").font(.caption).foregroundStyle(.secondary)
-                        }
-                        GlassPanel {
-                            Text("Aktivität").font(.headline)
-                            if model.events.isEmpty { Text("Dein nächster Test beginnt hier.").foregroundStyle(.secondary) }
-                            ForEach(Array(model.events.enumerated()), id: \.offset) { _, message in
-                                Text(message).font(.subheadline).padding(.vertical, 4)
-                            }
-                        }
-                    }.padding(24).frame(maxWidth: 700).frame(maxWidth: .infinity)
-                }.background(Color("Canvas")).navigationTitle("RED Loop").navigationBarTitleDisplayMode(.inline)
-            }.tabItem { Label("Dashboard", systemImage: "circle.grid.2x2") }.tag(0)
-            NavigationStack { ActivationView() }.tabItem { Label("Safari", systemImage: "safari") }.tag(1)
-            NavigationStack { PrivacyView() }.tabItem { Label("Datenschutz", systemImage: "hand.raised") }.tag(2)
-        }.tint(Morph.accent)
-            .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: model.status)
-            .onChange(of: scenePhase) { _, phase in if phase != .active { model.stop() } }
-            .onChange(of: selectedTab) { _, tab in if tab != 0 { model.stop() } }
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("RED MORPH / LOKALE DEMO").font(.caption.monospaced()).foregroundStyle(.secondary)
+                    Text("Kontrollierter\nFortschritt.").font(.largeTitle.weight(.medium)).tracking(-1)
+                    Label("Simulation auf diesem Gerät", systemImage: "iphone").font(.caption).foregroundStyle(Morph.accent)
+                    GlassPanel {
+                        Text("Loop-Steuerung").font(.headline)
+                        VStack(spacing: 8) {
+                            Text(model.count, format: .number).font(.system(size: 72, weight: .light, design: .rounded)).monospacedDigit()
+                                .contentTransition(.numericText()).accessibilityLabel("\(model.count) von \(model.limit) Fortsetzungen")
+                            Text(model.status.rawValue).font(.subheadline)
+                        }.frame(maxWidth: .infinity).padding(.vertical, 16)
+                        ProgressView(value: Double(model.count), total: Double(max(1, model.limit)))
+                            .accessibilityLabel("Fortschritt").accessibilityValue("\(model.count) von \(model.limit)")
+                        Stepper("Limit: \(model.limit)", value: $model.limit, in: 1...50).disabled(model.isRunning)
+                        Picker("Testszenario", selection: $model.scenario) {
+                            ForEach(LoopModel.Scenario.allCases) { scenario in Text(scenario.rawValue).tag(scenario) }
+                        }.disabled(model.isRunning)
+                        if let error = model.errorMessage { Label(error, systemImage: "exclamationmark.triangle").font(.subheadline).foregroundStyle(Morph.accent) }
+                        ViewThatFits { HStack(spacing: 12) { controls }; VStack(spacing: 12) { controls } }
+                        Button("Zurücksetzen", action: model.reset).frame(minHeight: 44).frame(maxWidth: .infinity)
+                        Text("Diese Demo sendet keine Aufträge. Echte Cloud-Aufträge erstellst du im Tab Aufträge; die Safari-Erweiterung wird separat im Browser bedient.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    GlassPanel {
+                        Text("Demo-Aktivität").font(.headline)
+                        if model.events.isEmpty { Text("Dein nächster Test beginnt hier.").foregroundStyle(.secondary) }
+                        ForEach(Array(model.events.enumerated()), id: \.offset) { _, message in Text(message).font(.subheadline).padding(.vertical, 4) }
+                    }
+                }.padding(24).frame(maxWidth: 700).frame(maxWidth: .infinity)
+            }.background(Color("Canvas")).navigationTitle("Lokale Demo").navigationBarTitleDisplayMode(.inline)
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: model.status)
+        .onChange(of: scenePhase) { _, phase in if phase != .active { model.stop() } }
+        .onDisappear { model.stop() }
     }
     @ViewBuilder private var controls: some View {
         Button(action: { model.start() }) { Label("Demo starten", systemImage: "play.fill").frame(maxWidth: .infinity, minHeight: 44) }
@@ -91,7 +79,7 @@ struct ActivationView: View {
                 Text("Website-Freigabe und Erweiterung prüfen, dann die Seite neu laden. Bei verändertem ChatGPT-Layout kann eine Anpassung erforderlich sein.")
             }
             Section("Klare Grenzen") {
-                Text("Nur der sichtbare aktive Tab läuft. Beim Tabwechsel, Seitenwechsel, Entwurf oder Fehler stoppt RED Loop. Kein Hintergrundbetrieb und keine Ausführung bei gesperrtem iPhone.")
+                Text("Die Safari-Erweiterung ist von Cloud-Aufträgen getrennt. iOS kann Safari im Hintergrund anhalten; bei gesperrtem iPhone ist kein Browserlauf zugesichert. Für Arbeit nach dem Schließen der App Cloud-Aufträge verwenden.")
                 Text("Die native Demo und Safari besitzen getrennte Zähler. Start/Stopp der App gelten ausschließlich für die Demo.")
             }
         }.navigationTitle("Safari aktivieren")
@@ -101,16 +89,20 @@ struct ActivationView: View {
 struct PrivacyView: View {
     var body: some View {
         List {
-            Section("Lokal und begrenzt") {
-                Text("Keine Zugangsdaten, kein Analytics-SDK, keine Konversationen an Cloudflare. Die native Demo hält Zähler und Ereignisse nur im Arbeitsspeicher.")
+            Section("Cloud-Aufträge") {
+                Text("Beim Erstellen eines Auftrags werden Titel und Auftragstext an deinen RED-Loop-Server gesendet. Der Server speichert Auftrag, Schritte und Artefakte; sein konfigurierter KI-Anbieter verarbeitet die Inhalte. Gib nur Daten ein, die du dort verarbeiten lassen möchtest.")
+                Text("Serveradresse und Zugangstoken werden im iOS-Schlüsselbund dieses Geräts gespeichert. Die App enthält keinen KI-Anbieter-Schlüssel und protokolliert keine Zugangstokens. Entfernen der Verbindung löscht keine Serveraufträge.")
+            }
+            Section("Lokale Demo und Safari") {
+                Text("Die lokale Demo hält ihre Zähler und Ereignisse nur im Arbeitsspeicher. Sie überträgt keine Aufträge. Die Safari-Erweiterung steuert separat die ChatGPT-Oberfläche.")
                 Text("Die Erweiterung liest Antworten lokal und speichert Zähler, Limits, deinen Folgetext und die Hintergrund-Einstellung pro Chat im Sitzungsspeicher des Tabs. Der Folgetext wird nach deinem Start über die ChatGPT-Oberfläche an ChatGPT gesendet.")
             }
             Section("Deine Kontrolle") {
-                Text("Expliziter Start, maximal 50 Fortsetzungen, jederzeit Stopp. Vorhandene Eingaben werden geschützt. Die Nutzung verbraucht ChatGPT-Kontingent und unterliegt den dort geltenden Bedingungen.")
+                Text("Cloud-Aufträge starten ausdrücklich mit höchstens 50 Schritten und 480 Minuten. Sie laufen serverseitig nach dem Schließen der App weiter. Pause, Fortsetzen und Stoppen sind Serveraktionen. Die Nutzung des eingerichteten KI-Dienstes kann dessen Kontingent verbrauchen.")
                 Text("Diese Testversion ist auf einem echten iPhone noch nicht verifiziert.")
             }
         }.navigationTitle("Datenschutz")
     }
 }
 
-#Preview { DashboardView() }
+#Preview { LocalDemoView() }

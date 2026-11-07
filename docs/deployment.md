@@ -16,9 +16,9 @@ npm run deploy
 
 If auth expired, run `npx wrangler login` in a local terminal. For a slow browser flow use `npx wrangler login --device --browser=false --scopes account:read user:read workers:write workers_scripts:write workers_routes:write`. The CLI automatically adds its required offline scope. Keep credentials in Wrangler's local secure configuration or CI secrets, never the repository.
 
-`wrangler.toml` declares the Worker entry, Assets binding to `dist/`, `workers_dev`, all-request security headers and observability. Deployment is explicitly performed from the feature branch; the GitHub `main` branch is not changed. Wrangler prints the real URL and version ID. Verify `/health` returns version `0.2.0`, mode `local-demo`, and `storesConversations: false`; the old endpoint's `kind: static-preview` means old code is still deployed.
+`wrangler.toml` declares the Worker entry, Assets binding to `dist/`, `workers_dev`, all-request security headers and observability. Work is prepared and tested on `codex/red-loop-testable-preview`. The user explicitly requested publishing the completed cloud-app changes to `main` on 2026-11-07. Wrangler prints the real URL and version ID. Verify `/health` returns version `0.4.0`, mode `cloud-jobs-and-local-demo`, `storesJobs: true` and `storesConversations: false`. Health describes capabilities; authenticated `/api/v1/status` verifies the configured provider. The old endpoint's `kind: static-preview` means old code is still deployed.
 
-The demo has no server-side session, chat relay, API credential or database. Local development: `npm run dev`, then `http://127.0.0.1:8787`.
+The local demo remains credential-free. Version 0.4.0 additionally includes a private cloud API, Workers AI binding and SQLite Durable Object. Before deploying that version configure the `RED_LOOP_TOKEN` secret; clients use it to access stored jobs. See [cloud configuration and API](cloud-jobs.md). Local development: `npm run dev`, then `http://127.0.0.1:8787`.
 
 ## Windows extension
 
@@ -31,7 +31,7 @@ This is a tested local developer package, not a store submission. A managed brow
 1. Sign into Codemagic and add/connect `Redurbabat/RED-Loop` if not already connected.
 2. Select branch `codex/red-loop-testable-preview`, configuration `codemagic.yaml`, workflow **ios-preview**.
 3. Start a build. It runs `scripts/ios-ci.sh`: detect/list the committed Xcode project and shared scheme, select an available iPhone simulator, execute XCTest, then archive a generic unsigned iOS app including the extension.
-4. Download `REDLoopTests.xcresult`, simulator `.app`, logs and unsigned `.xcarchive` from the build artifacts. An unsigned archive cannot be installed directly on an iPhone.
+4. Download `REDLoopTests.xcresult`, simulator `.app`, logs, unsigned `.xcarchive` and `REDLoop-unsigned.ipa` from the build artifacts. The IPA is packaged for separate signing; it cannot be installed directly on an iPhone without an appropriate signature/provisioning.
 
 The project has no third-party Swift dependencies or XcodeGen installation requirement. Xcode is required; Windows cannot run these build commands. GitHub Actions contains the equivalent optional macOS validation path, but an account Actions budget block may prevent the runner from starting.
 
@@ -56,7 +56,7 @@ Open `ios/REDLoop.xcodeproj`, choose REDLoop, select an iPhone simulator and run
 
 `python3 scripts/generate-ios-project.py` regenerates the committed project only when sources/targets change. `scripts/generate-icons.ps1` regenerates the typographic R artwork on Windows. Neither is necessary to build the committed project.
 
-After installation: Settings → Apps → Safari → Extensions → RED Loop, enable and grant website access. On iOS versions where Safari is listed at Settings root, open Safari there. The host cannot grant permissions for the user. Keep Safari visible and start the loop from its on-page panel.
+After installation, open the Cloud view and connect the HTTPS server with your private token. Jobs continue on the server when the app is closed. For the separate Safari feature: Settings → Apps → Safari → Extensions → RED Loop, enable and grant website access. On iOS versions where Safari is listed at Settings root, open Safari there. The host cannot grant permissions for the user. Start Safari continuations from the on-page panel.
 
 ## Manual device acceptance
 

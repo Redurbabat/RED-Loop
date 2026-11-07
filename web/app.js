@@ -1,4 +1,5 @@
 import {Loop} from './loop.js';
+import {CloudConsole} from './cloud-console.js';
 const $ = s => document.querySelector(s);
 const labels = {ready:'Bereit für deinen nächsten Schritt', running:'Demo läuft', stopped:'Gestoppt', completed:'Limit erreicht', error:'Sicher gestoppt'};
 const empty = $('.empty').cloneNode(true);
@@ -28,6 +29,7 @@ function render(state) {
   else $('#messages').replaceChildren(empty.cloneNode(true));
 }
 const loop = new Loop(render);
+const cloudConsole = new CloudConsole(document);
 $('#start').addEventListener('click', () => { if (loop.configure(Number($('#limit').value), $('#scenario').value)) loop.start(); });
 $('#stop').addEventListener('click', () => loop.stop());
 $('#reset').addEventListener('click', () => loop.reset());
@@ -35,9 +37,10 @@ $('#limit').addEventListener('change', () => loop.configure(Number($('#limit').v
 document.addEventListener('visibilitychange', () => { if (document.hidden) loop.stop('Gestoppt: Tab nicht sichtbar.'); });
 window.addEventListener('pagehide', () => loop.stop('Seite verlassen.'));
 function navigate() {
-  const name = ['dashboard','integration','privacy'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
+  const name = ['dashboard','cloud','integration','privacy'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
   if (name !== 'dashboard') loop.stop('Gestoppt: Dashboard verlassen.');
   document.querySelectorAll('.view').forEach(view => { view.hidden = view.id !== name; });
+  cloudConsole.setVisible(name === 'cloud');
   document.querySelectorAll('nav a').forEach(a => { if (a.dataset.view === name) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   if (location.hash) { $('#main').focus({preventScroll:true}); window.scrollTo(0,0); }
 }

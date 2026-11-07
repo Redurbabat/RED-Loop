@@ -1,10 +1,11 @@
 {
   "name": "red-loop",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "npm run build && wrangler dev --ip 127.0.0.1",
+    "dev:test": "npm run build && wrangler dev --config wrangler.test.toml --ip 127.0.0.1 --local",
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
     "test": "node --test tests/*.test.mjs",

@@ -20,6 +20,7 @@ workflows:
       - build/*.xcresult
       - build/*.xcarchive
       - build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
+      - build/ios/unsigned/*.ipa
   ios-signed:
     name: RED Loop - signed iPhone IPA (manual, signing required)
     instance_type: mac_mini_m2

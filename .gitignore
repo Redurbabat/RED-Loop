@@ -4,6 +4,7 @@ dist/
 build/
 test-results/
 playwright-report/
+debug.log
 .dev.vars*
 .env*
 *.p12

@@ -14,7 +14,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run check && npm test && npm run dry-run
+      - run: npm run build && npm run check && npm test && npm run dry-run
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:browser
       - uses: actions/upload-artifact@v4
@@ -39,3 +39,4 @@ jobs:
             build/*.xcresult
             build/*.xcarchive
             build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
+            build/ios/unsigned/*.ipa
