@@ -12,6 +12,8 @@ export const scenes = Object.freeze([
   {id:'red-resonance',name:'Red Resonance',category:'Lichtfelder',description:'Ein fokussierter RED-Akzent erzeugt kontrollierte, konzentrische Wellen mit weichem Auslauf.',tags:['Pulse','Rings','Signal']},
   {id:'glass-filament',name:'Glass Filament',category:'Material',description:'Transparente Lichtfilamente spannen ein optisches Gewebe mit sanfter Tiefenreaktion.',tags:['Filament','Glass','Waves']},
   {id:'iris-caustics',name:'Iris Caustics',category:'Lichtfelder',description:'Gebrochene Lichtkonturen formen eine präzise Iris und verschieben sich mit dem Zeiger.',tags:['Caustics','Refraction','Iris']},
+  {id:'prism-veil',name:'Prism Veil',category:'Material',description:'Geschichtete Glasflächen falten sich zu einem dezenten, räumlichen Prisma mit irisierenden Reflexionskanten.',tags:['Glass','Refraction','Panels']},
+  {id:'vector-bloom',name:'Vector Bloom',category:'Lichtfelder',description:'Ein präzises Feld fein gekrümmter Lichtvektoren öffnet sich um einen interaktiven Fokuspunkt.',tags:['Vectors','Focus','Radial']},
 ]);
 
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
@@ -198,6 +200,68 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
     center.addColorStop(0,color(-18,78,.21));center.addColorStop(1,color(0,74,0));
     ctx.fillStyle=center;ctx.fillRect(cx-radius,cy-radius,radius*2,radius*2);
   }
+
+  // Static at rest; dynamic geometry is evaluated only on user interaction or explicit playback.
+  function prismVeil(t){
+    const strips=Math.round(13+config.density*.18);
+    const depth=config.depth/100;
+    const tilt=pointer.inside?pointer.x*.22:0;
+    ctx.lineJoin='round';
+    for(let j=0;j<strips;j++){
+      const v=j/strips;
+      const offset=Math.sin(v*5.7+t*.18)*depth*.17;
+      const left=width*(.12+v*.24+tilt*.10);
+      const right=width*(.83-v*.14+tilt*.07);
+      const top=height*(.09+v*.34+offset);
+      const bottom=height*(.85-v*.13-offset);
+      ctx.beginPath();
+      ctx.moveTo(left,top);
+      ctx.lineTo(right,top+height*(.13+Math.cos(v*4.1+t*.25)*depth*.06));
+      ctx.lineTo(right-width*.06,bottom);
+      ctx.lineTo(left-width*.04,bottom-height*.18);
+      ctx.closePath();
+      ctx.fillStyle=color(-48+j*8,57+v*21,.019+depth*.019);
+      ctx.fill();
+      ctx.lineWidth=.6+v*.8;
+      ctx.strokeStyle=color(-34+j*6,63+v*23,.17+(1-v)*.34);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(left,top);
+      ctx.lineTo(right,top+height*(.13+Math.cos(v*4.1+t*.25)*depth*.06));
+      ctx.lineWidth=.55;
+      ctx.strokeStyle=color(22+j*6,84,.20+depth*.20);
+      ctx.stroke();
+    }
+  }
+  function vectorBloom(t){
+    const rays=Math.round(54+config.density*1.2),depth=config.depth/100;
+    const cx=width*(.5+(pointer.inside?pointer.x*.12:0));
+    const cy=height*(.5+(pointer.inside?pointer.y*.12:0));
+    const span=Math.min(width,height)*.43;
+    ctx.lineCap='round';
+    for(let i=0;i<rays;i++){
+      const angle=TAU*i/rays;
+      const wave=Math.sin(angle*6+t*.32)*depth*.11;
+      const bend=Math.sin(angle*3.2-t*.21)*depth*.075;
+      const inner=span*(.07+(.5+.5*Math.sin(i*2.37))*depth*.12);
+      const outer=span*(.59+(.5+.5*Math.sin(i*.73+t*.14))*.28);
+      const ax=cx+Math.cos(angle)*inner;
+      const ay=cy+Math.sin(angle)*inner*.82;
+      const bx=cx+Math.cos(angle+wave)*outer;
+      const by=cy+Math.sin(angle+wave)*outer*.82;
+      const mx=cx+Math.cos(angle+bend)*outer*.53;
+      const my=cy+Math.sin(angle+bend)*outer*.49;
+      ctx.beginPath();ctx.moveTo(ax,ay);ctx.quadraticCurveTo(mx,my,bx,by);
+      const intensity=(Math.sin(angle*2.6+t*.15)+1)*.5;
+      ctx.lineWidth=.55+intensity*.62;
+      ctx.strokeStyle=color(i*.82-30,58+intensity*26,.13+intensity*.56);
+      ctx.stroke();
+    }
+    const glow=ctx.createRadialGradient(cx,cy,0,cx,cy,span*.43);
+    glow.addColorStop(0,color(-14,78,.21));glow.addColorStop(1,color(0,68,0));
+    ctx.fillStyle=glow;
+    ctx.beginPath();ctx.arc(cx,cy,span*.43,0,TAU);ctx.fill();
+  }
   function draw(){
     if(destroyed||!width||!height)return;
     paintBackground();
@@ -211,6 +275,8 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
       case 'red-resonance':resonance(t);break;
       case 'glass-filament':filament(t);break;
       case 'iris-caustics':caustics(t);break;
+      case 'prism-veil':prismVeil(t);break;
+      case 'vector-bloom':vectorBloom(t);break;
       default:fold(t);
     }
     ctx.restore();ctx.globalAlpha=1;
@@ -267,11 +333,12 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
   const observer=new ResizeObserver(resize);observer.observe(canvas);
   canvas.addEventListener('pointermove',move,{passive:true});
   canvas.addEventListener('pointerleave',leave);
+  canvas.addEventListener('pointercancel',leave);
   document.addEventListener('visibilitychange',onVisibility);
   media.addEventListener('change',onReduced);
   resize();
   return { configure,setPlaying,resize,
     get running(){return running},get settings(){return {...config}},
-    destroy(){if(destroyed)return;setPlaying(false);destroyed=true;cancelAnimationFrame(frame);cancelAnimationFrame(redrawFrame);observer.disconnect();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);},
+    destroy(){if(destroyed)return;setPlaying(false);destroyed=true;cancelAnimationFrame(frame);cancelAnimationFrame(redrawFrame);observer.disconnect();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);canvas.removeEventListener('pointercancel',leave);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);},
   };
 }

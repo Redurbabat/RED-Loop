@@ -146,3 +146,18 @@ button,input,a{font:inherit}button{cursor:pointer}button:disabled{cursor:not-all
 .ui-loop-sidebar[inert]{pointer-events:none}
 @media(max-width:550px){.ui-loop-viewport-header{gap:5px}.ui-loop-device-buttons button{min-height:44px;padding:7px 8px}.ui-loop-viewport-dots{display:none}}
 @media(prefers-reduced-motion:reduce){.ui-loop-stage,.ui-loop-sidebar,.ui-loop-scene-item{transition:none}}
+
+/* Explicit platform previews; width is simulated, not a native operating-system renderer. */
+.ui-loop-device-buttons{min-width:0;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+.ui-loop-device-buttons button{flex:0 0 auto;white-space:nowrap}
+.ui-loop-viewport-header{min-width:0;overflow:hidden}
+.ui-loop-viewport-dim{flex-shrink:0}
+.ui-loop-stage[data-device=macbook]{width:min(100%,1024px);border-radius:12px}
+.ui-loop-stage[data-device=windows]{width:100%;border-radius:5px}
+.ui-loop-stage[data-device=tablet]{width:min(100%,700px);border-radius:18px}
+.ui-loop-stage[data-device=iphone]{width:min(100%,355px);border-radius:24px}
+.ui-loop-stage[data-device=android]{width:min(100%,390px);border-radius:19px}
+@media(max-width:850px){.ui-loop-viewport-header{justify-content:center}.ui-loop-viewport-dim{display:none}}
+@media(max-width:550px){.ui-loop-viewport-header{padding-inline:7px}.ui-loop-device-buttons{width:100%;justify-content:flex-start}.ui-loop-device-buttons button{min-width:56px}}
+@media(forced-colors:active){.ui-loop-device-buttons button[aria-pressed=true]{outline:2px solid Highlight;outline-offset:-2px}.ui-loop-scene-item[aria-current=true]{outline:2px solid Highlight}}
+@media(prefers-reduced-transparency:reduce){.ui-loop-workspace,.ui-loop-sidebar{backdrop-filter:none;-webkit-backdrop-filter:none}}

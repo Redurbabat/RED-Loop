@@ -8,7 +8,7 @@ test.describe('RED Loop Motion Studio', () => {
   test('catalog search, scene switching and settings remain functional', async ({ page }) => {
     const compact = await page.evaluate(() => matchMedia('(max-width: 850px)').matches)
     if (compact) await page.getByRole('button', { name: 'Katalog' }).click()
-    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(8)
+    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(10)
     await page.locator('#ui-loop-search').fill('Glass Filament')
     await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(1)
     await page.locator('[data-scene="glass-filament"]').click()
@@ -72,4 +72,29 @@ test('export generates a scene-specific PNG download', async ({ page, browserNam
   await page.locator('#ui-loop-save-image').click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('red-loop-spectral-fold.png')
+})
+
+test('five device preview controls remain usable without horizontal page overflow',async({page})=>{
+  for(const device of ['macbook','windows','tablet','iphone','android']){
+    const button=page.locator('.ui-loop-device-buttons button[data-device="'+device+'"]')
+    await button.click()
+    await expect(button).toHaveAttribute('aria-pressed','true')
+    await expect(page.locator('#ui-loop-stage')).toHaveAttribute('data-device',device)
+    const dimensions=await page.evaluate(()=>({
+      width:document.documentElement.scrollWidth,viewport:window.innerWidth,
+      canvas:document.querySelector('#ui-loop-canvas').width
+    }))
+    expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewport+1)
+    expect(dimensions.canvas).toBeGreaterThan(0)
+  }
+})
+test('new Prism Veil and Vector Bloom scenes are selectable and render',async({page})=>{
+  for(const id of ['prism-veil','vector-bloom']){
+    const mobile=await page.evaluate(()=>matchMedia('(max-width:850px)').matches)
+    if(mobile)await page.locator('#ui-loop-mobile-catalog').click()
+    await page.locator('#ui-loop-scene-list button[data-scene="'+id+'"]').click()
+    await expect(page).toHaveURL(new RegExp('scene='+id))
+    const width=await page.locator('#ui-loop-canvas').evaluate(el=>el.width)
+    expect(width).toBeGreaterThan(0)
+  }
 })
