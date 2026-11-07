@@ -1,6 +1,6 @@
 workflows:
   ios-preview:
-    name: RED Loop - simulator tests and unsigned archive
+    name: RED Loop - IPA ohne Apple-Profile (UNSIGNIERT)
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
@@ -22,7 +22,7 @@ workflows:
       - build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
       - build/ios/unsigned/*.ipa
   ios-signed:
-    name: RED Loop - signed iPhone IPA (manual, signing required)
+    name: RED Loop - TestFlight/App Store (Apple-Profile erforderlich)
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:

@@ -37,6 +37,14 @@ The project has no third-party Swift dependencies or XcodeGen installation requi
 
 ## Signed iPhone IPA
 
+### Error: No matching profiles found
+
+`No matching profiles found for bundle identifier "com.bbtred.redloop" and distribution type "app_store"` means Codemagic cannot find an eligible App Store provisioning profile for the signed workflow. This is a signing setup failure, not evidence that Swift compilation failed.
+
+For the profile-free build, start a **new build**, select branch **main**, then workflow **ios-preview — RED Loop - IPA ohne Apple-Profile (UNSIGNIERT)**. It does not declare `ios_signing` or load the signing variable group. Download `REDLoop-unsigned.ipa` from that build's artifacts after tests/archive succeed. Re-running the failed `ios-signed` build keeps the same signing requirement. The unsigned IPA still requires separate signing before iPhone installation.
+
+For App Store/TestFlight, keep **ios-signed — RED Loop - TestFlight/App Store (Apple-Profile erforderlich)** and configure the identities/profiles below. A profile must have the correct bundle identifier, team and App Store distribution type, be unexpired, and match the available signing certificate. The Safari extension needs its own matching profile too. Do not upload credentials to the repository or chat.
+
 The **ios-signed** Codemagic workflow is manual and separate so missing signing does not affect the simulator path.
 
 Required external setup:
