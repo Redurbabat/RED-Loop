@@ -1,0 +1,178 @@
+import {scenes,createMotionEngine} from './motion-engine.js';
+
+const $=selector=>document.querySelector(selector);
+const $$=selector=>[...document.querySelectorAll(selector)];
+const defaults=Object.freeze({density:58,depth:58,speed:42,hue:340});
+const favoriteIds=new Set();
+let active=scenes.find(item=>item.id===new URL(location.href).searchParams.get('scene'))||scenes[0];
+let category='Alle',search='',sourceText='',view='preview';
+const searchInput=$('#ui-loop-search');
+const status=$('#ui-loop-animation-status');
+const play=$('#ui-loop-play');
+const mql=window.matchMedia('(prefers-reduced-motion: reduce)');
+
+const engine=createMotionEngine($('#ui-loop-canvas'),{onStateChange:running=>{
+  play.setAttribute('aria-pressed',String(running));
+  play.textContent=running?'Ⅱ Animation pausieren':'▶ Animation starten';
+  status.textContent=running?'Animation aktiv':'Bewegung pausiert';
+  $('#ui-loop-state').textContent=running?'LIVE ANIMATION':'STATIC PREVIEW';
+}});
+
+function notify(message){
+  const toast=$('#ui-loop-toast');toast.textContent=message;toast.hidden=false;
+  clearTimeout(notify.timeout);notify.timeout=setTimeout(()=>{toast.hidden=true},3000);
+}
+async function copy(text,label){
+  try {
+    if(!navigator.clipboard?.writeText)throw new Error('No clipboard API');
+    await navigator.clipboard.writeText(text);notify(label+' kopiert');
+  } catch {notify('Kopieren nicht erlaubt. Bitte Text manuell markieren.');}
+}
+
+function createButton(scene){
+  const button=document.createElement('button');
+  button.type='button';button.className='ui-loop-scene-item';
+  button.dataset.scene=scene.id;
+  button.setAttribute('aria-current',scene.id===active.id?'true':'false');
+  const icon=document.createElement('span');icon.className='ui-loop-scene-icon';icon.setAttribute('aria-hidden','true');
+  icon.textContent={'spectral-fold':'✧','chromatic-current':'≈','orbit-wake':'◎','satin-ridges':'≋','signal-matrix':'⊞','red-resonance':'◉'}[scene.id];
+  const body=document.createElement('span');body.className='ui-loop-scene-body';
+  const title=document.createElement('strong');title.textContent=scene.name;
+  const subtitle=document.createElement('small');subtitle.textContent=scene.category;
+  body.append(title,subtitle);
+  const arrow=document.createElement('span');arrow.className='ui-loop-scene-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='↗';
+  button.append(icon,body,arrow);
+  button.addEventListener('click',()=>selectScene(scene.id,true));
+  return button;
+}
+function updateCatalog(){
+  const filtered=scenes.filter(item=>(category==='Alle'||item.category===category)&&
+    [item.name,item.category,item.description,...item.tags].join(' ').toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de')));
+  const root=$('#ui-loop-scene-list');
+  root.replaceChildren(...filtered.map(createButton));
+  if(!filtered.length){const empty=document.createElement('p');empty.className='ui-loop-no-results';empty.textContent='Keine passenden Komponenten.';root.append(empty);}
+  $('#ui-loop-result-count').textContent=String(filtered.length).padStart(2,'0');
+  $$('#ui-loop-filters button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.category===category)));
+}
+function selectScene(id,historyChange=false){
+  const next=scenes.find(item=>item.id===id);
+  if(!next)return;
+  active=next;engine.setPlaying(false);engine.configure({scene:id});
+  $('#ui-loop-crumb').textContent=next.name;
+  $('#ui-loop-title').replaceChildren();
+  const words=next.name.split(' ');
+  $('#ui-loop-title').append(document.createTextNode(words.slice(0,-1).join(' ')+' '));
+  const italic=document.createElement('em');italic.textContent=words.at(-1)+'.';$('#ui-loop-title').append(italic);
+  $('#ui-loop-category').textContent=next.category.toUpperCase()+' / LIVE EXPERIMENT';
+  $('#ui-loop-description').textContent=next.description;
+  $('#ui-loop-stage-title').textContent=next.name;
+  $('#ui-loop-stage-index').textContent=String(scenes.indexOf(next)+1).padStart(2,'0')+' / '+String(scenes.length).padStart(2,'0');
+  const fav=favoriteIds.has(id);
+  $('#ui-loop-favorite').setAttribute('aria-pressed',String(fav));
+  $('#ui-loop-favorite').setAttribute('aria-label',fav?'Aus Favoriten entfernen':'Zu Favoriten hinzufügen');
+  $('#ui-loop-favorite').textContent=(fav?'★':'☆')+(fav?' Gemerkt':' Merken');
+  $('#ui-loop-canvas').setAttribute('aria-label',next.description+' Einstellungen über die Regler unterhalb.');
+  if(historyChange){const url=new URL(location.href);url.searchParams.set('scene',id);history.pushState({scene:id},'',url);}
+  updateCatalog();
+}
+
+function initializeFilters(){
+  const categories=['Alle',...new Set(scenes.map(item=>item.category))];
+  const filters=$('#ui-loop-filters');
+  for(const name of categories){const button=document.createElement('button');button.type='button';button.dataset.category=name;button.textContent=name;button.addEventListener('click',()=>{category=name;updateCatalog()});filters.append(button);}
+  updateCatalog();
+}
+searchInput.addEventListener('input',()=>{search=searchInput.value.trim();updateCatalog();});
+searchInput.addEventListener('keydown',event=>{if(event.key==='Escape'){searchInput.value='';search='';updateCatalog();searchInput.blur();}});
+window.addEventListener('keydown',event=>{
+  const typing=event.target instanceof Element&&Boolean(event.target.closest('input,textarea,select,[contenteditable="true"]'));
+  if((event.key==='/'&&!typing&&!event.ctrlKey&&!event.metaKey)||(event.key.toLowerCase()==='k'&&(event.metaKey||event.ctrlKey))){event.preventDefault();searchInput.focus();searchInput.select();$('#ui-loop-sidebar').classList.add('ui-loop-sidebar--open');}
+  if(event.key==='Escape'){$('#ui-loop-sidebar').classList.remove('ui-loop-sidebar--open');$('#ui-loop-mobile-catalog').setAttribute('aria-expanded','false');}
+});
+window.addEventListener('popstate',()=>selectScene(new URL(location.href).searchParams.get('scene')||scenes[0].id));
+
+for(const key of ['density','depth','speed','hue']){
+  const input=$('#ui-loop-'+key),output=$('#ui-loop-'+key+'-output');
+  input.addEventListener('input',()=>{
+    const value=Number(input.value);
+    output.textContent=String(value)+({depth:'%',speed:'%',hue:'°'}[key]||'');
+    engine.configure({[key]:value});
+    $$('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
+  });
+}
+function reset(){
+  engine.setPlaying(false);engine.configure(defaults);
+  for(const [key,value] of Object.entries(defaults)){
+    $('#ui-loop-'+key).value=String(value);
+    $('#ui-loop-'+key+'-output').textContent=String(value)+({depth:'%',speed:'%',hue:'°'}[key]||'');
+  }
+  $$('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===defaults.hue)));
+  notify('Einstellungen zurückgesetzt');
+}
+$('#ui-loop-reset').addEventListener('click',reset);
+play.addEventListener('click',()=>{
+  if(mql.matches){notify('Animation ist durch die Systemeinstellung reduziert.');return;}
+  engine.setPlaying(!engine.running);
+});
+$$('.ui-loop-swatches button').forEach(button=>button.addEventListener('click',()=>{
+  $('#ui-loop-hue').value=button.dataset.hue;
+  $('#ui-loop-hue').dispatchEvent(new Event('input',{bubbles:true}));
+}));
+$('#ui-loop-favorite').addEventListener('click',()=>{
+  if(favoriteIds.has(active.id))favoriteIds.delete(active.id);else favoriteIds.add(active.id);
+  selectScene(active.id);notify(favoriteIds.has(active.id)?'In dieser Sitzung gemerkt':'Aus Merkliste entfernt');
+});
+$('#ui-loop-copy-link').addEventListener('click',()=>{
+  const url=new URL(location.href);url.searchParams.set('scene',active.id);copy(url.toString(),'Link');
+});
+
+$$('.ui-loop-device-buttons button').forEach(button=>button.addEventListener('click',()=>{
+  const device=button.dataset.device;
+  $('#ui-loop-stage').dataset.device=device;
+  $('#ui-loop-dim').textContent=device.toUpperCase();
+  $$('.ui-loop-device-buttons button').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+  window.requestAnimationFrame(engine.resize);
+}));
+
+function updateView(next){
+  view=next;
+  for(const name of ['preview','code','usage']){
+    $('#ui-loop-'+name+'-panel').hidden=next!==name;
+    $('#ui-loop-tab-'+name).setAttribute('aria-pressed',String(next===name));
+  }
+  if(next!=='preview')engine.setPlaying(false);
+  else window.requestAnimationFrame(engine.resize);
+}
+$('#ui-loop-tab-preview').addEventListener('click',()=>updateView('preview'));
+$('#ui-loop-tab-code').addEventListener('click',async()=>{
+  updateView('code');
+  if(sourceText)return;
+  try {const response=await fetch('/motion-engine.js');if(!response.ok)throw new Error('Load failed');sourceText=await response.text();$('#ui-loop-code-source').textContent=sourceText;}
+  catch {$('#ui-loop-code-source').textContent='Der Quellcode konnte nicht geladen werden. Bitte die Seite erneut laden.';}
+});
+$('#ui-loop-tab-usage').addEventListener('click',()=>updateView('usage'));
+$('#ui-loop-copy-source').addEventListener('click',()=>sourceText?copy(sourceText,'Quellcode'):notify('Quellcode ist noch nicht verfügbar'));
+const usage=`import { createMotionEngine } from './motion-engine.js';\n\nconst canvas = document.querySelector('#preview');\nconst engine = createMotionEngine(canvas);\nengine.configure({ scene: 'spectral-fold', density: 58, depth: 58, speed: 42, hue: 340 });\n\n// Animation ausschließlich nach Nutzeraktion starten:\ndocument.querySelector('#play').addEventListener('click', () => {\n  engine.setPlaying(!engine.running);\n});\n\n// Beim Entfernen der Vorschau:\n// engine.destroy();`;
+$('#ui-loop-usage-source').textContent=usage;
+$('#ui-loop-copy-usage').addEventListener('click',()=>copy(usage,'Beispiel'));
+
+function updateMotionPreference(){
+  $('#ui-loop-motion-pref').textContent=mql.matches?'Reduziert':'Standard';
+  play.disabled=mql.matches;
+  if(mql.matches){engine.setPlaying(false);status.textContent='Bewegung systemseitig reduziert';}
+  else if(!engine.running)status.textContent='Bewegung pausiert';
+}
+mql.addEventListener('change',updateMotionPreference);
+updateMotionPreference();
+initializeFilters();selectScene(active.id);
+
+window.addEventListener('pagehide',()=>engine.setPlaying(false));
+const catalogButton=$('#ui-loop-mobile-catalog');
+catalogButton.addEventListener('click',()=>{
+  const open=$('#ui-loop-sidebar').classList.toggle('ui-loop-sidebar--open');
+  catalogButton.setAttribute('aria-expanded',String(open));
+});
+$('#ui-loop-scene-list').addEventListener('click',()=>{
+  $('#ui-loop-sidebar').classList.remove('ui-loop-sidebar--open');
+  catalogButton.setAttribute('aria-expanded','false');
+});
