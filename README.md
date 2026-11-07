@@ -31,7 +31,7 @@ For an evening task, give ChatGPT the initial assignment and wait for its first 
 
 The Windows developer package has baseline tests as an actual loaded Chromium extension against intercepted fixtures, plus the real Edge/live-service follow-up below. A separate physical Chrome check is still outstanding. Safari distribution uses the native host described below.
 
-**Windows live follow-up:** extension v0.2.4 was tested in the user's actual Edge browser against a dedicated live ChatGPT text conversation. A custom multiline message with an empty paragraph was sent twice automatically, ChatGPT answered both and the loop stopped at 2/2. It supports current composer/message markup and excludes cached background conversations. Current checks: 35 unit tests and 14 focused browser checks passed. See [live evidence](docs/windows-live-test.md). The broader historical browser/iOS results refer to the earlier baseline as labeled in the report.
+**Windows verification:** the installed v0.3.0 work preset completed two benign steps in actual Edge/live ChatGPT and stopped at 2/3 on the completion marker. Current v0.3.1 passes 48 unit tests and 17 focused browser checks across full/focused runs. Its isolated native Chromium test records `document.hidden === true` and `document.hasFocus() === false` at the actual send event, then verifies completion stopping. This is separate from the real-service Edge run and from overnight endurance. See [evidence and version boundaries](docs/windows-live-test.md). The broader historical browser/iOS results concern the baseline labeled in the report.
 
 ## Native iPhone/iPad host
 

@@ -1,12 +1,22 @@
 # Windows live test and browser compatibility — 6–7 November 2026
 
+## Verified work cycle and natural background behavior
+
+The installed v0.3.0 extension passed a real Edge/live-service work-preset test: two benign text steps were requested and acknowledged, then the final completion marker stopped the loop at **2/3** with **Auftrag abgeschlossen**. The result remains open in the test tab; its screenshot stays local. This proves live work-preset repetition and completion stopping. Browser control did not establish a hidden Edge document, so that run is not counted as hidden-tab evidence.
+
+Natural background acceptance was verified separately in a disposable Chromium process with the packaged v0.3.1 extension. The test uses its own temporary profile and `connectOverCDP({noDefaults:true})` instead of Playwright's default focus overrides. At the actual send event, **document.hidden was true and document.hasFocus() was false**. One continuation was sent, completion stopped further sends, and the default foreground mode stopped on real focus loss before sending. No user browser/profile or live account was used in those fixtures.
+
+Version 0.3.1 also fixes premature stops: cached errors from another conversation are excluded; ordinary retry advice/quoted error explanations are not service failures; completion/user-input markers count only at the final nonempty answer line. **48 unit tests and 17 focused browser checks passed across full/focused runs**, including these regressions and natural visibility acceptance. In the full browser run 16 passed; the foreground test's unnecessary simultaneous-hidden assertion was corrected to require real focus loss and the corrected case passed. The strict hidden/unfocused assertions remain in the background-send test. No overnight endurance or current iOS compilation is claimed.
+
+The existing unpacked extension files and published ZIP were updated to v0.3.1, Cloudflare deployment `e21cc58e-7207-4c57-81fc-74cd09ef36e0`. Edge must reload the unpacked extension and chat page to activate that update; the real-service screenshot records the v0.3.0 run.
+
 ## Background task mode — browser extension 0.3.0
 
 The user explicitly requested continuation while using other programs/tabs with the browser open. Version 0.3.0 adds an opt-in background checkbox and a work-prompt preset. Foreground mode remains the default. The preset asks for remaining-task work, verification, and standalone completion/user-input markers; requested markers stop the loop after the answer settles. Navigation, drafts, errors and the 1–50 limit still stop execution. This is assistant-reported completion, not independent task verification.
 
-Executed: **41/41 unit tests and 15 distinct focused browser checks across full/focused runs**. Unit checks cover hidden/unfocused operation, foreground stopping, pagehide, per-chat background preference and both stop markers. The actual loaded extension additionally passed completion-marker stopping. An initial attempt to assert natural visibility in automation was invalid because Playwright forces focus/visibility; it is not counted as a background success. Current real Edge background acceptance is pending the installed extension's reload and a live test. The v0.2.4 live result below remains separate.
+Executed for v0.3.0: **41/41 unit tests and 15 distinct focused browser checks across full/focused runs**. Unit checks cover hidden/unfocused operation, foreground stopping, pagehide, per-chat background preference and both stop markers. The actual loaded extension additionally passed completion-marker stopping. An initial attempt to assert natural visibility in automation was invalid because Playwright forces focus/visibility. The later natural-visibility and real Edge results are recorded above. The v0.2.4 live result below remains separate.
 
-Current Cloudflare deployment: `28e630f5-959f-4d2f-b3c4-e33fb35b2c72`. Existing Edge files were updated to v0.3.0. For long runs the PC must remain awake and Edge must keep ChatGPT active; sleeping/suspended pages cannot execute. See [background-work.md](background-work.md). No overnight endurance or current iOS build is claimed.
+The v0.3.0 Cloudflare deployment was `28e630f5-959f-4d2f-b3c4-e33fb35b2c72`. For long runs the PC must remain awake and Edge must keep ChatGPT active; sleeping/suspended pages cannot execute. See [background-work.md](background-work.md). No overnight endurance or current iOS build is claimed.
 
 ## Live custom-text verification — browser extension 0.2.4
 

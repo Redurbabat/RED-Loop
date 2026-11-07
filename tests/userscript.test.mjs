@@ -102,6 +102,67 @@ test('quoted completion markers do not stop work and custom texts without marker
   const f=setup();f.click('.rl-work');f.w.document.querySelector('[data-message-author-role]').textContent='The token [RED_LOOP_FERTIG] is explained here.';f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.click('.rl-reset');
   f.w.document.querySelector('#rl-prompt').value='My text';f.w.document.querySelector('[data-message-author-role]').textContent='[RED_LOOP_FERTIG]';f.click('.rl-start');f.advance(7000);assert.equal(f.sends,2);f.dom.window.close();
 });
+
+for(const [marker,status] of [['[RED_LOOP_FERTIG]','Auftrag abgeschlossen'],['[RED_LOOP_RUECKFRAGE]','Rückfrage']]) {
+  test(`work continues past a nonfinal ${marker} and stops only at the final nonempty line`,()=>{
+    const f=setup();f.click('.rl-work');const answer=f.w.document.querySelector('[data-message-author-role]');
+    answer.textContent='Marker example:\n'+marker+'\nTask A is still open.';f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+    answer.textContent='Another example:\n'+marker+'\nTask B is still open.';f.advance(1500);f.advance(13000);assert.equal(f.sends,2);
+    answer.textContent='Final report.\n  '+marker+'  \n\n';f.advance(1500);f.advance(13000);
+    assert.equal(f.sends,2);assert.match(f.w.document.querySelector('.rl-status').textContent,new RegExp(status));f.dom.window.close();
+  });
+}
+
+test('ordinary retry advice and quoted error explanations do not stop a normal answer',()=>{
+  for(const answer of [
+    'Wir sollten es erneut versuchen und danach das Ergebnis prüfen.',
+    'Please try again after changing this input, then continue the next task.',
+    'The rate limit calculation is part of the implementation.',
+    'Die Meldung „Diese Antwort konnte nicht geladen werden“ wird hier erklärt.',
+    'The text "Something went wrong" is an example, not an active error.'
+  ]) {
+    const f=setup(null,{modern:true});f.w.document.querySelector('[data-markdown-text-style]').textContent=answer;
+    f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1,answer);assert.equal(f.w.document.querySelector('.rl-stop').disabled,false);f.dom.window.close();
+  }
+});
+
+test('complete concrete service failure messages still stop before sending',()=>{
+  for(const answer of [
+    'Something went wrong',
+    'Something went wrong while generating the response. Please try again.',
+    'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
+    'This response could not be loaded. Try again',
+    'Diese Antwort konnte nicht geladen werden\nAntwort neu laden',
+    'Rate limit exceeded'
+  ]) {
+    const f=setup(null,{modern:true});f.w.document.querySelector('[data-markdown-text-style]').textContent=answer;
+    f.click('.rl-start');f.advance(1500);assert.equal(f.sends,0,answer);assert.match(f.w.document.querySelector('.rl-status').textContent,/Antwortfehler/);f.dom.window.close();
+  }
+});
+
+test('typed error UI in the active conversation stops even with unfamiliar wording',()=>{
+  const f=setup(null,{modern:true});const failure=f.w.document.createElement('section');failure.setAttribute('data-chatgpt-selection-conversation-id','test');
+  failure.innerHTML='<div data-testid="conversation-turn-error">Check the service details.</div>';f.w.document.body.append(failure);
+  f.click('.rl-start');f.advance(1500);assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Antwortfehler/);f.dom.window.close();
+});
+
+test('offscreen errors belonging to another conversation cannot stop the active chat',()=>{
+  for(const markup of [
+    '<div data-testid="conversation-turn-error">Service failure</div>',
+    '<div data-testid="error-message">Service failure</div>',
+    '<h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4>\n<p>Diese Antwort konnte nicht geladen werden</p>'
+  ]) {
+    const f=setup(null,{modern:true});const background=f.w.document.createElement('section');background.setAttribute('data-chatgpt-selection-conversation-id','other');
+    background.style.position='absolute';background.style.left='-10000px';background.innerHTML=markup;f.w.document.body.append(background);
+    f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1,markup);f.dom.window.close();
+  }
+});
+
+test('a current loading failure without an assistant body is still detected',()=>{
+  const f=setup(null,{modern:true});const failure=f.w.document.createElement('section');failure.setAttribute('data-chatgpt-selection-conversation-id','test');
+  failure.innerHTML='<h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4>\n<p>Diese Antwort konnte nicht geladen werden</p>\n<button>Antwort neu laden</button>';
+  f.w.document.body.append(failure);f.click('.rl-start');f.advance(1500);assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Antwortfehler/);f.dom.window.close();
+});
 test('current ChatGPT markup supports semantic composer and assistant body',()=>{
   const f=setup(null,{modern:true});f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
   f.advance(15000);assert.equal(f.sends,1);f.dom.window.close();

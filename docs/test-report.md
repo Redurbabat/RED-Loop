@@ -2,7 +2,9 @@
 
 This report distinguishes executed checks from prepared code. A browser viewport profile is not a physical device test; parsing an Xcode project is not compilation.
 
-**Current follow-up — v0.3.0:** the explicitly requested background/task mode passes **41 unit tests and 15 focused browser checks across full/focused runs**. These cover foreground/background gating, pagehide, per-chat settings, completion/user-input markers and the loaded extension's completion stop. Automated natural-tab visibility was not representative because of Playwright focus emulation; real Edge background acceptance is pending reload/live testing. Current deployment: `28e630f5-959f-4d2f-b3c4-e33fb35b2c72`. No overnight endurance or current iOS compilation is claimed. See [background-work.md](background-work.md).
+**Current follow-up — v0.3.1:** **48 unit tests and 17 focused browser checks passed across full/focused runs**. The packaged extension sent from a genuinely hidden, unfocused native Chromium page: the send handler recorded `document.hidden === true` and `document.hasFocus() === false`, then completion stopped further sends. This uses an isolated temporary browser/profile and `connectOverCDP({noDefaults:true})`; no user browser/account or visibility emulation is involved. A foreground test separately verifies stopping on real focus loss. Its initial extra requirement that the unfocused page also be hidden was removed; the corrected test passed. Version 0.3.1 also prevents premature stops from another chat's errors, ordinary retry advice or nonfinal completion markers. Current deployment: `e21cc58e-7207-4c57-81fc-74cd09ef36e0`.
+
+**Real Edge work-preset run — v0.3.0:** two benign text steps were automatically requested and acknowledged, then the final marker stopped the loop at **2/3 — Auftrag abgeschlossen**. The test tab and screenshot stay local. This proves live task continuation/completion; natural hidden-tab acceptance is the separate v0.3.1 fixture result above. No overnight endurance or current iOS compilation is claimed. See [background-work.md](background-work.md) and [windows-live-test.md](windows-live-test.md).
 
 **Prior follow-up — v0.2.4:** configurable automatic follow-up text passed 35 unit tests, 14 focused browser checks and a real installed-extension/live ChatGPT test in Windows Edge. A custom message containing multiple lines and an empty paragraph was sent twice automatically, received two answers and stopped at **2/2 — Limit erreicht**. Version 0.2.4 fixed live paragraph spacing while preserving exact prepared-draft edit protection. See [windows-live-test.md](windows-live-test.md); screenshots remain local.
 
@@ -24,7 +26,7 @@ This report distinguishes executed checks from prepared code. A browser viewport
 | Config/project structure | PASS — JSON/YAML and 3-target pbxproj parsed; plist/privacy/scheme XML parsed; extension source parity verified |
 | Web build | PASS — `npm run build` |
 | Worker build | PASS — `npm run dry-run` with Wrangler 4.158.0 and Assets binding; binding/runtime types generated |
-| Unit tests | PASS — baseline 16/16; current browser follow-up 41/41 via `npm test`, including background gating, work completion, custom paragraphs, active-conversation isolation and asynchronous composer safety |
+| Unit tests | PASS — baseline 16/16; current browser follow-up 48/48 via `npm test`, including background gating, final completion markers, active-chat error isolation, custom paragraphs and asynchronous composer safety |
 | Chromium browser tests | PASS — 8/8 against the deployed URL: bounded controls, scenarios, navigation/history, accessibility in light/system-dark/explicit-dark, Reduced Motion, 320px layout, keyboard, health, real contenteditable insertion and draft preservation on intercepted fixtures |
 | WebKit viewport tests | PASS — 24/24 checks across iPhone, iPad and MacBook profiles using Playwright WebKit 27.2 on Windows. This is not physical Safari validation. |
 | Packaged Windows extension | PASS — 3/3 checks: downloadable ZIP, actual Chromium extension loading/injection, explicit activation, bounded sends, duplicate prevention, stop/reset, draft preservation and automatic light/dark appearance |
@@ -33,7 +35,7 @@ This report distinguishes executed checks from prepared code. A browser viewport
 | Unsigned iOS device archive | PASS — final native source, including embedded Safari extension; not installable without signing |
 | Signed device archive / IPA / TestFlight | **NICHT GETESTET / NOT PRODUCED** — no signing identities or profiles configured |
 | Physical iPhone, iPad, Mac Safari | **NICHT GETESTET** |
-| Live ChatGPT conversation | PASS in Windows Edge with installed v0.2.4: a custom multiline follow-up with an empty paragraph sent twice, answered twice and stopped at 2/2. Earlier v0.2.2 also passed a controlled one-send run. Automated fixtures remain separate from live-service results. |
+| Live ChatGPT conversation | PASS in Windows Edge with installed v0.3.0: two benign work-preset steps acknowledged and stopped at 2/3 on the completion marker. v0.2.4 separately passed a custom multiline two-send/2/2 run. Hidden/unfocused acceptance uses the isolated v0.3.1 native Chromium fixture, not the live Edge run. |
 | VoiceOver and physical iOS website permissions | **NICHT GETESTET** |
 
 ## iOS external services

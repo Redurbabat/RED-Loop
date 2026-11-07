@@ -2,9 +2,12 @@ import {test as base,expect,chromium} from '@playwright/test';
 import path from 'node:path';
 import {unzipSync} from 'fflate';
 import {readFileSync} from 'node:fs';
+import {withNaturalVisibility} from './natural-visibility.mjs';
 const test=base.extend({
-  context:async({},use)=>{
+  naturalVisibility:[false,{option:true}],
+  context:async({naturalVisibility},use)=>{
     const extension=path.resolve('extensions/chromium');
+    if(naturalVisibility) return withNaturalVisibility(chromium,extension,use);
     const context=await chromium.launchPersistentContext('',{channel:'chromium',headless:true,ignoreDefaultArgs:['--disable-extensions'],args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
     await use(context);await context.close();
   }
@@ -91,4 +94,39 @@ test('work preset stops after a returned completion marker',async({page})=>{
   await expect.poll(()=>page.locator('.rl-status').textContent(),{timeout:25000}).toBe('Auftrag abgeschlossen');
   expect(await page.evaluate(()=>window.sends)).toBe(1);await expect(page.locator('.rl-stop')).toBeDisabled();
   await page.screenshot({path:'test-results/background-work-completed.png',fullPage:true});
+});
+
+test.describe('natural background visibility',()=>{
+  test.use({naturalVisibility:true});
+  test.describe.configure({mode:'serial'});
+
+  async function selectOtherTab(page,context,mustBeHidden=true) {
+    const other=await context.newPage();await other.goto('about:blank');await other.bringToFront();
+    await expect.poll(()=>page.evaluate(()=>document.hasFocus())).toBe(false);
+    if(mustBeHidden) await expect.poll(()=>page.evaluate(()=>document.hidden)).toBe(true);
+    return other;
+  }
+
+  test('packaged work loop sends without visibility or focus and stops at completion',async({page,context})=>{
+    await openFixture(page);await page.locator('.rl-work').click();await page.locator('#rl-background').check();await page.locator('#rl-limit').fill('3');
+    await page.evaluate(()=>{window.sendStates=[];document.querySelector('[data-testid="send-button"]').onclick=()=>{
+      window.sends++;window.sendStates.push({hidden:document.hidden,focused:document.hasFocus()});
+      document.querySelector('#prompt-textarea').textContent='';
+      const answer=document.querySelector('[data-message-author-role]');answer.style.whiteSpace='pre-wrap';answer.textContent='Fixture tasks verified.\n[RED_LOOP_FERTIG]';
+    };});
+    await page.locator('.rl-start').click();const other=await selectOtherTab(page,context);
+    await expect.poll(()=>page.evaluate(()=>window.sends),{timeout:30000}).toBe(1);
+    await expect.poll(()=>page.locator('.rl-status').textContent(),{timeout:30000}).toBe('Auftrag abgeschlossen');
+    expect(await page.evaluate(()=>window.sendStates)).toEqual([{hidden:true,focused:false}]);
+    expect(await page.evaluate(()=>({hidden:document.hidden,focused:document.hasFocus()}))).toEqual({hidden:true,focused:false});
+    await page.waitForTimeout(3000);expect(await page.evaluate(()=>window.sends)).toBe(1);
+    await other.close();await page.bringToFront();await page.screenshot({path:'test-results/natural-background-completed.png',fullPage:true});
+  });
+
+  test('foreground default stops on real focus loss before sending',async({page,context})=>{
+    await openFixture(page);await page.locator('.rl-start').click();await expect(page.locator('.rl-stop')).toBeEnabled();
+    const other=await selectOtherTab(page,context,false);
+    await expect.poll(()=>page.locator('.rl-stop').isDisabled()).toBe(true);
+    expect(await page.evaluate(()=>window.sends)).toBe(0);await other.close();
+  });
 });

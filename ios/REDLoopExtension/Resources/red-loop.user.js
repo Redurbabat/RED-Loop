@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.3.0
+// @version      0.3.1
 // @description  Opt-in, bounded automatic continuation for one ChatGPT conversation.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -33,7 +33,7 @@
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Stopp</button><button class="rl-reset" type="button">Reset</button></div>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.3.0 · Nur dieser Chat · Limit 1–50 · Kein automatischer Neustart nach Neuladen</small></div>`;
+    <small>v0.3.1 · Nur dieser Chat · Limit 1–50 · Kein automatischer Neustart nach Neuladen</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -86,11 +86,18 @@
   const lastAssistant = () => messages().at(-1);
   const editor = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].find(el => visible(el) && belongsToChat(el));
   const sendButton = () => [...(editor()?.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].find(visible);
+  const isFailureMessage = value => {
+    // Match complete service failure messages, not advice or quoted error text
+    // inside a normal assistant response.
+    const text = value.replace(/\s+/g, ' ').trim();
+    return /^(?:diese antwort konnte nicht geladen werden|this response could not be loaded|(?:something went wrong|etwas ist schiefgelaufen)(?: while generating (?:the|a) response)?|rate limit(?: exceeded)?|too many requests)[.!…]*(?:\s+(?:please try again|try again|bitte erneut versuchen|bitte versuche es erneut|erneut versuchen|antwort neu laden|reload response)[.!…]*)?$/i.test(text);
+  };
   const hasResponseError = () => {
-    if ([...document.querySelectorAll('[data-testid="conversation-turn-error"],[data-testid="error-message"]')].some(visible)) return true;
-    if (/(?:diese antwort konnte nicht geladen werden|this response could not be loaded)/i.test(lastAssistant()?.innerText || '')) return true;
-    const latest = [...document.querySelectorAll('[data-conversation-role="assistant"]')].filter(visible).at(-1);
-    return /(?:diese antwort konnte nicht geladen werden|this response could not be loaded)/i.test(latest?.parentElement?.innerText || '');
+    if ([...document.querySelectorAll('[data-testid="conversation-turn-error"],[data-testid="error-message"]')].some(el => visible(el) && belongsToChat(el))) return true;
+    if (isFailureMessage(lastAssistant()?.innerText || '')) return true;
+    const latest = [...document.querySelectorAll('[data-conversation-role="assistant"]')].filter(el => visible(el) && belongsToChat(el)).at(-1);
+    const turnText = (latest?.parentElement?.innerText || '').replace(latest?.innerText || '', '');
+    return isFailureMessage(turnText);
   };
   const signature = () => {
     const m = lastAssistant();
@@ -161,10 +168,10 @@
     if (sig !== state.lastMessage) { state.lastMessage = sig; state.lastChange = Date.now(); state.pending = false; return; }
     if (Date.now() - state.lastChange < 6500 || Date.now() - state.lastSubmit < 12000) return;
     const m = lastAssistant();
-    if (!m || /(?:something went wrong|etwas ist schiefgelaufen|rate limit|try again|erneut versuchen)/i.test(m.innerText || '')) return stop('Antwortfehler erkannt');
-    const answerLines = (m.innerText || '').split(/\r?\n/).map(line => line.trim());
-    if (state.prompt.includes('[RED_LOOP_RUECKFRAGE]') && answerLines.includes('[RED_LOOP_RUECKFRAGE]')) return stop('Rückfrage – bitte Chat prüfen');
-    if (state.prompt.includes('[RED_LOOP_FERTIG]') && answerLines.includes('[RED_LOOP_FERTIG]')) return stop('Auftrag abgeschlossen');
+    if (!m) return stop('Antwortfehler erkannt');
+    const finalLine = (m.innerText || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).at(-1);
+    if (state.prompt.includes('[RED_LOOP_RUECKFRAGE]') && finalLine === '[RED_LOOP_RUECKFRAGE]') return stop('Rückfrage – bitte Chat prüfen');
+    if (state.prompt.includes('[RED_LOOP_FERTIG]') && finalLine === '[RED_LOOP_FERTIG]') return stop('Auftrag abgeschlossen');
     const el = editor();
     if (!el) return stop('Eingabefeld nicht gefunden – bitte Oberfläche prüfen');
     if ((el.innerText || el.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
