@@ -10,6 +10,8 @@ export const scenes = Object.freeze([
   {id:'satin-ridges',name:'Satin Ridges',category:'Material',description:'Lichtreflexe streifen über eine virtuelle, gefaltete Oberfläche.',tags:['Fabric','Light','Waves']},
   {id:'signal-matrix',name:'Signal Matrix',category:'Partikel',description:'Eine präzise Punktmatrix biegt sich sanft zur Zeigerposition und kehrt in ihre Ruheposition zurück.',tags:['Grid','Pointer','Responsive']},
   {id:'red-resonance',name:'Red Resonance',category:'Lichtfelder',description:'Ein fokussierter RED-Akzent erzeugt kontrollierte, konzentrische Wellen mit weichem Auslauf.',tags:['Pulse','Rings','Signal']},
+  {id:'glass-filament',name:'Glass Filament',category:'Material',description:'Transparente Lichtfilamente spannen ein optisches Gewebe mit sanfter Tiefenreaktion.',tags:['Filament','Glass','Waves']},
+  {id:'iris-caustics',name:'Iris Caustics',category:'Lichtfelder',description:'Gebrochene Lichtkonturen formen eine präzise Iris und verschieben sich mit dem Zeiger.',tags:['Caustics','Refraction','Iris']},
 ]);
 
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
@@ -24,8 +26,9 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
   if(!ctx) throw new Error('Canvas 2D is unavailable');
   const media=window.matchMedia('(prefers-reduced-motion: reduce)');
   let config={scene:'spectral-fold',density:58,depth:58,speed:42,hue:340};
-  let width=0,height=0,frame=0,clock=0,last=0,running=false,destroyed=false,queued=false;
+  let width=0,height=0,frame=0,redrawFrame=0,clock=0,last=0,running=false,destroyed=false,queued=false;
   let pointer={x:0,y:0,inside:false};
+  let targetPointer={x:0,y:0,inside:false};
 
   function paintBackground(){
     ctx.fillStyle='#0a0e18';ctx.fillRect(0,0,width,height);
@@ -145,6 +148,56 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
     core.addColorStop(0,color(-9,76,.24));core.addColorStop(1,color(-9,67,0));
     ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,spread*.26,0,TAU);ctx.fill();
   }
+  // Distinct, self-authored optical studies. Each remains legible when paused.
+  function filament(t){
+    const strands=Math.round(19+config.density*.31),segments=100;
+    const depth=config.depth/100;
+    const tilt=pointer.inside?pointer.y*.09:0;
+    ctx.lineCap='round';
+    for(let j=0;j<strands;j++){
+      const v=j/(strands-1),layer=Math.sin(v*Math.PI);
+      ctx.beginPath();
+      for(let i=0;i<=segments;i++){
+        const u=i/segments,envelope=Math.sin(u*Math.PI);
+        const twist=Math.sin(u*10.7+t*.52+v*5.3)*Math.cos(u*3.1-v*2.7+t*.17);
+        const x=width*(.065+.87*u+(v-.5)*envelope*.07);
+        const y=height*(.23+v*.54+(twist*depth*.115+tilt)*envelope);
+        if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      ctx.lineWidth=.48+layer*.75;
+      ctx.strokeStyle=color(-38+v*83,61+layer*26,.15+layer*.60);
+      ctx.stroke();
+    }
+    const x=width*(.51+(pointer.inside?pointer.x*.075:0)),y=height*.5;
+    const glow=ctx.createRadialGradient(x,y,0,x,y,Math.min(width,height)*.48);
+    glow.addColorStop(0,color(-12,84,.11));glow.addColorStop(1,color(0,75,0));
+    ctx.fillStyle=glow;ctx.fillRect(0,0,width,height);
+  }
+  function caustics(t){
+    const rings=Math.round(20+config.density*.27),segments=108,depth=config.depth/100;
+    const cx=width*(.5+(pointer.inside?pointer.x*.075:0));
+    const cy=height*(.5+(pointer.inside?pointer.y*.065:0));
+    const radius=Math.min(width*.45,height*.49);
+    ctx.lineCap='round';
+    for(let r=0;r<rings;r++){
+      const v=(r+.7)/rings;
+      ctx.beginPath();
+      for(let i=0;i<=segments;i++){
+        const a=i/segments*TAU;
+        const interference=Math.sin(a*7.0+r*.26+t*.43)*.045+Math.sin(a*3-r*.21-t*.26)*.03;
+        const rr=radius*v*(1+interference*depth);
+        const x=cx+Math.cos(a)*rr*1.3;
+        const y=cy+Math.sin(a)*rr*.79;
+        if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      ctx.lineWidth=(r%6===0?1.05:.55);
+      ctx.strokeStyle=color(-30+r*2.7,60+v*20,(1-v)*.72+.12);
+      ctx.stroke();
+    }
+    const center=ctx.createRadialGradient(cx,cy,0,cx,cy,radius*.3);
+    center.addColorStop(0,color(-18,78,.21));center.addColorStop(1,color(0,74,0));
+    ctx.fillStyle=center;ctx.fillRect(cx-radius,cy-radius,radius*2,radius*2);
+  }
   function draw(){
     if(destroyed||!width||!height)return;
     paintBackground();
@@ -156,14 +209,21 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
       case 'satin-ridges':satin(t);break;
       case 'signal-matrix':matrix(t);break;
       case 'red-resonance':resonance(t);break;
+      case 'glass-filament':filament(t);break;
+      case 'iris-caustics':caustics(t);break;
       default:fold(t);
     }
     ctx.restore();ctx.globalAlpha=1;
   }
-  function renderOnce(){if(queued||running||destroyed)return;queued=true;requestAnimationFrame(()=>{queued=false;draw();});}
+  function renderOnce(){if(queued||running||destroyed)return;queued=true;redrawFrame=requestAnimationFrame(()=>{queued=false;redrawFrame=0;draw();});}
   function tick(now){
     if(!running||destroyed)return;
-    clock+=Math.min((now-last)/1000,.06);last=now;
+    const delta=clamp((now-last)/1000,0,.06);last=now;
+    clock+=delta;
+    const easing=1-Math.exp(-12*delta);
+    pointer.x+=(targetPointer.x-pointer.x)*easing;
+    pointer.y+=(targetPointer.y-pointer.y)*easing;
+    pointer.inside=targetPointer.inside;
     draw();frame=requestAnimationFrame(tick);
   }
   function setPlaying(next){
@@ -188,17 +248,20 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
     if(destroyed)return;
     const rect=canvas.getBoundingClientRect();
     if(rect.width<=0||rect.height<=0)return;
-    const dpr=clamp(window.devicePixelRatio||1,1,2);
+    // Prevent oversize backing buffers on high-DPI desktop and mobile devices.
+    const maxDpr=Math.sqrt(1600000/(rect.width*rect.height));
+    const dpr=Math.min(clamp(window.devicePixelRatio||1,1,2),maxDpr);
     width=rect.width;height=rect.height;
     canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);renderOnce();
   }
   function move(event){
     const rect=canvas.getBoundingClientRect();
-    pointer={x:clamp((event.clientX-rect.left)/rect.width*2-1,-1,1),y:clamp((event.clientY-rect.top)/rect.height*2-1,-1,1),inside:true};
-    renderOnce();
+    if(!rect.width||!rect.height)return;
+    targetPointer={x:clamp((event.clientX-rect.left)/rect.width*2-1,-1,1),y:clamp((event.clientY-rect.top)/rect.height*2-1,-1,1),inside:true};
+    if(!running){pointer={...targetPointer};renderOnce();}
   }
-  function leave(){pointer.inside=false;renderOnce();}
+  function leave(){targetPointer.inside=false;if(!running){pointer.inside=false;renderOnce();}}
   function onVisibility(){if(document.hidden)setPlaying(false);}
   function onReduced(){if(media.matches)setPlaying(false);renderOnce();}
   const observer=new ResizeObserver(resize);observer.observe(canvas);
@@ -209,6 +272,6 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
   resize();
   return { configure,setPlaying,resize,
     get running(){return running},get settings(){return {...config}},
-    destroy(){if(destroyed)return;setPlaying(false);destroyed=true;cancelAnimationFrame(frame);observer.disconnect();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);},
+    destroy(){if(destroyed)return;setPlaying(false);destroyed=true;cancelAnimationFrame(frame);cancelAnimationFrame(redrawFrame);observer.disconnect();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);},
   };
 }
