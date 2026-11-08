@@ -196,3 +196,17 @@ test('view switcher uses accessible tabs rather than unrelated toggle buttons',(
   assert.match(script,/\['ArrowLeft','ArrowRight','Home','End'\]/);
   assert.match(css,/\.ui-loop-tabs button\[aria-selected=true\]/);
 });
+
+test('cross-tab bookmark changes preserve focus with an iterable scene selector',()=>{
+  const script=readFileSync(new URL('../web/motion-studio.js',import.meta.url),'utf8');
+  const eventStart=script.indexOf("window.addEventListener('storage',event=>{");
+  const eventEnd=script.indexOf("$('#ui-loop-favorite').addEventListener('click'",eventStart);
+  assert.ok(eventStart>=0&&eventEnd>eventStart);
+  const handler=script.slice(eventStart,eventEnd);
+  assert.match(handler,/syncMotionFavoritesFromStorageEvent\(/);
+  assert.match(handler,/const replacement=\$\$\('#ui-loop-scene-list button\[data-scene\]'\)\.find\(/,
+    'reselection must enumerate the list rather than use querySelector');
+  assert.doesNotMatch(handler,/const replacement=\$\('#ui-loop-scene-list button\[data-scene\]'\)\.find\(/);
+  assert.doesNotMatch(handler,/setPlaying\(|selectScene\(|saveMotionFavorites\(/,
+    'remote bookmarks must not interrupt playback, navigate or write back');
+});
