@@ -19,6 +19,9 @@
   const MAX_COUNT = 100000;
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 20000;
+  // A used-up quota is not a fault to retry at speed: it is a wait.
+  const MAX_WAITS = 12;
+  const WAIT_DELAY = 600000;
   const MAX_PROMPT_LENGTH = 4000;
   // Set by the native host immediately before injection; unknown in Safari,
   // Edge and Chrome. It carries no credentials and cannot start a run.
@@ -32,7 +35,7 @@
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
   const WORK_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn du eine Rückfrage, Zugangsdaten oder eine Freigabe von mir brauchst, halte an, erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
   const DECIDE_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn eine Entscheidung ansteht, triff selbst die sinnvollste Wahl, nenne sie in einem Satz mit Begründung und arbeite weiter; frage nicht nach. Halte nur an, wenn du etwas brauchst, das ausschließlich ich liefern kann: Zugangsdaten, eine Freigabe für etwas Unumkehrbares oder eine Information, die du nicht erschließen kannst. Dann erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
-  const state = { running: false, count: 0, limit: 10, endless: false, prompt: PROMPT, background: false, autoStart: false, autoRetry: false, autoBlocked: false, retries: 0, retryAt: 0, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '', composeText: '' };
+  const state = { running: false, count: 0, limit: 10, endless: false, prompt: PROMPT, background: false, autoStart: false, autoRetry: false, autoBlocked: false, retries: 0, waits: 0, retryAt: 0, generatingSeen: 0, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '', composeText: '' };
   const key = () => PREFIX + (location.pathname.match(/(?:^|\/)c\/[^/]+/)?.[0] || location.pathname);
   let currentKey = key();
   const root = document.createElement('aside');
@@ -76,13 +79,19 @@
   };
   // `recoverable` marks a stop that a later attempt could get past. A draft,
   // a completion, a question and the limit are never recoverable.
-  const stop = (msg, recoverable) => {
+  const stop = (msg, recoverable, quota) => {
     const wasRunning = state.running;
     state.running = false; state.pending = false; state.composing = false;
     $('.rl-start').disabled = false; $('.rl-stop').disabled = true; $('#rl-limit').disabled = state.endless;
     $('#rl-prompt').disabled = false;
     $('#rl-background').disabled = false; $('.rl-work').disabled = false; $('.rl-decide').disabled = false; $('#rl-endless').disabled = false;
     $('#rl-autostart').disabled = false; $('#rl-retry').disabled = false;
+    if (wasRunning && state.autoRetry && quota && state.waits < MAX_WAITS) {
+      state.waits += 1;
+      state.retryAt = Date.now() + WAIT_DELAY;
+      persist();
+      return status((msg || 'Gestoppt') + ' · wartet 10 Min (' + state.waits + '/' + MAX_WAITS + ')');
+    }
     if (wasRunning && state.autoRetry && recoverable && state.retries < MAX_RETRIES) {
       state.retries += 1;
       state.retryAt = Date.now() + RETRY_DELAY;
@@ -146,6 +155,15 @@
   const lastAssistant = () => messages().at(-1);
   const editor = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].find(el => visible(el) && belongsToChat(el));
   const sendButton = () => [...(editor()?.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].find(visible);
+  // A used-up quota reads like a failure but needs patience, not a retry.
+  const isQuotaMessage = value => {
+    const text = value.replace(/\s+/g, ' ').trim();
+    return /^(?:rate limit(?: exceeded| reached)?|too many requests)[.!…]*/i.test(text) ||
+      /(?:you(?:'ve| have) (?:reached|hit) (?:your|the)[^.]{0,40}(?:limit|cap)|sent too many messages|du hast (?:zu viele nachrichten|dein limit)|limit für [^.]{0,40}erreicht|kontingent (?:ist )?(?:erschöpft|aufgebraucht))/i.test(text);
+  };
+  const hasQuotaNotice = () => [...document.querySelectorAll('[data-message-author-role="assistant"],[data-markdown-text-style="assistant-message"],[data-testid="conversation-turn-error"],[data-testid="error-message"]')]
+    .filter(el => visible(el) && belongsToChat(el))
+    .some(el => isQuotaMessage(el.innerText || ''));
   const isFailureMessage = value => {
     // Match complete service failure messages, not advice or quoted error text
     // inside a normal assistant response.
@@ -203,7 +221,7 @@
     state.composing = false; state.count += 1;
     state.submittedSignature = state.composeSignature; state.awaiting = true;
     state.lastSubmit = Date.now(); state.lastChange = Date.now();
-    state.retries = 0;
+    state.retries = 0; state.waits = 0;
     persist();
     showCounter();
     status('Fortsetzung ' + ratio() + ' gesendet');
@@ -238,13 +256,15 @@
     if (state.count >= MAX_COUNT) return stop('Zähler-Obergrenze erreicht');
     const draft = editor();
     if (draft && (draft.innerText || draft.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
+    if (hasQuotaNotice()) return stop('Kontingent erschöpft', false, true);
     if (hasResponseError()) return stop('Antwortfehler erkannt', true);
-    if (isGenerating()) { status('ChatGPT antwortet …'); return; }
+    // Generation counts as progress, so a long answer is not a stall.
+    if (isGenerating()) { state.generatingSeen = Date.now(); status('ChatGPT antwortet …'); return; }
     const sig = signature();
     if (!sig) return status('Warte auf eine ChatGPT-Antwort …');
     if (state.awaiting) {
       if (sig === state.submittedSignature) {
-        if (Date.now() - state.lastSubmit > 90000) return stop('Keine neue Antwort – bitte ChatGPT prüfen', true);
+        if (Date.now() - Math.max(state.lastSubmit, state.generatingSeen) > 90000) return stop('Keine neue Antwort – bitte ChatGPT prüfen', true);
         return status('Warte auf neue Antwort …');
       }
       state.awaiting = false; state.pending = false;
@@ -293,7 +313,7 @@
     // A fresh attempt gets the full waiting window again; the duplicate guard
     // stays, so an unchanged answer still cannot trigger a second send.
     if (state.awaiting) state.lastSubmit = Date.now();
-    if (manual) { state.autoBlocked = false; state.retries = 0; }
+    if (manual) { state.autoBlocked = false; state.retries = 0; state.waits = 0; }
     state.retryAt = 0;
     persist(); status((state.endless ? 'Endlos aktiv · ' : state.background ? 'Hintergrund aktiv · ' : 'Aktiv · ') + ratio());
   };
@@ -327,7 +347,7 @@
   });
   $('#rl-retry').addEventListener('change', () => {
     if (state.running) return;
-    state.autoRetry = $('#rl-retry').checked; state.retries = 0; persist();
+    state.autoRetry = $('#rl-retry').checked; state.retries = 0; state.waits = 0; persist();
     status(state.autoRetry ? 'Überbrückt Fehler bis zu dreimal' : 'Bereit · ' + ratio());
   });
   $('#rl-endless').addEventListener('change', () => {
@@ -347,7 +367,7 @@
   });
   $('.rl-stop').addEventListener('click', () => {
     // A pause the user asked for stays a pause; nothing restarts it by itself.
-    state.autoBlocked = true; state.retries = 0; state.retryAt = 0;
+    state.autoBlocked = true; state.retries = 0; state.waits = 0; state.retryAt = 0;
     stop('Pausiert · Start setzt fort');
   });
   $('.rl-reset').addEventListener('click', () => {

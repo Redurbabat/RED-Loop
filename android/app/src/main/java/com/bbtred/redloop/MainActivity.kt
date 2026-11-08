@@ -373,6 +373,19 @@ class MainActivity : AppCompatActivity() {
             textSize = 14f
             setPadding(0, dp(4), 0, dp(4))
         })
+        if (active.killCount > 0) {
+            overviewList.addView(TextView(this).apply {
+                text = "Das System hat die App ${active.killCount}× beendet, seit du zuletzt zurückgesetzt hast."
+                textSize = 12f
+                setPadding(0, 0, 0, dp(4))
+            })
+            overviewList.addView(Button(this).apply {
+                text = "Zähler der Systemstopps zurücksetzen"
+                isAllCaps = false
+                minimumHeight = dp(48)
+                setOnClickListener { active.clearKillCount() }
+            })
+        }
         overviewList.addView(TextView(this).apply {
             text = if (active.backgroundLayoutReady) {
                 "Chats, die du nicht ansiehst, laufen weiter."

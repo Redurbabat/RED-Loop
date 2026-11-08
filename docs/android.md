@@ -73,9 +73,15 @@ Neben *Text für offene Aufgaben laden* gibt es **Text: selbst entscheiden**. De
 
 Die Einstellungen pro Chat überleben einen Neustart, weil die App sie neben Adresse und Namen sichert — der Sitzungsspeicher der Seite überlebt das Schließen des WebViews nicht.
 
+### Wenn ChatGPT dichtmacht
+
+Ein erschöpftes Kontingent ist kein Fehler, sondern eine Wartezeit. Der Loop erkennt die entsprechende Meldung, hält an und versucht es — wenn *Fehler überbrücken* an ist — alle zehn Minuten erneut, bis zu zwölfmal. Das deckt rund zwei Stunden ab und verbraucht nicht das Fehler-Budget von drei schnellen Versuchen. Im Panel steht „Kontingent erschöpft · wartet 10 Min (1/12)".
+
+Ebenso zählt eine lange Antwort nicht mehr als Stillstand: solange ChatGPT sichtbar schreibt, läuft die 90-Sekunden-Frist für „keine neue Antwort" nicht.
+
 ## Wenn das System die App beendet
 
-Android kann einen Hintergrundprozess jederzeit beenden, und bisher merktest du das nur daran, dass nichts mehr passierte. Der Dienst hinterlegt jetzt beim Start eine Markierung und löscht sie beim ordentlichen Beenden. Fehlt sie beim nächsten Start und waren Läufe aktiv, meldet die App: **„Läufe wurden vom System gestoppt"** mit der Anzahl und dem Hinweis auf die Freigaben in der Übersicht. Die Chats selbst kommen mit ihrer Unterhaltung zurück; fortgesetzt wird nichts von allein — Start bleibt deine Entscheidung.
+Android kann einen Hintergrundprozess jederzeit beenden, und bisher merktest du das nur daran, dass nichts mehr passierte. Der Dienst hinterlegt jetzt beim Start eine Markierung und löscht sie beim ordentlichen Beenden. Fehlt sie beim nächsten Start und waren Läufe aktiv, meldet die App: **„Läufe wurden vom System gestoppt"** mit der Anzahl und dem Hinweis auf die Freigaben in der Übersicht. Die Meldung zählt mit, zum wievielten Mal das passiert ist, und sagt es ab dem dritten Mal deutlich — ein Tablet, das die App ständig abschießt, erkennst du daran sofort. Die Übersicht zeigt den Zähler und lässt ihn zurücksetzen. Die Chats selbst kommen mit ihrer Unterhaltung zurück; fortgesetzt wird nichts von allein — Start bleibt deine Entscheidung.
 
 ## Chat-Menü und Skriptquelle
 

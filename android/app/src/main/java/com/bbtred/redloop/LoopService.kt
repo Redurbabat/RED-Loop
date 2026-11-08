@@ -36,6 +36,7 @@ class LoopService : Service(), SessionListener {
         private const val CLEAN_SHUTDOWN = "cleanShutdown"
         private const val RUNNING_BEFORE = "runningBefore"
         private const val KILLED_ID = 900
+        private const val KILL_COUNT = "killCount"
     }
 
     inner class LocalBinder : Binder() {
@@ -78,6 +79,8 @@ class LoopService : Service(), SessionListener {
             val killedWith = if (preferences.getBoolean(CLEAN_SHUTDOWN, true)) 0
             else preferences.getInt(RUNNING_BEFORE, 0)
             val resume = killedWith > 0 && preferences.getBoolean("resumeAfterStop", true)
+            val kills = if (killedWith > 0) preferences.getInt(KILL_COUNT, 0) + 1 else preferences.getInt(KILL_COUNT, 0)
+            if (killedWith > 0) preferences.edit().putInt(KILL_COUNT, kills).apply()
             preferences.edit().putBoolean(CLEAN_SHUTDOWN, false).putInt(RUNNING_BEFORE, 0).apply()
             main.post {
                 if (loaded == null) {
@@ -94,7 +97,7 @@ class LoopService : Service(), SessionListener {
                         }
                     }
                 }
-                if (killedWith > 0) announceKilled(killedWith, resume)
+                if (killedWith > 0) announceKilled(killedWith, resume, kills)
                 notifyListener()
                 updateNotification()
             }
@@ -232,19 +235,24 @@ class LoopService : Service(), SessionListener {
             notifyListener()
         }
 
-    private fun announceKilled(count: Int, resumed: Boolean) {
+    /** How often the system has ended the app since the last reset. */
+    val killCount: Int get() = preferences().getInt(KILL_COUNT, 0)
+
+    fun clearKillCount() {
+        preferences().edit().putInt(KILL_COUNT, 0).apply()
+        notifyListener()
+    }
+
+    private fun announceKilled(count: Int, resumed: Boolean, kills: Int) {
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val body = if (resumed) {
-            "Das System hat RED Loop beendet, während $count Lauf/Läufe aktiv waren. " +
-                "Sie werden fortgesetzt, sobald die Unterhaltungen geladen sind. " +
-                "Prüfe in der Übersicht die Freigaben für Hintergrundbetrieb."
-        } else {
-            "Das System hat RED Loop beendet, während $count Lauf/Läufe aktiv waren. " +
-                "Prüfe in der Übersicht die Freigaben für Hintergrundbetrieb."
-        }
+        val tail = if (resumed) "Sie werden fortgesetzt, sobald die Unterhaltungen geladen sind. "
+        else "Starte sie in der App wieder. "
+        val often = if (kills >= 3) "Das ist bereits das $kills. Mal — prüfe in der Übersicht die Freigaben für Hintergrundbetrieb. "
+        else "Prüfe in der Übersicht die Freigaben für Hintergrundbetrieb. "
+        val body = "Das System hat RED Loop beendet, während $count Lauf/Läufe aktiv waren. " + tail + often
         val notification = NotificationCompat.Builder(this, STOPS_CHANNEL)
             .setContentTitle("Läufe wurden vom System gestoppt")
             .setContentText(body)

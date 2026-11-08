@@ -136,8 +136,7 @@ test('complete concrete service failure messages still stop before sending',()=>
     'Something went wrong while generating the response. Please try again.',
     'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
     'This response could not be loaded. Try again',
-    'Diese Antwort konnte nicht geladen werden\nAntwort neu laden',
-    'Rate limit exceeded'
+    'Diese Antwort konnte nicht geladen werden\nAntwort neu laden'
   ]) {
     const f=setup(null,{modern:true});f.w.document.querySelector('[data-markdown-text-style]').textContent=answer;
     f.click('.rl-start');f.advance(1500);assert.equal(f.sends,0,answer);assert.match(f.w.document.querySelector('.rl-status').textContent,/Antwortfehler/);f.dom.window.close();
@@ -450,4 +449,51 @@ test('the native host can preselect both automatic options',()=>{
   assert.equal(plain.w.document.querySelector('#rl-autostart').checked,false,'off unless the host asks');
   assert.equal(plain.w.document.querySelector('#rl-retry').checked,false);
   f.dom.window.close();plain.dom.window.close();
+});
+
+test('a used up quota waits instead of burning the retry budget',()=>{
+  const f=setup(null,{modern:true});
+  const retry=f.w.document.querySelector('#rl-retry');retry.checked=true;retry.dispatchEvent(new f.w.Event('change'));
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='You have reached your GPT-4 limit.';
+  f.advance(1500);
+  const waiting=f.w.document.querySelector('.rl-status').textContent;
+  assert.match(waiting,/Kontingent erschöpft/);
+  assert.match(waiting,/wartet 10 Min \(1\/12\)/);
+  assert.doesNotMatch(waiting,/Versuch/,'the fault budget stays untouched');
+  f.advance(300000);
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,true,'five minutes is too early');
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Wieder da, hier der nächste Schritt.';
+  f.advance(310000);
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,false,'carries on after the wait');
+  f.dom.window.close();
+});
+
+test('a quota notice stops cleanly when bridging is off',()=>{
+  for(const notice of ['Rate limit exceeded','Too many requests','Du hast zu viele Nachrichten gesendet.']) {
+    const f=setup(null,{modern:true});
+    f.w.document.querySelector('[data-markdown-text-style]').textContent=notice;
+    f.click('.rl-start');f.advance(1500);
+    assert.equal(f.sends,0,notice);
+    assert.match(f.w.document.querySelector('.rl-status').textContent,/Kontingent erschöpft/,notice);
+    assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);
+    f.dom.window.close();
+  }
+});
+
+test('a long answer that is still being written is not mistaken for a stall',()=>{
+  const f=setup(null,{modern:true});
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  const generating=f.w.document.createElement('button');
+  generating.setAttribute('aria-label','Stoppen');
+  f.w.document.querySelector('form').append(generating);
+  // Far past the 90 second window that would otherwise call this a stall.
+  for(let i=0;i<8;i++) f.advance(20000);
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,false,'still running after 160 s of writing');
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/antwortet/);
+  generating.remove();
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Die lange Antwort ist fertig.';
+  f.advance(1500);f.advance(13000);
+  assert.equal(f.sends,2,'and continues once the answer is done');
+  f.dom.window.close();
 });
