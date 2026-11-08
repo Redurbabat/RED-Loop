@@ -175,7 +175,7 @@ test('compact catalog backdrop closes on outside pointer tap',async({page})=>{
   await expect(page.locator('#ui-loop-backdrop')).toBeHidden()
 })
 
-test('session favorites can be filtered without stopping the current animation', async ({ page }) => {
+test('favorites can be filtered without stopping the current animation', async ({ page }) => {
   const play = page.locator('#ui-loop-play')
   const favorite = page.locator('#ui-loop-favorite')
   const filter = page.locator('#ui-loop-filters button[data-category="Gemerkte"]')
