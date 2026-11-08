@@ -1,0 +1,32 @@
+# Intentionally minimal runner-health probe.
+# No checkout, npm, Xcode, third-party actions or repository secrets required.
+name: Runner allocation probe
+on:
+  pull_request:
+    paths:
+      - .github/workflows/runner-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu-allocation:
+    name: Ubuntu runner allocation (no checkout)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Prove first step executes
+        shell: bash
+        run: |
+          echo "RED_LOOP_RUNNER_PROBE_STARTED"
+          echo "OS=${RUNNER_OS}, architecture=${RUNNER_ARCH}"
+          echo "This step requires no source checkout or external actions."
+      - name: Publish probe interpretation
+        shell: bash
+        run: |
+          {
+            echo '### RED Loop runner probe'
+            echo 'The GitHub-hosted Ubuntu runner started successfully.'
+            echo 'If the full web job still fails, investigate the project workflow steps.'
+          } >> "$GITHUB_STEP_SUMMARY"
