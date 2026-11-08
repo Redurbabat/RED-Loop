@@ -224,3 +224,15 @@ The **★ Gemerkte (N)** view now restores selected scene bookmarks after refres
 Regression coverage: pure `tests/motion-favorites.test.mjs` verifies round-trip, refresh, removal, storage-disabled fallback, invalid input, and strict ID-only serialization. The real-entrypoint jsdom smoke test checks that toggling the favorite writes/removes the key, and Playwright tests cover an actual reload and simulated denied-storage scenario.
 
 **Release limitations:** full hosted Web/iOS CI and production-device validation are not confirmed while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) remains unresolved.
+
+## Live bookmark synchronization across open tabs (November 2026)
+
+When RED Morph is open in multiple tabs of the same browser profile, **bookmark changes now appear in the other tabs immediately**. This also covers removal of the last bookmark and clearing browser site storage. Previously, an already-open tab would keep its outdated in-memory favorites until reloading.
+
+The client listens to the browser's same-origin `storage` event and responds only to the versioned bookmark key `red-loop.motion-studio.favorites.v1` (or a storage-wide clear event). Unrelated storage keys and other storage areas are ignored. The receiving tab validates the incoming IDs against the catalog, deduplicates them and updates its ★ Gemerkte count, active-scene bookmark control and visible category results.
+
+To avoid disturbing keyboard users, a catalog button that currently has focus is replaced with the corresponding new button and re-focused. If that bookmarked scene disappears from a filtered list, focus safely moves to the search input. A remote change **does not call scene selection, restart/pause animation, navigate or write back to storage**, so it cannot create event loops. Changes that do not alter membership cause no catalog rebuild.
+
+No polling, analytics, cloud API, account synchronization or new storage keys are introduced. Disabled browser storage still uses the existing in-memory fallback. Synchronization operates only among tabs sharing the same browser storage partition; it is not synchronization between devices or browsers.
+
+Regression coverage includes `tests/motion-favorites.test.mjs` (cross-tab additions, removals, clear, irrelevant events, malformed IDs and unchanged membership), real-entrypoint startup checks, and Playwright tests with two pages in the same browser context. Hosted CI and physical-device tests remain unverified while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is unresolved.
