@@ -91,3 +91,42 @@ test('UTF-8 filenames and content round-trip through stored ZIP',()=>{
   const unpacked=unpackStoredZip(buildStoredZip(files));
   assert.equal(unpacked.get('README.md'),files[0].content);
 });
+
+test('generated HTML module initializes, toggles playback and cleans up on pagehide',()=>{
+  const html=createMotionStarterFiles('aurora-threads',originalEngine)[0].content;
+  const script=html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script,'starter includes its actual executable module');
+  const runnable=script.replace(
+    /^import \{ createMotionEngine \} from '\.\/motion-engine\.js';\s*/m,'');
+  assert.doesNotMatch(runnable,/^import /m,'module source only imports the bundled engine');
+  let configured=null,playing=false,destroyed=false,cleanup=null;
+  const engine={
+    get running(){return playing},
+    configure(values){configured=values},
+    setPlaying(value){playing=!!value},
+    destroy(){destroyed=true},
+  };
+  const play={textContent:'Animation starten',attrs:{},listeners:[],
+    setAttribute(key,value){this.attrs[key]=value},
+    addEventListener(key,fn){if(key==='click')this.listeners.push(fn)},
+    click(){for(const fn of this.listeners)fn()},
+  };
+  const canvas={};
+  const doc={querySelector:key=>key==='#preview'?canvas:key==='#play'?play:null};
+  new Function('document','createMotionEngine','addEventListener',runnable)(
+    doc,received=>{assert.equal(received,canvas);return engine},
+    (key,fn)=>{if(key==='pagehide')cleanup=fn});
+  assert.deepEqual(configured,{scene:'aurora-threads',density:58,depth:58,speed:42,hue:340});
+  assert.equal(playing,false,'startup remains paused');
+  play.click();
+  assert.equal(playing,true);
+  assert.equal(play.attrs['aria-pressed'],'true');
+  assert.equal(play.textContent,'Animation pausieren');
+  play.click();
+  assert.equal(playing,false);
+  assert.equal(play.attrs['aria-pressed'],'false');
+  assert.equal(play.textContent,'Animation starten');
+  assert.equal(typeof cleanup,'function');
+  cleanup();
+  assert.equal(destroyed,true);
+});
