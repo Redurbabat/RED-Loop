@@ -236,3 +236,15 @@ To avoid disturbing keyboard users, a catalog button that currently has focus is
 No polling, analytics, cloud API, account synchronization or new storage keys are introduced. Disabled browser storage still uses the existing in-memory fallback. Synchronization operates only among tabs sharing the same browser storage partition; it is not synchronization between devices or browsers.
 
 Regression coverage includes `tests/motion-favorites.test.mjs` (cross-tab additions, removals, clear, irrelevant events, malformed IDs and unchanged membership), real-entrypoint startup checks, and Playwright tests with two pages in the same browser context. Hosted CI and physical-device tests remain unverified while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is unresolved.
+
+## Two new original optical studies (November 2026)
+
+RED Morph expands its independent Canvas library from ten to **twelve** original studies. Both new entries use the existing renderer infrastructure and its safe settings, rather than copied third-party implementations or licensed component assets.
+
+**Aurora Threads** (`aurora-threads`, Lichtfelder) draws multiple softly layered, deterministic luminous threads. The geometry changes with focus position, material depth, scene hue and animation time. At rest it presents a still woven-light surface, without a permanent glow animation or background timer.
+
+**Mercury Droplets** (`mercury-droplets`, Material) uses original radial-gradient droplet geometry, restrained edge highlights and deterministic spatial placement to suggest reflective liquid metal. The droplets respond to pointer focus, depth and hue. It reuses the same high-DPI, bounded Canvas backing buffer and pause/reduced-motion handling as the original library.
+
+Both studies are available through the Motion Studio catalog, category and name search, copyable usage format, URL deep links, session/profile favorites, keyboard Canvas interaction, iPhone/Android/tablet/MacBook/Windows responsive web previews, local PNG export and the lazy homepage thumbnails. Their metadata lives in `web/motion-engine.js`; there are no separate or diverging catalog lists.
+
+**Regression verification:** `tests/motion-original-studies.test.mjs` executes the canonical Canvas code in a controlled drawing context for both studies, validates distinct finite geometry, pointer and configuration response, reduced-motion support and complete listener/RAF teardown. Existing catalog and homepage tests were adjusted to twelve studies, and Playwright scenarios were added for scene URLs, thumbnails, material search, actual Canvas dimensions, favorites and compact catalog behavior. A full green hosted CI or real-device visual run is **not** established while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) remains open.
