@@ -178,7 +178,7 @@ class LoopService : Service(), SessionListener {
         _sessions.forEach { session ->
             if (session.parkingLot == null) {
                 session.parkingLot = lot
-                if (session.webView.parent == null) session.detachAndLayout()
+                session.webView?.let { if (it.parent == null) session.detachAndLayout() }
             }
         }
         notifyListener()

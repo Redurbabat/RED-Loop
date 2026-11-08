@@ -34,6 +34,13 @@ for (const required of ['android.permission.FOREGROUND_SERVICE','android.permiss
 assert.ok(!manifestXml.includes('android:usesCleartextTraffic="true"'),'The Android app must stay HTTPS only');
 for (const source of ['LoopState.kt','ScriptSource.kt','ChatSession.kt','LoopService.kt','MainActivity.kt','OverlayHost.kt','BootReceiver.kt'])
   await readFile(`android/app/src/main/java/com/bbtred/redloop/${source}`,'utf8');
+// A chat gives its view back under memory pressure, so webView is nullable.
+// Nothing outside ChatSession may dereference it directly.
+for (const source of ['LoopService.kt','MainActivity.kt','BootReceiver.kt','OverlayHost.kt']) {
+  const text=await readFile(`android/app/src/main/java/com/bbtred/redloop/${source}`,'utf8');
+  const direct=text.split('\n').map((line,index)=>({line,index})).filter(({line})=>/\.webView\.[A-Za-z]/.test(line));
+  assert.equal(direct.length,0,`${source}: webView is nullable outside ChatSession, use ?. or let — line ${direct[0]?.index+1}: ${direct[0]?.line.trim()}`);
+}
 await readFile('android/gradle/wrapper/gradle-wrapper.jar');
 console.log('Android manifest, resources, sources and Gradle wrapper checked. This is not an Android build.');
 console.log('JavaScript syntax, JSON, YAML, Xcode project structure and shared extension source checked. This is not an iOS build.');
