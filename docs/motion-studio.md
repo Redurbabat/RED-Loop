@@ -82,7 +82,7 @@ Local pre-commit validation performed for this contribution: `node --check` on b
 
 ## Shareable presets and PNG snapshots
 
-The **Preset-Link kopieren** action includes the current scene, density, depth, speed and hue. Out-of-range or malformed query values fall back to safe numeric values; unknown scenes return to the first study. The address bar is updated on slider commit, scene selection and reset, and Back/Forward restores both scene and controls. Query serialization preserves unrelated parameters.
+The **Preset-Link kopieren** action includes the current scene, density, depth, speed and hue. Out-of-range or malformed query values fall back to safe numeric values; unknown scenes return to the first study. The address bar is updated on slider commit, scene selection and reset, and Back/Forward restores both scene and controls. Share links intentionally contain only the five public visual parameters. Arbitrary query parameters (for example `token`, `state` or `redirect`) and URL fragments are discarded rather than forwarded to another person.
 
 Example URL:
 `/motion-studio.html?scene=glass-filament&density=72&depth=58&speed=42&hue=255`
@@ -112,3 +112,9 @@ Two startup and slider handlers previously called `querySelector('.ui-loop-swatc
 The browser suite's common `beforeEach` now applies to **all** cases, including previously standalone PNG-export and device-switching cases, so tests cannot run against an empty page. In addition to browser assertions, `tests/motion-studio-startup.test.mjs` imports the **actual** browser entrypoint in a jsdom-backed HTML document with mocked Canvas and browser APIs; it checks preset hydration, all 10 catalog entries, both swatch paths, updated URL and generated usage code.
 
 This is a regression repair, not a new animation or native-client feature. Complete GitHub Actions, deployed-site and physical-device checks remain the independent quality gates. Do not treat a successful GitHub merge as a deployment.
+
+## Privacy hardening of preset links (November 2026)
+
+The copied preset URL is built from the current origin and pathname, not the full incoming URL. The serializer has an explicit five-field allowlist: `scene`, `density`, `depth`, `speed`, `hue`. Extra query values, authentication-looking fields and hash fragments are **not included** in copied links or in URL updates after user changes. This avoids accidentally copying unknown URL parameters that might contain private data. Malformed scene identifiers are replaced with the default scene. Existing visual settings are still restored when opening a valid deep link.
+
+Regression coverage: pure Node preset tests (including extra parameter rejection and scene sanitization), entrypoint startup DOM test (URL cleanup after editing a slider), and a real browser test that intercepts clipboard text and verifies the shared URL has no unrelated query values or fragment. The fixes do not alter cloud tokens or job state; they apply only to the public Motion Studio sharing feature.
