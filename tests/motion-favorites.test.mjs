@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   motionFavoritesStorageKey, readMotionFavorites, saveMotionFavorites,
+  syncMotionFavoritesFromStorageEvent,
 } from '../web/motion-favorites.js';
 
 const scenes=['spectral-fold','glass-filament','vector-bloom','iris-caustics'];
@@ -65,4 +66,64 @@ test('stored favorites never include query parameters, settings or unrelated dat
   for(const prohibited of ['density','hue','speed','token','search','query']) {
     assert.equal(raw.includes(prohibited),false);
   }
+});
+
+test('cross-tab storage events update known favorites without writing back',()=>{
+  const storage=createStorage();
+  const favorites=new Set(['spectral-fold']);
+  const event={
+    key:motionFavoritesStorageKey,
+    storageArea:storage,
+    newValue:JSON.stringify(['vector-bloom','glass-filament','vector-bloom','not-a-scene']),
+  };
+  assert.equal(syncMotionFavoritesFromStorageEvent(event,storage,scenes,favorites),true);
+  assert.deepEqual([...favorites],['vector-bloom','glass-filament']);
+  assert.equal(storage.entries.size,0,'the receiving tab does not write to storage');
+  assert.equal(syncMotionFavoritesFromStorageEvent(event,storage,scenes,favorites),false,'an unchanged event does not trigger re-render');
+});
+
+test('cross-tab sync ignores unrelated keys and different storage areas',()=>{
+  const storage=createStorage();
+  const anotherStorage=createStorage();
+  const favorites=new Set(['iris-caustics']);
+  const incoming=JSON.stringify(['vector-bloom']);
+  assert.equal(syncMotionFavoritesFromStorageEvent({
+    key:'unrelated.setting',storageArea:storage,newValue:incoming,
+  },storage,scenes,favorites),false);
+  assert.equal(syncMotionFavoritesFromStorageEvent({
+    key:motionFavoritesStorageKey,storageArea:anotherStorage,newValue:incoming,
+  },storage,scenes,favorites),false);
+  assert.equal(syncMotionFavoritesFromStorageEvent({
+    key:motionFavoritesStorageKey,storageArea:storage,newValue:incoming,
+  },null,scenes,favorites),false);
+  assert.equal(syncMotionFavoritesFromStorageEvent(null,storage,scenes,favorites),false);
+  assert.deepEqual([...favorites],['iris-caustics']);
+});
+
+test('browser storage clearing and removed last bookmark update other tabs',()=>{
+  const storage=createStorage();
+  const favorites=new Set(['iris-caustics','vector-bloom']);
+  assert.equal(syncMotionFavoritesFromStorageEvent({
+    key:motionFavoritesStorageKey,storageArea:storage,newValue:null,
+  },storage,scenes,favorites),true);
+  assert.equal(favorites.size,0,'removeItem event clears bookmarks');
+  favorites.add('spectral-fold');
+  assert.equal(syncMotionFavoritesFromStorageEvent({
+    key:null,storageArea:storage,newValue:null,
+  },storage,scenes,favorites),true);
+  assert.equal(favorites.size,0,'localStorage.clear event clears bookmarks');
+});
+
+test('malformed and unknown remote favorite IDs never enter the catalog',()=>{
+  const storage=createStorage();
+  const favorites=new Set(['iris-caustics']);
+  assert.equal(syncMotionFavoritesFromStorageEvent({
+    key:motionFavoritesStorageKey,storageArea:storage,newValue:'{malformed',
+  },storage,scenes,favorites),true);
+  assert.equal(favorites.size,0);
+  assert.equal(syncMotionFavoritesFromStorageEvent({
+    key:motionFavoritesStorageKey,storageArea:storage,
+    newValue:JSON.stringify([null,'vector-bloom','old-removed-scene',42,'vector-bloom']),
+  },storage,scenes,favorites),true);
+  assert.deepEqual([...favorites],['vector-bloom']);
 });

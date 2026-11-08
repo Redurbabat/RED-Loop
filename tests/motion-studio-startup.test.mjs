@@ -176,6 +176,28 @@ test('Motion Studio initializes controls, presets and swatches without an except
     assert.equal(tabs[0].tabIndex, 0)
     assert.equal(tabs[2].tabIndex, -1)
     assert.equal(playButton.getAttribute('aria-pressed'), 'false', 'returning does not auto-play')
+
+    // A second tab changes favorites without a reload or background redraw interrupt.
+    const storageKey = 'red-loop.motion-studio.favorites.v1'
+    const remoteValue = JSON.stringify(['glass-filament','vector-bloom'])
+    const visibleScene = document.querySelector('#ui-loop-scene-list button[data-scene="glass-filament"]')
+    visibleScene.focus()
+    dom.window.localStorage.setItem(storageKey,remoteValue)
+    dom.window.dispatchEvent(new dom.window.StorageEvent('storage',{
+      key:storageKey,newValue:remoteValue,storageArea:dom.window.localStorage,
+    }))
+    assert.equal(favoriteButton.getAttribute('aria-pressed'), 'true', 'remote bookmark updates active scene')
+    assert.match(favoritesFilter.textContent,/Gemerkte \(2\)/)
+    assert.equal(document.activeElement.dataset.scene,'glass-filament',
+      'remote redraw restores focus to the replacement scene entry')
+    assert.equal(playButton.getAttribute('aria-pressed'), 'false', 'sync never starts playback')
+
+    dom.window.localStorage.clear()
+    dom.window.dispatchEvent(new dom.window.StorageEvent('storage',{
+      key:null,newValue:null,storageArea:dom.window.localStorage,
+    }))
+    assert.equal(favoriteButton.getAttribute('aria-pressed'), 'false', 'remote site-data clearing updates favorites')
+    assert.match(favoritesFilter.textContent,/Gemerkte \(0\)/)
   } finally {
     dom.window.close()
     for (const [key, original] of originals) {

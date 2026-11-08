@@ -1,7 +1,7 @@
 import {scenes,createMotionEngine} from './motion-engine.js';
 import {defaultMotionSettings,readMotionPreset,serializeMotionPreset,formatMotionUsage} from './motion-presets.js';
 import {encodeCanvasPng} from './motion-export.js';
-import {readMotionFavorites,saveMotionFavorites} from './motion-favorites.js';
+import {readMotionFavorites,saveMotionFavorites,syncMotionFavoritesFromStorageEvent} from './motion-favorites.js';
 
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
@@ -216,6 +216,20 @@ $$('.ui-loop-swatches button').forEach(button=>button.addEventListener('click',(
   $('#ui-loop-hue').dispatchEvent(new Event('input',{bubbles:true}));
   $('#ui-loop-hue').dispatchEvent(new Event('change',{bubbles:true}));
 }));
+// Keep open tabs in sync after another tab changes bookmarks or clears site data.
+// Never rewrite localStorage here; the browser event is already authoritative.
+window.addEventListener('storage',event=>{
+  const focusedScene=document.activeElement?.closest?.('#ui-loop-scene-list button[data-scene]')?.dataset.scene;
+  if(!syncMotionFavoritesFromStorageEvent(event,favoriteStorage,sceneIds,favoriteIds))return;
+  updateFavoriteButton(active.id);
+  updateCatalog();
+  // Rebuilt buttons are new DOM nodes; avoid dropping keyboard focus.
+  if(focusedScene){
+    const replacement=$$('#ui-loop-scene-list button[data-scene]').find(button=>button.dataset.scene===focusedScene);
+    (replacement||searchInput).focus();
+  }
+});
+
 $('#ui-loop-favorite').addEventListener('click',()=>{
   if(favoriteIds.has(active.id))favoriteIds.delete(active.id);else favoriteIds.add(active.id);
   // Updating a bookmark must never reselect the scene or stop playback.
