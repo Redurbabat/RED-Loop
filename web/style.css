@@ -27,7 +27,7 @@
 .scene-discovery-search-row input:focus-visible{outline-offset:2px}
 .scene-discovery-search-row p{margin:7px 1px 0;color:var(--muted);font-size:10px}
 .scene-discovery-filters{display:flex;flex-wrap:wrap;gap:7px;margin:18px 0 21px}
-.scene-discovery-filters button{min-height:38px;padding:8px 12px;font-size:11px;border-radius:99px;line-height:1.2;background:transparent;color:var(--muted)}
+.scene-discovery-filters button{min-height:44px;padding:8px 12px;font-size:11px;border-radius:99px;line-height:1.2;background:transparent;color:var(--muted)}
 .scene-discovery-filters button[aria-pressed=true]{border-color:var(--accent);background:var(--soft);color:var(--text)}
 .scene-discovery-meta{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:0 0 12px;border-bottom:1px solid var(--line)}
 .scene-discovery-meta p{margin:0;color:var(--text);font:10px var(--mono)}
@@ -46,5 +46,5 @@
 .scene-discovery-empty button{font-size:12px;font-weight:600}
 @media(max-width:1150px){.scene-discovery-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.scene-discovery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.scene-discovery-heading{align-items:flex-start;flex-wrap:wrap}}
-@media(max-width:550px){.scene-discovery{padding:21px 16px;margin-bottom:18px}.scene-discovery-heading{gap:16px}.scene-discovery-visit{width:100%}.scene-discovery-grid{grid-template-columns:1fr;gap:8px}.scene-discovery-card{min-height:112px;padding:13px}.scene-discovery-meta{flex-direction:column;align-items:flex-start}.scene-discovery-meta span{text-align:left}.scene-discovery-filters{gap:6px}.scene-discovery-filters button{min-height:42px}}
+@media(max-width:550px){.scene-discovery{padding:21px 16px;margin-bottom:18px}.scene-discovery-heading{gap:16px}.scene-discovery-visit{width:100%}.scene-discovery-grid{grid-template-columns:1fr;gap:8px}.scene-discovery-card{min-height:112px;padding:13px}.scene-discovery-meta{flex-direction:column;align-items:flex-start}.scene-discovery-meta span{text-align:left}.scene-discovery-filters{gap:6px}.scene-discovery-filters button{min-height:44px}}
 @media(forced-colors:active){.scene-discovery-card:hover,.scene-discovery-filters button[aria-pressed=true]{border-color:Highlight}}
