@@ -129,3 +129,17 @@ test('cross-platform preview modes and new material variants are independently n
   assert.ok(scenes.find(scene=>scene.id==='prism-veil'&&scene.category==='Material'));
   assert.ok(scenes.find(scene=>scene.id==='vector-bloom'&&scene.category==='Lichtfelder'));
 });
+
+test('catalog collection selectors stay iterable and bookmarks never reselect the scene',()=>{
+  const script=readFileSync(new URL('../web/motion-studio.js',import.meta.url),'utf8');
+  assert.ok(script.includes("$$('#ui-loop-filters button').forEach("),
+    'filter initialization must iterate a NodeList, not a single element');
+  assert.doesNotMatch(script,/(?<!\$)\$\('[^']+'\)\.forEach\(/,
+    'querySelector does not return an iterable collection');
+  assert.match(script,/const categories=\['Alle','Gemerkte'/);
+  const start=script.indexOf("$('#ui-loop-favorite').addEventListener('click'");
+  const end=script.indexOf("$('#ui-loop-copy-link').addEventListener('click'",start);
+  assert.ok(start>=0&&end>start);
+  assert.doesNotMatch(script.slice(start,end),/selectScene\(/,
+    'toggling a bookmark must not interrupt playback');
+});
