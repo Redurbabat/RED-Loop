@@ -72,7 +72,7 @@ function updateCatalog(){
     root.append(empty);
   }
   $('#ui-loop-result-count').textContent=String(filtered.length).padStart(2,'0');
-  $('#ui-loop-filters button').forEach(button=>{
+  $$('#ui-loop-filters button').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.category===category));
     if(button.dataset.category==='Gemerkte'){
       button.textContent='★ Gemerkte ('+favoriteIds.size+')';
