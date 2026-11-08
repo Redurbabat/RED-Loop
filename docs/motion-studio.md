@@ -130,3 +130,20 @@ At browser widths **850px and below**, the catalog behaves as an explicit modal 
 - Reduced-transparency users receive a more opaque backdrop, and the existing reduced-motion preference disables drawer transitions.
 
 Regression coverage includes HTML/control assertions and Playwright scenarios for focus wrap, inert background, closing, outside taps and focus restoration on compact viewports. Since GitHub Actions is currently blocked (issue #9), the new browser tests are committed but their successful hosted execution must still be confirmed.
+
+## Session favorites and quick catalog filter (November 2026)
+
+A dedicated **★ Gemerkte (N)** filter now appears alongside the existing categories. It shows only scenes bookmarked with the existing **Merken** control, including a small star marker and accessible `gemerkt` announcement for each bookmarked catalog entry. The count updates immediately, even if a different category or search filter is currently selected.
+
+- Bookmarks and catalog filters remain **session-only in memory**, with no `localStorage` or server persistence.
+- Favoriting/unfavoriting does **not** reselect the scene, reset its parameters, change its URL or stop a running animation. Switching to a different scene still pauses playback as before.
+- The favorites filter combines with the existing text search. When no scenes are saved, it displays a specific explanation with the `Merken` action; an ordinary unmatched search retains the original no-results message.
+- Both desktop and compact-screen catalogs use the same category and count state. The mobile dialog/accessibility behavior from PR #13 is unchanged.
+
+Regression tests exercise the real entrypoint in jsdom (bookmark count, exact filtered entries, empty state and uninterrupted playback) and Playwright at the configured viewport profiles. The GitHub-hosted CI runner remains blocked under [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9); a merged test is not evidence that CI or production deployment passed.
+
+### Additional catalog startup regression repaired
+
+While exercising the favorites filter, the catalog's **existing** filter-button update was found to call `$('#ui-loop-filters button').forEach(...)`. This uses the one-element `querySelector` helper and throws a `TypeError`, including during initial module setup. It now uses the iterable `$$` (`querySelectorAll`) helper. A separate unit-source regression explicitly rejects this class of erroneous singleton-selector loop, and the real-entrypoint jsdom smoke test now exercises filter initialization and favorites state. This is distinct from the earlier swatch-selector repair.
+
+Validation for this change: production catalog source executed in a controlled JavaScript DOM stub with **15 passing assertions** covering initialization, bookmarked filtering, search combination, empty states, count updates, accessible star labels and no scene reselection; JavaScript syntax of the studio, DOM startup test and browser spec checked. Complete Node/Playwright CI execution remains unverified under issue #9.

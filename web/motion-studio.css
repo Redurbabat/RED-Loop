@@ -47,6 +47,7 @@ button,input,a{font:inherit}button{cursor:pointer}button:disabled{cursor:not-all
 .ui-loop-scene-item[aria-current=true]{background:var(--ui-loop-soft);border-color:color-mix(in srgb,var(--ui-loop-accent) 36%,transparent)}
 .ui-loop-scene-icon{flex:0 0 36px;height:36px;display:grid;place-items:center;border-radius:10px;background:var(--ui-loop-raised);color:var(--ui-loop-accent);font-size:21px;font-weight:300}
 .ui-loop-scene-body{flex:1;min-width:0}.ui-loop-scene-body strong{display:block;font-size:11px;font-weight:600;letter-spacing:.01em;white-space:normal}.ui-loop-scene-body small{display:block;color:var(--ui-loop-faint);font-size:10px;margin-top:3px}
+.ui-loop-scene-favorite-marker{color:var(--ui-loop-accent);font-size:14px;flex:0 0 auto}.ui-loop-scene-favorite-marker[hidden]{display:none}
 .ui-loop-scene-arrow{color:var(--ui-loop-faint);font-size:14px}.ui-loop-scene-item[aria-current=true] .ui-loop-scene-arrow{color:var(--ui-loop-accent)}
 .ui-loop-no-results{color:var(--ui-loop-muted);padding:13px;font-size:12px}
 .ui-loop-sidebar-bottom{margin-top:auto;padding:26px 7px 0;border-top:1px solid var(--ui-loop-line)}

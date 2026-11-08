@@ -37,6 +37,8 @@ function createButton(scene){
   button.type='button';button.className='ui-loop-scene-item';
   button.dataset.scene=scene.id;
   button.setAttribute('aria-current',scene.id===active.id?'true':'false');
+  const isFavorite=favoriteIds.has(scene.id);
+  button.setAttribute('aria-label',scene.name+', '+scene.category+(isFavorite?', gemerkt':''));
   const icon=document.createElement('span');icon.className='ui-loop-scene-icon';icon.setAttribute('aria-hidden','true');
   icon.textContent={'spectral-fold':'✧','chromatic-current':'≈','orbit-wake':'◎','satin-ridges':'≋','signal-matrix':'⊞','red-resonance':'◉','glass-filament':'⌁','iris-caustics':'◌','prism-veil':'◇','vector-bloom':'✺'}[scene.id];
   const body=document.createElement('span');body.className='ui-loop-scene-body';
@@ -44,18 +46,39 @@ function createButton(scene){
   const subtitle=document.createElement('small');subtitle.textContent=scene.category;
   body.append(title,subtitle);
   const arrow=document.createElement('span');arrow.className='ui-loop-scene-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='↗';
-  button.append(icon,body,arrow);
+  const favoriteMarker=document.createElement('span');
+  favoriteMarker.className='ui-loop-scene-favorite-marker';
+  favoriteMarker.setAttribute('aria-hidden','true');
+  favoriteMarker.textContent='★';
+  favoriteMarker.hidden=!isFavorite;
+  button.append(icon,body,favoriteMarker,arrow);
   button.addEventListener('click',()=>selectScene(scene.id,true));
   return button;
 }
 function updateCatalog(){
-  const filtered=scenes.filter(item=>(category==='Alle'||item.category===category)&&
-    [item.name,item.category,item.description,...item.tags].join(' ').toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de')));
+  const filtered=scenes.filter(item=>{
+    const matchesCategory=category==='Alle'||(category==='Gemerkte'?favoriteIds.has(item.id):item.category===category);
+    const matchesSearch=[item.name,item.category,item.description,...item.tags].join(' ').toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de'));
+    return matchesCategory&&matchesSearch;
+  });
   const root=$('#ui-loop-scene-list');
   root.replaceChildren(...filtered.map(createButton));
-  if(!filtered.length){const empty=document.createElement('p');empty.className='ui-loop-no-results';empty.textContent='Keine passenden Komponenten.';root.append(empty);}
+  if(!filtered.length){
+    const empty=document.createElement('p');
+    empty.className='ui-loop-no-results';
+    empty.textContent=category==='Gemerkte'&&!favoriteIds.size
+      ?'Noch nichts gemerkt. Wähle eine Animation und tippe auf „Merken“.'
+      :'Keine passenden Komponenten.';
+    root.append(empty);
+  }
   $('#ui-loop-result-count').textContent=String(filtered.length).padStart(2,'0');
-  $$('#ui-loop-filters button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.category===category)));
+  $$('#ui-loop-filters button').forEach(button=>{
+    button.setAttribute('aria-pressed',String(button.dataset.category===category));
+    if(button.dataset.category==='Gemerkte'){
+      button.textContent='★ Gemerkte ('+favoriteIds.size+')';
+      button.setAttribute('aria-label','Gemerkte Animationen: '+favoriteIds.size);
+    }
+  });
 }
 function currentPreset(){return {scene:active.id,...engine.settings};}
 function presetUrl(){
@@ -82,6 +105,13 @@ function applySettings(values){
   $$('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
   refreshUsage();
 }
+function updateFavoriteButton(id){
+  const isFavorite=favoriteIds.has(id);
+  const button=$('#ui-loop-favorite');
+  button.setAttribute('aria-pressed',String(isFavorite));
+  button.setAttribute('aria-label',isFavorite?'Aus Favoriten entfernen':'Zu Favoriten hinzufügen');
+  button.textContent=(isFavorite?'★':'☆')+(isFavorite?' Gemerkt':' Merken');
+}
 function selectScene(id,historyChange=false){
   const next=scenes.find(item=>item.id===id);
   if(!next)return;
@@ -95,10 +125,7 @@ function selectScene(id,historyChange=false){
   $('#ui-loop-description').textContent=next.description;
   $('#ui-loop-stage-title').textContent=next.name;
   $('#ui-loop-stage-index').textContent=String(scenes.indexOf(next)+1).padStart(2,'0')+' / '+String(scenes.length).padStart(2,'0');
-  const fav=favoriteIds.has(id);
-  $('#ui-loop-favorite').setAttribute('aria-pressed',String(fav));
-  $('#ui-loop-favorite').setAttribute('aria-label',fav?'Aus Favoriten entfernen':'Zu Favoriten hinzufügen');
-  $('#ui-loop-favorite').textContent=(fav?'★':'☆')+(fav?' Gemerkt':' Merken');
+  updateFavoriteButton(id);
   $('#ui-loop-canvas').setAttribute('aria-label',next.description+' Einstellungen über die Regler unterhalb.');
   refreshUsage();
   if(historyChange)updateAddress('pushState');
@@ -106,7 +133,7 @@ function selectScene(id,historyChange=false){
 }
 
 function initializeFilters(){
-  const categories=['Alle',...new Set(scenes.map(item=>item.category))];
+  const categories=['Alle','Gemerkte',...new Set(scenes.map(item=>item.category))];
   const filters=$('#ui-loop-filters');
   for(const name of categories){const button=document.createElement('button');button.type='button';button.dataset.category=name;button.textContent=name;button.addEventListener('click',()=>{category=name;updateCatalog()});filters.append(button);}
   updateCatalog();
@@ -149,7 +176,10 @@ $$('.ui-loop-swatches button').forEach(button=>button.addEventListener('click',(
 }));
 $('#ui-loop-favorite').addEventListener('click',()=>{
   if(favoriteIds.has(active.id))favoriteIds.delete(active.id);else favoriteIds.add(active.id);
-  selectScene(active.id);notify(favoriteIds.has(active.id)?'In dieser Sitzung gemerkt':'Aus Merkliste entfernt');
+  // Updating a bookmark must never reselect the scene or stop playback.
+  updateFavoriteButton(active.id);
+  updateCatalog();
+  notify(favoriteIds.has(active.id)?'In dieser Sitzung gemerkt':'Aus Merkliste entfernt');
 });
 $('#ui-loop-copy-link').addEventListener('click',()=>copy(presetUrl().toString(),'Voreinstellungslink'));
 $('#ui-loop-save-image').addEventListener('click',async()=>{
