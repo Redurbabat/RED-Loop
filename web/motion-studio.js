@@ -263,11 +263,17 @@ $$('.ui-loop-device-buttons button').forEach(button=>button.addEventListener('cl
   window.requestAnimationFrame(engine.resize);
 }));
 
+const viewNames=['preview','code','usage'];
 function updateView(next){
+  if(!viewNames.includes(next))return;
   view=next;
-  for(const name of ['preview','code','usage']){
-    $('#ui-loop-'+name+'-panel').hidden=next!==name;
-    $('#ui-loop-tab-'+name).setAttribute('aria-pressed',String(next===name));
+  for(const name of viewNames){
+    const selected=next===name;
+    $('#ui-loop-'+name+'-panel').hidden=!selected;
+    const tab=$('#ui-loop-tab-'+name);
+    tab.setAttribute('aria-selected',String(selected));
+    // Keep a single tab in the page's regular Tab order.
+    tab.tabIndex=selected?0:-1;
   }
   if(next!=='preview')engine.setPlaying(false);
   else window.requestAnimationFrame(engine.resize);
@@ -280,6 +286,19 @@ $('#ui-loop-tab-code').addEventListener('click',async()=>{
   catch {$('#ui-loop-code-source').textContent='Der Quellcode konnte nicht geladen werden. Bitte die Seite erneut laden.';}
 });
 $('#ui-loop-tab-usage').addEventListener('click',()=>updateView('usage'));
+$('.ui-loop-tabs').addEventListener('keydown',event=>{
+  if(event.altKey||event.ctrlKey||event.metaKey)return;
+  if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+  const tabs=viewNames.map(name=>$('#ui-loop-tab-'+name));
+  const current=tabs.indexOf(event.target);
+  if(current===-1)return;
+  event.preventDefault();
+  const next=event.key==='Home'?0:event.key==='End'?tabs.length-1
+    :event.key==='ArrowRight'?(current+1)%tabs.length
+    :(current-1+tabs.length)%tabs.length;
+  tabs[next].focus();
+  tabs[next].click();
+});
 $('#ui-loop-copy-source').addEventListener('click',()=>sourceText?copy(sourceText,'Quellcode'):notify('Quellcode ist noch nicht verfügbar'));
 $('#ui-loop-copy-usage').addEventListener('click',()=>copy(refreshUsage(),'Einbaubeispiel'));
 
