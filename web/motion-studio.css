@@ -161,3 +161,25 @@ button,input,a{font:inherit}button{cursor:pointer}button:disabled{cursor:not-all
 @media(max-width:550px){.ui-loop-viewport-header{padding-inline:7px}.ui-loop-device-buttons{width:100%;justify-content:flex-start}.ui-loop-device-buttons button{min-width:56px}}
 @media(forced-colors:active){.ui-loop-device-buttons button[aria-pressed=true]{outline:2px solid Highlight;outline-offset:-2px}.ui-loop-scene-item[aria-current=true]{outline:2px solid Highlight}}
 @media(prefers-reduced-transparency:reduce){.ui-loop-workspace,.ui-loop-sidebar{backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+/* Compact catalog is a dismissible modal; desktop catalog remains a normal sidebar. */
+.ui-loop-backdrop{display:none}
+.ui-loop-backdrop[hidden]{display:none!important}
+@media(max-width:850px){
+  .ui-loop-backdrop:not([hidden]){
+    display:block;
+    position:fixed;
+    inset:74px 0 0;
+    z-index:19;
+    border:0;
+    padding:0;
+    background:rgba(5,9,19,.52);
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  body.ui-loop-modal-open{overflow:hidden}
+  .ui-loop-sidebar[role=dialog]{overscroll-behavior:contain}
+}
+@media(prefers-reduced-transparency:reduce){
+  .ui-loop-backdrop:not([hidden]){background:rgba(5,9,19,.8)}
+}
