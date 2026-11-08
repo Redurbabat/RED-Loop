@@ -23,6 +23,8 @@ Open **http://127.0.0.1:8787**. Choose a limit (1–50), press **Demo starten**,
 
 The responsive RED Morph interface includes light/dark/system appearance, keyboard controls, accessible status/error announcements, progress, bounded activity history, and Reduced Motion support. Demo content stays in tab memory; only the chosen appearance is saved locally.
 
+The **homepage now includes a RED Morph component finder**: search and filter all ten original Canvas studies directly from the dashboard, use the existing browser-local ★ saved scenes for faster access, or open a specific study in Motion Studio with one click. The finder works at phone, tablet, MacBook and Windows web viewport sizes and never sends search terms to the cloud. See [homepage discovery behavior](docs/scene-discovery.md).
+
 ## Real browser integration
 
 **Windows / Edge / Chrome:** [download the ready-to-load extension ZIP](https://red-loop.redurbabat7.workers.dev/red-loop-browser-extension.zip), extract it, open `edge://extensions` or `chrome://extensions`, enable Developer mode and choose **Load unpacked**. Select the extracted folder and reload the ChatGPT tab. A userscript manager is not required for this path. [Detailed Windows instructions](extensions/README.md).
