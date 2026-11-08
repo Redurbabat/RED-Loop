@@ -27,6 +27,12 @@ test('homepage renders all 10 original studies with working deep links and categ
   try{
     const all=doc.querySelectorAll('#scene-discovery-results a[data-scene]');
     assert.equal(all.length,10);
+    const previews=doc.querySelectorAll('#scene-discovery-results canvas[data-scene]');
+    assert.equal(previews.length,10,'each link has a decorative static Canvas preview');
+    for(const canvas of previews){
+      assert.equal(canvas.dataset.scene,canvas.closest('a[data-scene]').dataset.scene);
+      assert.equal(canvas.getAttribute('aria-hidden'),'true');
+    }
     assert.equal(doc.querySelector('#scene-discovery-count').textContent,'10 Komponenten gefunden');
     assert.equal(all[0].getAttribute('href'),'/motion-studio.html?scene=spectral-fold');
     assert.equal(doc.querySelectorAll('#scene-discovery-filters button[data-category]').length,5);
