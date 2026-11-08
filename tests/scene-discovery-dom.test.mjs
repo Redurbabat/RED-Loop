@@ -307,3 +307,100 @@ test('canonical snippet copy handles success and unavailable Clipboard API',asyn
     assert.equal(doc.getElementById('scene-discovery-usage').hidden,false);
   }finally{dom.window.close();}
 });
+
+test('homepage downloads the original starter ZIP without leaving the catalog',async()=>{
+  const {dom,doc}=createPage();
+  try{
+    doc.querySelector('button[data-usage="mercury-droplets"]').click();
+    const engine=readFileSync(new URL('../web/motion-engine.js',import.meta.url),'utf8');
+    const calls=[],urls=[],scheduled=[];
+    dom.window.fetch=async (url,options)=>{
+      calls.push({url,options});
+      return {ok:true,text:async()=>engine};
+    };
+    dom.window.URL.createObjectURL=blob=>{
+      urls.push({blob});
+      return 'blob:starter-download';
+    };
+    dom.window.URL.revokeObjectURL=url=>urls.push({revoked:url});
+    dom.window.setTimeout=callback=>{scheduled.push(callback);return 1};
+    const originalClick=dom.window.HTMLAnchorElement.prototype.click;
+    let downloaded=null;
+    dom.window.HTMLAnchorElement.prototype.click=function(){
+      downloaded={href:this.href,name:this.download,connected:this.isConnected};
+    };
+    try{
+      const download=doc.getElementById('scene-discovery-usage-download');
+      assert.equal(download.disabled,false);
+      download.click();
+      await new Promise(resolve=>setTimeout(resolve,0));
+      assert.deepEqual(calls,[{url:'/motion-engine.js',options:{credentials:'same-origin',cache:'no-store'}}]);
+      assert.equal(downloaded.name,'red-morph-mercury-droplets-starter.zip');
+      assert.equal(downloaded.connected,true);
+      assert.equal(downloaded.href,'blob:starter-download');
+      assert.equal(urls[0].blob.type,'application/zip');
+      assert.ok(urls[0].blob.size>25000);
+      assert.equal(download.disabled,false);
+      assert.equal(download.hasAttribute('aria-busy'),false);
+      assert.match(doc.getElementById('scene-discovery-feedback').textContent,/Starterpaket für Mercury Droplets zum Download vorbereitet/);
+      assert.equal(doc.getElementById('scene-discovery-usage').hidden,false);
+      assert.equal(scheduled.length,1,'object URL is scheduled for release');
+      scheduled[0]();
+      assert.equal(urls[1].revoked,'blob:starter-download');
+    }finally{dom.window.HTMLAnchorElement.prototype.click=originalClick}
+  }finally{dom.window.close();}
+});
+
+test('failed starter download keeps code readable and restores enabled controls',async()=>{
+  const {dom,doc}=createPage();
+  try{
+    doc.querySelector('button[data-usage="aurora-threads"]').click();
+    dom.window.fetch=async()=>({ok:false,status:503});
+    const download=doc.getElementById('scene-discovery-usage-download');
+    download.click();
+    await new Promise(resolve=>setTimeout(resolve,0));
+    assert.equal(download.disabled,false);
+    assert.equal(download.hasAttribute('aria-busy'),false);
+    assert.equal(download.textContent,'Starterpaket (.zip)');
+    assert.match(doc.getElementById('scene-discovery-feedback').textContent,/Starterpaket konnte nicht erstellt werden/);
+    assert.equal(doc.getElementById('scene-discovery-usage').hidden,false);
+    assert.match(doc.getElementById('scene-discovery-usage-text').textContent,/scene: 'aurora-threads'/);
+  }finally{dom.window.close();}
+});
+
+test('starter export keeps scene identity even if user switches scenes mid-download',async()=>{
+  const {dom,doc}=createPage();
+  try{
+    doc.querySelector('button[data-usage="aurora-threads"]').click();
+    let resolveResponse;
+    const engine=readFileSync(new URL('../web/motion-engine.js',import.meta.url),'utf8');
+    let fetches=0;
+    dom.window.fetch=()=>{
+      fetches++;
+      return new Promise(resolve=>resolveResponse=resolve);
+    };
+    dom.window.URL.createObjectURL=()=> 'blob:captured';
+    dom.window.URL.revokeObjectURL=()=>{};
+    dom.window.setTimeout=()=>1;
+    const originalClick=dom.window.HTMLAnchorElement.prototype.click;
+    let name=null;
+    dom.window.HTMLAnchorElement.prototype.click=function(){name=this.download};
+    try{
+      const download=doc.getElementById('scene-discovery-usage-download');
+      download.click();
+      assert.equal(download.disabled,true);
+      assert.equal(download.getAttribute('aria-busy'),'true');
+      download.click();
+      assert.equal(fetches,1,'a second click cannot start a duplicate ZIP');
+      doc.querySelector('button[data-usage="mercury-droplets"]').click();
+      resolveResponse({ok:true,text:async()=>engine});
+      await new Promise(resolve=>setTimeout(resolve,0));
+      assert.equal(name,'red-morph-aurora-threads-starter.zip',
+        'download label remains tied to the scene selected at click time');
+      assert.match(doc.getElementById('scene-discovery-feedback').textContent,/Starterpaket für Aurora Threads/);
+      assert.match(doc.getElementById('scene-discovery-usage-text').textContent,/mercury-droplets/,
+        'changing the visible scene remains possible during export');
+      assert.equal(download.disabled,false);
+    }finally{dom.window.HTMLAnchorElement.prototype.click=originalClick}
+  }finally{dom.window.close();}
+});

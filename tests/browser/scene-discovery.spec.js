@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {readFile} from 'node:fs/promises';
 
 test.beforeEach(async({page})=>{await page.goto('/');});
 
@@ -335,4 +336,38 @@ test('code inspector stays inside phone and desktop viewports',async({page})=>{
     expect(fits).toBe(true);
     await expect(page.locator('#scene-discovery-usage-text')).toContainText("scene: 'glass-filament'");
   }
+});
+
+test('downloads a valid original ZIP starter without leaving the homepage',async({page})=>{
+  await page.locator('#scene-discovery-results button[data-usage="mercury-droplets"]').click();
+  const save=page.locator('#scene-discovery-usage-download');
+  const downloadPromise=page.waitForEvent('download');
+  await save.click();
+  const download=await downloadPromise;
+  expect(download.suggestedFilename()).toBe('red-morph-mercury-droplets-starter.zip');
+  const buffer=await readFile(await download.path());
+  expect(buffer.readUInt32LE(0)).toBe(0x04034b50);
+  expect(buffer.readUInt32LE(buffer.length-22)).toBe(0x06054b50);
+  expect(buffer.includes(Buffer.from('index.html'))).toBe(true);
+  expect(buffer.includes(Buffer.from('motion-engine.js'))).toBe(true);
+  expect(buffer.includes(Buffer.from('README.md'))).toBe(true);
+  expect(buffer.includes(Buffer.from("scene: 'mercury-droplets'"))).toBe(true);
+  await expect(page.locator('#scene-discovery-feedback')).toContainText('Starterpaket für Mercury Droplets zum Download vorbereitet');
+  await expect(save).toBeEnabled();
+  await expect(save).not.toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#scene-discovery-usage')).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test('unavailable engine reports a failed download while preserving selectable code',async({page})=>{
+  await page.locator('#scene-discovery-results button[data-usage="aurora-threads"]').click();
+  await page.route('**/motion-engine.js',route=>route.fulfill({
+    status:503,contentType:'text/plain',body:'Temporarily unavailable',
+  }));
+  const save=page.locator('#scene-discovery-usage-download');
+  await save.click();
+  await expect(page.locator('#scene-discovery-feedback')).toContainText('Starterpaket konnte nicht erstellt werden');
+  await expect(save).toBeEnabled();
+  await expect(save).not.toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#scene-discovery-usage-text')).toContainText("scene: 'aurora-threads'");
 });
