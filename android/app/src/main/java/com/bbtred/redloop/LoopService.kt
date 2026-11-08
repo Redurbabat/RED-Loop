@@ -23,7 +23,7 @@ import androidx.core.app.NotificationManagerCompat
  * supported way to do that on Android; the ongoing notification is what the
  * system requires in return, and it carries the Pause action.
  */
-class LoopService : Service() {
+class LoopService : Service(), SessionListener {
 
     companion object {
         const val ACTION_PAUSE_ALL = "com.bbtred.redloop.PAUSE_ALL"
@@ -32,7 +32,7 @@ class LoopService : Service() {
         private const val STOPS_CHANNEL = "red-loop.stops"
         private const val RUNNING_ID = 1
         private const val WAKE_TAG = "RedLoop::loops"
-        private val PREFERENCES = "red-loop"
+        const val PREFERENCES = "red-loop"
     }
 
     inner class LocalBinder : Binder() {
@@ -65,12 +65,17 @@ class LoopService : Service() {
             val server = preferences.getString("server", ScriptSource.DEFAULT_SERVER)
             val allowCloud = preferences.getBoolean("cloudScript", true)
             val loaded = ScriptSource.load(applicationContext, server, allowCloud)
+            val restored = SessionStore.decode(preferences.getString(SessionStore.KEY, null))
             main.post {
                 if (loaded == null) {
                     scriptError = "Loop-Skript nicht gefunden. Verbindung prüfen."
                 } else {
                     script = loaded
-                    if (_sessions.isEmpty()) addSession()
+                    // Every tab comes back on the conversation it had open.
+                    if (_sessions.isEmpty()) {
+                        if (restored.isEmpty()) addSession()
+                        else restored.forEach { addSession(it.url, it.name) }
+                    }
                 }
                 notifyListener()
                 updateNotification()
@@ -97,11 +102,12 @@ class LoopService : Service() {
         listener = callback
     }
 
-    fun addSession(): ChatSession? {
+    fun addSession(startUrl: String = ChatHosts.START, savedName: String? = null): ChatSession? {
         val loaded = script ?: return null
         if (_sessions.size >= MAX_SESSIONS) return null
-        val session = ChatSession(nextId++, applicationContext, loaded, ::onSessionState)
+        val session = ChatSession(nextId++, applicationContext, loaded, startUrl, savedName, this)
         _sessions.add(session)
+        persistSessions()
         notifyListener()
         updateNotification()
         return session
@@ -111,17 +117,29 @@ class LoopService : Service() {
         if (!_sessions.remove(session)) return
         session.destroy()
         refreshWakeLock()
+        persistSessions()
         notifyListener()
         updateNotification()
     }
 
     fun pauseAll() = _sessions.forEach { it.pause() }
 
-    private fun onSessionState(session: ChatSession, previous: LoopState, current: LoopState) {
+    override fun onState(session: ChatSession, previous: LoopState, current: LoopState) {
         refreshWakeLock()
         StopClassifier.notice(previous, current, session.title)?.let { announce(session.id, it) }
         notifyListener()
         updateNotification()
+    }
+
+    override fun onDetails(session: ChatSession) {
+        persistSessions()
+        notifyListener()
+    }
+
+    private fun persistSessions() {
+        val stored = SessionStore.encode(_sessions.mapNotNull { it.saved() })
+        getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
+            .putString(SessionStore.KEY, stored).apply()
     }
 
     private fun notifyListener() = listener?.invoke()

@@ -279,6 +279,57 @@
     $('.rl-collapse').setAttribute('aria-label', collapsed ? 'Panel öffnen' : 'Panel minimieren');
     $('.rl-collapse').setAttribute('aria-expanded', String(!collapsed));
   });
+  // Dragging the panel out of the way. The position is one setting for every
+  // chat, kept in local storage so it survives reloads; everything else stays
+  // in per-chat session storage.
+  const POSITION_KEY = PREFIX + 'panel-position';
+  const place = (left, top) => {
+    const box = root.getBoundingClientRect();
+    const maxLeft = Math.max(0, window.innerWidth - box.width);
+    const maxTop = Math.max(0, window.innerHeight - box.height);
+    root.style.left = Math.round(Math.max(0, Math.min(maxLeft, left))) + 'px';
+    root.style.top = Math.round(Math.max(0, Math.min(maxTop, top))) + 'px';
+    root.style.right = 'auto';
+    root.style.bottom = 'auto';
+  };
+  const restorePosition = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || 'null');
+      if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) place(saved.left, saved.top);
+    } catch {}
+  };
+  const head = root.querySelector('.rl-head');
+  head.title = 'Zum Verschieben ziehen';
+  let drag = null;
+  head.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || event.target.closest('button')) return;
+    const box = root.getBoundingClientRect();
+    drag = { id: event.pointerId, dx: event.clientX - box.left, dy: event.clientY - box.top, moved: false };
+    head.setPointerCapture(event.pointerId);
+  });
+  head.addEventListener('pointermove', event => {
+    if (!drag || event.pointerId !== drag.id) return;
+    drag.moved = true;
+    event.preventDefault();
+    place(event.clientX - drag.dx, event.clientY - drag.dy);
+  });
+  const endDrag = event => {
+    if (!drag || event.pointerId !== drag.id) return;
+    if (drag.moved) {
+      try {
+        localStorage.setItem(POSITION_KEY, JSON.stringify({ left: parseFloat(root.style.left) || 0, top: parseFloat(root.style.top) || 0 }));
+      } catch {}
+    }
+    drag = null;
+  };
+  head.addEventListener('pointerup', endDrag);
+  head.addEventListener('pointercancel', endDrag);
+  // A rotation or a smaller window must not leave the panel off screen.
+  window.addEventListener('resize', () => {
+    if (!root.style.left) return;
+    place(parseFloat(root.style.left) || 0, parseFloat(root.style.top) || 0);
+  });
+  restorePosition();
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && state.running && !state.background) return stop('Pausiert: Browser-Tab nicht aktiv');
     // Timers freeze while an app or tab is suspended. Restart the waiting
@@ -297,6 +348,8 @@
   style.textContent += '@media(prefers-color-scheme:light){#red-loop-root{background:rgba(250,249,247,.97);color:#27282d;border-color:#bfb6ba;box-shadow:0 12px 40px #38312a18;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}#red-loop-root .rl-head span{color:#a9233b}#red-loop-root button{background:#f4f2ee;color:#27282d;border-color:#c7bfc2}#red-loop-root .rl-start{background:#a9233b;color:#fff;border-color:#a9233b}#red-loop-root input{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root .rl-status,#red-loop-root .rl-counter{color:#45434b}#red-loop-root small{color:#65646c}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline-color:#a9233b}}';
   window.setInterval(tick, 1500);
   style.textContent += '#red-loop-root.rl-min #rl-prompt{display:none}';
+  // touch-action keeps a drag from scrolling the page underneath.
+  style.textContent += '#red-loop-root .rl-head{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}#red-loop-root .rl-head:active{cursor:grabbing}#red-loop-root .rl-head button{cursor:pointer;touch-action:auto}';
   style.textContent += '#red-loop-root .rl-work{width:100%;margin-top:6px;font-size:12px}#red-loop-root .rl-background-label,#red-loop-root .rl-endless-label{display:flex;align-items:flex-start;gap:8px;font-size:12px}#red-loop-root #rl-background,#red-loop-root #rl-endless{width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#b83c56}#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{font-size:11px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{color:#65646c}}';
   if (embedded) {
     // In the app the page is always the active view, so the foreground option

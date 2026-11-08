@@ -32,6 +32,21 @@
             android:text="@string/loading_script" />
     </FrameLayout>
 
+    <ScrollView
+        android:id="@+id/overview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/overviewList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp" />
+    </ScrollView>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -44,8 +59,15 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:maxLines="2"
+            android:maxLines="3"
             android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/overviewButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/overview" />
 
         <Button
             android:id="@+id/pauseButton"

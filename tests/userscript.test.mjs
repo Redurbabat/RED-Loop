@@ -334,3 +334,36 @@ test('the Android host is accepted and receives the same state as JSON text',()=
   assert.ok(!last.includes('offen'),'no follow-up or answer text reaches the native host');
   f.dom.window.close();
 });
+
+test('the panel can be dragged, stays on screen and remembers where it was put',()=>{
+  const f=setup(null,{modern:true});
+  const root=f.w.document.getElementById('red-loop-root');
+  const head=root.querySelector('.rl-head');
+  root.getBoundingClientRect=()=>({left:parseFloat(root.style.left)||0,top:parseFloat(root.style.top)||0,width:290,height:400});
+  head.setPointerCapture=()=>{};
+  const pointer=(type,x,y)=>{const e=new f.w.Event(type,{bubbles:true});e.pointerId=1;e.button=0;e.clientX=x;e.clientY=y;head.dispatchEvent(e);};
+  pointer('pointerdown',20,20);pointer('pointermove',220,320);pointer('pointerup',220,320);
+  assert.equal(root.style.left,'200px');assert.equal(root.style.top,'300px');
+  assert.equal(root.style.right,'auto');
+  const saved=JSON.parse(f.w.localStorage.getItem('red-loop:v1:panel-position'));
+  assert.deepEqual(saved,{left:200,top:300});
+  // Dragging far outside keeps it reachable.
+  pointer('pointerdown',210,310);pointer('pointermove',99999,99999);pointer('pointerup',99999,99999);
+  assert.ok(parseFloat(root.style.left)<=f.w.innerWidth,'stays inside the viewport');
+  assert.ok(parseFloat(root.style.top)<=f.w.innerHeight,'stays inside the viewport');
+  f.dom.window.close();
+});
+
+test('a click on the header buttons still works and is not treated as a drag',()=>{
+  const f=setup(null,{modern:true});
+  const root=f.w.document.getElementById('red-loop-root');
+  const head=root.querySelector('.rl-head');
+  head.setPointerCapture=()=>{};
+  const down=new f.w.Event('pointerdown',{bubbles:true});
+  down.pointerId=1;down.button=0;down.clientX=5;down.clientY=5;
+  root.querySelector('.rl-collapse').dispatchEvent(down);
+  f.click('.rl-collapse');
+  assert.ok(root.classList.contains('rl-min'),'the collapse button still collapses');
+  assert.equal(root.style.left,'','a button press never moves the panel');
+  f.dom.window.close();
+});

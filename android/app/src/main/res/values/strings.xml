@@ -9,4 +9,9 @@
     <string name="add_chat">Chat hinzufügen</string>
     <string name="pause">Pause</string>
     <string name="loading_script">Loop-Skript laden …</string>
+    <string name="overview">Übersicht</string>
+    <string name="back_to_chat">Zum Chat</string>
+    <string name="rename">Umbenennen</string>
+    <string name="close_chat">Schließen</string>
+    <string name="cancel">Abbrechen</string>
 </resources>

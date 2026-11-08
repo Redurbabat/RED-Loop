@@ -10,9 +10,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+
+interface SessionListener {
+    fun onState(session: ChatSession, previous: LoopState, current: LoopState)
+    /** Name or address changed; nothing about the loop itself. */
+    fun onDetails(session: ChatSession)
+}
 
 /**
  * One ChatGPT conversation in its own web view. The view belongs to the
@@ -25,7 +32,9 @@ class ChatSession(
     val id: Int,
     context: Context,
     private val script: LoopScript,
-    private val onStateChanged: (ChatSession, LoopState, LoopState) -> Unit
+    startUrl: String = ChatHosts.START,
+    savedName: String? = null,
+    private val listener: SessionListener
 ) {
     companion object {
         private const val OFFSCREEN_WIDTH = 1080
@@ -33,17 +42,26 @@ class ChatSession(
         private const val PAUSE_JS =
             "(()=>{const b=document.querySelector('#red-loop-root .rl-stop');if(b&&!b.disabled){b.click();return true}return false})()"
         private const val REVEAL_JS =
-            "(()=>{const r=document.getElementById('red-loop-root');if(!r)return false;r.classList.remove('rl-min');return true})()"
+            "(()=>{const r=document.getElementById('red-loop-root');if(!r)return false;r.classList.remove('rl-min');r.style.left='';r.style.top='';r.style.right='';r.style.bottom='';return true})()"
     }
 
-    var title: String = "Chat $id"
+    /** A name the user typed always wins over the page title. */
+    var customName: String? = savedName
         private set
+    private var pageTitle: String = "Chat $id"
+
+    val title: String get() = customName?.takeIf { it.isNotBlank() } ?: pageTitle
+
     var state: LoopState = LoopState()
+        private set
+
+    /** The address worth restoring after a restart. */
+    var restorableUrl: String? = startUrl.takeIf { SessionStore.isRestorable(it) }
         private set
 
     private val main = Handler(Looper.getMainLooper())
 
-    @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
+    @SuppressLint("SetJavaScriptEnabled")
     val webView: WebView = WebView(context).apply {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -52,13 +70,21 @@ class ChatSession(
         settings.setSupportMultipleWindows(false)
         settings.mediaPlaybackRequiresUserGesture = true
         settings.userAgentString = ScriptSource.userAgent(settings.userAgentString)
-        isScrollbarFadingEnabled = true
     }
 
     init {
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         webView.addJavascriptInterface(Bridge(), "RedLoopHost")
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onReceivedTitle(view: WebView?, title: String?) {
+                // ChatGPT puts the conversation name in the document title.
+                val cleaned = ChatTitles.clean(title, "Chat $id")
+                if (cleaned == pageTitle) return
+                pageTitle = cleaned
+                listener.onDetails(this@ChatSession)
+            }
+        }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
@@ -69,15 +95,25 @@ class ChatSession(
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
+                rememberUrl(url)
                 if (!ChatHosts.isChat(Uri.parse(url ?: "").host)) return
                 // Document-end injection. The script itself refuses a second
                 // panel and every origin other than ChatGPT.
                 view.evaluateJavascript(ScriptSource.hostPrologue(12) + script.body, null)
-                title = conversationTitle(url)
+            }
+
+            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                // ChatGPT changes conversation without a page load.
+                rememberUrl(url)
             }
         }
         detachAndLayout()
-        webView.loadUrl(ChatHosts.START)
+        webView.loadUrl(startUrl)
+    }
+
+    fun rename(name: String?) {
+        customName = name?.trim()?.take(ChatTitles.MAX_LENGTH)?.takeIf { it.isNotEmpty() }
+        listener.onDetails(this)
     }
 
     /** Puts the view into an activity for display. */
@@ -102,6 +138,7 @@ class ChatSession(
     /** The panel's own Pause button, reachable from the app and the notification. */
     fun pause() = webView.evaluateJavascript(PAUSE_JS, null)
 
+    /** Opens the panel and puts it back in its default corner. */
     fun revealPanel() = webView.evaluateJavascript(REVEAL_JS, null)
 
     fun reload() = webView.reload()
@@ -114,17 +151,21 @@ class ChatSession(
         return true
     }
 
+    fun saved(): SavedChat? = restorableUrl?.let { SavedChat(it, customName) }
+
     fun destroy() {
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.removeJavascriptInterface("RedLoopHost")
+        webView.webChromeClient = null
         webView.loadUrl("about:blank")
         webView.destroy()
     }
 
-    private fun conversationTitle(url: String?): String {
-        val path = runCatching { Uri.parse(url ?: "").path.orEmpty() }.getOrDefault("")
-        val conversation = Regex("(?:^|/)c/([^/]+)").find(path)?.groupValues?.getOrNull(1)
-        return if (conversation.isNullOrEmpty()) "Chat $id" else "Chat " + conversation.take(4)
+    private fun rememberUrl(url: String?) {
+        if (!SessionStore.isRestorable(url)) return
+        if (url == restorableUrl) return
+        restorableUrl = url
+        listener.onDetails(this)
     }
 
     private fun openOutside(context: Context, uri: Uri) {
@@ -145,7 +186,7 @@ class ChatSession(
                 if (!ChatHosts.isChat(Uri.parse(webView.url ?: "").host)) return@post
                 val previous = state
                 state = parsed
-                onStateChanged(this@ChatSession, previous, parsed)
+                listener.onState(this@ChatSession, previous, parsed)
             }
         }
     }

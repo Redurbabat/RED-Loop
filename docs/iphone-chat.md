@@ -12,6 +12,10 @@ Die App zeigt chatgpt.com in einem `WKWebView` und legt das RED-Loop-Panel darü
 
 Nach einer Pause setzt Start denselben Lauf mit demselben Zähler fort. Der Zähler gilt pro Unterhaltung und steht im Sitzungsspeicher der Seite; ein Neuladen startet nie von selbst neu.
 
+## Das Panel verschieben
+
+Am Kopf des Panels („RED Loop") ziehen. Die Position wird im lokalen Speicher der Seite gehalten, gilt für alle Chats und bleibt nach einem Neuladen erhalten. Beim Drehen oder in einem kleineren Fenster rückt das Panel automatisch zurück in den sichtbaren Bereich. Die Knöpfe im Kopf bleiben Knöpfe; ein Druck darauf verschiebt nichts.
+
 ## Mitteilung beim Anhalten
 
 Hält der Loop von selbst an, meldet sich die App mit einer lokalen Mitteilung samt Grund und Zählerstand: „Auftrag abgeschlossen", „ChatGPT hat eine Rückfrage", „Limit erreicht" oder „Loop angehalten" mit der Statuszeile des Panels. Damit musst du das iPhone nicht im Blick behalten, während es auf dem Tisch liegt.

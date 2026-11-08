@@ -9,11 +9,15 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -23,20 +27,25 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 
 /**
- * Shows one chat at a time. Every chat belongs to the service, so switching
- * away from one, or leaving the app entirely, does not stop it.
+ * Shows one chat at a time, or an overview of all of them. Every chat belongs
+ * to the service, so switching away from one, or leaving the app entirely,
+ * does not stop it.
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var tabs: LinearLayout
     private lateinit var container: FrameLayout
     private lateinit var placeholder: TextView
+    private lateinit var overview: ScrollView
+    private lateinit var overviewList: LinearLayout
     private lateinit var status: TextView
     private lateinit var pauseButton: Button
+    private lateinit var overviewButton: Button
 
     private var service: LoopService? = null
     private var bound = false
     private var selected: ChatSession? = null
+    private var showingOverview = false
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -69,16 +78,29 @@ class MainActivity : AppCompatActivity() {
         tabs = findViewById(R.id.chatTabs)
         container = findViewById(R.id.webContainer)
         placeholder = findViewById(R.id.placeholder)
+        overview = findViewById(R.id.overview)
+        overviewList = findViewById(R.id.overviewList)
         status = findViewById(R.id.status)
         pauseButton = findViewById(R.id.pauseButton)
+        overviewButton = findViewById(R.id.overviewButton)
+
         pauseButton.setOnClickListener { selected?.pause() }
+        overviewButton.setOnClickListener {
+            showingOverview = !showingOverview
+            if (showingOverview) selected?.detachAndLayout()
+            render()
+        }
 
         requestNotificationPermission()
         ContextCompat.startForegroundService(this, Intent(this, LoopService::class.java))
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (selected?.goBack() != true) moveTaskToBack(true)
+                when {
+                    showingOverview -> { showingOverview = false; render() }
+                    selected?.goBack() == true -> Unit
+                    else -> moveTaskToBack(true)
+                }
             }
         })
     }
@@ -112,25 +134,26 @@ class MainActivity : AppCompatActivity() {
         val current = selected
         if (current == null || !sessions.contains(current)) selected = sessions.firstOrNull()
         renderTabs(sessions)
-        renderContent(active, sessions)
+        if (showingOverview) renderOverview(active, sessions) else renderChat(active, sessions)
         renderStatus(active)
     }
 
     private fun renderTabs(sessions: List<ChatSession>) {
         tabs.removeAllViews()
-        sessions.forEach { session ->
-            tabs.addView(tabButton(session))
-        }
+        sessions.forEach { tabs.addView(tabButton(it)) }
         if (sessions.size < LoopService.MAX_SESSIONS) {
             tabs.addView(Button(this).apply {
                 text = "+"
                 contentDescription = getString(R.string.add_chat)
                 minimumHeight = dp(48)
                 setOnClickListener {
-                    if (service?.addSession() == null) {
+                    val added = service?.addSession()
+                    if (added == null) {
                         Toast.makeText(context, "Noch kein Loop-Skript geladen.", Toast.LENGTH_SHORT).show()
                     } else {
-                        selected = service?.sessions?.lastOrNull()
+                        selected?.detachAndLayout()
+                        selected = added
+                        showingOverview = false
                         render()
                     }
                 }
@@ -139,38 +162,68 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun tabButton(session: ChatSession) = Button(this).apply {
-        val mark = if (session.state.running) "● " else ""
-        text = mark + session.title
+        text = (if (session.state.running) "● " else "") + session.title
         isAllCaps = false
         minimumHeight = dp(48)
-        alpha = if (session === selected) 1f else 0.6f
-        setOnClickListener {
-            if (session !== selected) {
-                selected?.detachAndLayout()
-                selected = session
+        alpha = if (session === selected && !showingOverview) 1f else 0.6f
+        setOnClickListener { open(session) }
+        setOnLongClickListener { chatMenu(session); true }
+    }
+
+    private fun open(session: ChatSession) {
+        if (session !== selected) {
+            selected?.detachAndLayout()
+            selected = session
+        }
+        showingOverview = false
+        render()
+    }
+
+    private fun chatMenu(session: ChatSession) {
+        AlertDialog.Builder(this)
+            .setTitle(session.title)
+            .setItems(arrayOf(getString(R.string.rename), getString(R.string.close_chat))) { _, index ->
+                if (index == 0) renameDialog(session) else confirmClose(session)
             }
-            render()
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun renameDialog(session: ChatSession) {
+        val input = EditText(this).apply {
+            setText(session.customName ?: session.title)
+            inputType = InputType.TYPE_CLASS_TEXT
+            setSingleLine()
         }
-        setOnLongClickListener {
-            confirmClose(session)
-            true
-        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.rename)
+            .setMessage("Leer lassen, um wieder den Titel der ChatGPT-Unterhaltung zu verwenden.")
+            .setView(input)
+            .setPositiveButton(R.string.rename) { _, _ ->
+                session.rename(input.text?.toString())
+                render()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun confirmClose(session: ChatSession) {
         AlertDialog.Builder(this)
             .setTitle("${session.title} schließen?")
             .setMessage("Der Lauf dieses Chats endet. Die Unterhaltung bei ChatGPT bleibt erhalten.")
-            .setPositiveButton("Schließen") { _, _ ->
+            .setPositiveButton(R.string.close_chat) { _, _ ->
                 if (session === selected) selected = null
                 service?.removeSession(session)
                 render()
             }
-            .setNegativeButton("Abbrechen", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
-    private fun renderContent(active: LoopService, sessions: List<ChatSession>) {
+    private fun renderChat(active: LoopService, sessions: List<ChatSession>) {
+        overview.visibility = View.GONE
+        container.visibility = View.VISIBLE
+        overviewButton.setText(R.string.overview)
         val current = selected
         if (current == null) {
             container.removeAllViews()
@@ -190,7 +243,7 @@ class MainActivity : AppCompatActivity() {
             sessions.isEmpty() -> "Mit + einen Chat öffnen."
             else -> ""
         }
-        (placeholder.parent as? FrameLayout)?.removeView(placeholder)
+        (placeholder.parent as? ViewGroup)?.removeView(placeholder)
         placeholder.layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
@@ -198,13 +251,73 @@ class MainActivity : AppCompatActivity() {
         return placeholder
     }
 
+    /** One place that shows how far every chat has got. */
+    private fun renderOverview(active: LoopService, sessions: List<ChatSession>) {
+        container.visibility = View.GONE
+        overview.visibility = View.VISIBLE
+        overviewButton.setText(R.string.back_to_chat)
+        overviewList.removeAllViews()
+
+        overviewList.addView(TextView(this).apply {
+            text = "${active.runningCount} von ${sessions.size} Chats aktiv · ${active.totalContinuations} Fortsetzungen gesamt"
+            textSize = 15f
+            setPadding(0, 0, 0, dp(12))
+        })
+
+        if (sessions.isEmpty()) {
+            overviewList.addView(TextView(this).apply { text = "Noch kein Chat geöffnet." })
+            return
+        }
+
+        sessions.forEach { session -> overviewList.addView(overviewRow(session)) }
+
+        overviewList.addView(Button(this).apply {
+            setText(R.string.pause_all)
+            minimumHeight = dp(48)
+            isEnabled = active.runningCount > 0
+            setOnClickListener { service?.pauseAll() }
+        })
+    }
+
+    private fun overviewRow(session: ChatSession): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, dp(8))
+            setOnClickListener { open(session) }
+        }
+        row.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            addView(TextView(context).apply {
+                text = (if (session.state.running) "● " else "○ ") + session.title
+                textSize = 15f
+            })
+            addView(TextView(context).apply {
+                text = "${session.state.progress} · ${session.state.status}"
+                textSize = 12f
+                alpha = 0.75f
+            })
+        })
+        row.addView(Button(this).apply {
+            setText(R.string.pause)
+            minimumHeight = dp(48)
+            isEnabled = session.state.running
+            setOnClickListener { session.pause() }
+        })
+        return row
+    }
+
     private fun renderStatus(active: LoopService) {
-        val current = selected
         val script = active.script
         val source = if (script == null) "Skript wird geladen …" else "Skript ${script.version} · ${script.origin.label}"
-        status.text = if (current == null) source
-        else "${current.state.status}\n${current.state.progress} · ${active.runningCount} von ${active.sessions.size} Chats aktiv · $source"
-        pauseButton.isEnabled = current?.state?.running == true
+        val current = selected
+        status.text = when {
+            showingOverview -> source
+            current == null -> source
+            else -> "${current.state.status}\n${current.state.progress} · ${active.runningCount} von ${active.sessions.size} Chats aktiv · $source"
+        }
+        pauseButton.isEnabled = !showingOverview && current?.state?.running == true
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()

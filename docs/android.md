@@ -7,6 +7,10 @@ Die Android-App ist der einzige RED-Loop-Weg, auf dem Fortsetzungen weiterlaufen
 - **Mehrere Chats gleichzeitig**, bis zu acht. Jeder Chat ist ein eigener WebView mit eigenem Panel, eigenem Zähler und eigenem Limit.
 - **Weiterarbeiten bei schwarzem Bildschirm.** Ein Vordergrund-Dienst hält den Prozess am Leben, ein Partial-Wake-Lock hält die CPU wach, solange mindestens ein Lauf aktiv ist.
 - **Die WebViews gehören dem Dienst, nicht der Oberfläche.** Du kannst die App verlassen oder zwischen Chats wechseln, ohne einen Lauf zu beenden.
+- **Chatnamen aus ChatGPT.** Jeder Tab übernimmt den Titel der Unterhaltung. Langes Drücken auf einen Tab öffnet *Umbenennen* und *Schließen*; ein selbst vergebener Name gewinnt, ein leerer Name schaltet zurück auf den ChatGPT-Titel.
+- **Die Tabs merken sich ihre Unterhaltung.** Adresse und Name jedes Chats liegen in den App-Einstellungen; nach einem Neustart öffnet jeder Tab wieder genau seine Unterhaltung. Gespeichert wird nur eine echte `/c/...`-Adresse bei ChatGPT, nichts aus dem Anmeldeverlauf.
+- **Übersicht.** Der Knopf *Übersicht* unten zeigt alle Chats auf einer Seite: Name, Status, Zählerstand, ein Pause-Knopf je Chat und *Alle pausieren*. Ein Tippen auf eine Zeile öffnet diesen Chat.
+- **Das Panel lässt sich verschieben.** Am Kopf des Panels ziehen; die Position gilt für alle Chats und bleibt erhalten. Es bleibt immer im sichtbaren Bereich, auch nach dem Drehen.
 - **Dauerhafte Mitteilung** mit Stand („3 von 5 Chats aktiv · 41 Fortsetzungen") und einer Aktion **Alle pausieren**. Android verlangt diese Mitteilung als Gegenleistung für den Hintergrundbetrieb.
 - **Eigene Mitteilung je Chat**, wenn ein Lauf von selbst anhält — mit Chatname, Grund und Zählerstand. Eine Pause, die du auslöst, meldet sich nicht.
 

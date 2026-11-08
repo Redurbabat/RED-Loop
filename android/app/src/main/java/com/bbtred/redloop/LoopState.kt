@@ -70,6 +70,59 @@ object StopClassifier {
     }
 }
 
+/** Turns ChatGPT's own page title into a short tab name. */
+object ChatTitles {
+    const val MAX_LENGTH = 28
+    private val noise = listOf("ChatGPT", "OpenAI")
+
+    fun clean(raw: String?, fallback: String): String {
+        var value = raw.orEmpty().replace('\n', ' ').trim()
+        for (word in noise) {
+            value = value.removePrefix(word).removeSuffix(word).trim(' ', '-', '–', '—', '|', '·', ':')
+        }
+        if (value.isEmpty() || noise.any { value.equals(it, ignoreCase = true) }) return fallback
+        return if (value.length > MAX_LENGTH) value.take(MAX_LENGTH - 1).trimEnd() + "…" else value
+    }
+}
+
+/** What survives a restart: which conversation a tab had open, and its name. */
+data class SavedChat(val url: String, val name: String?)
+
+object SessionStore {
+    const val KEY = "chats"
+    private const val MAX = LoopService.MAX_SESSIONS
+
+    fun encode(chats: List<SavedChat>): String {
+        val array = org.json.JSONArray()
+        chats.take(MAX).forEach { chat ->
+            array.put(org.json.JSONObject().put("url", chat.url).apply { chat.name?.let { put("name", it) } })
+        }
+        return array.toString()
+    }
+
+    fun decode(stored: String?): List<SavedChat> {
+        if (stored.isNullOrBlank()) return emptyList()
+        val array = runCatching { org.json.JSONArray(stored) }.getOrNull() ?: return emptyList()
+        val chats = mutableListOf<SavedChat>()
+        for (index in 0 until minOf(array.length(), MAX)) {
+            val item = array.optJSONObject(index) ?: continue
+            val url = item.optString("url").trim()
+            // Only a real ChatGPT conversation address is worth restoring.
+            if (!isRestorable(url)) continue
+            val name = item.optString("name").trim().takeIf { it.isNotEmpty() }?.take(ChatTitles.MAX_LENGTH)
+            chats.add(SavedChat(url, name))
+        }
+        return chats
+    }
+
+    fun isRestorable(url: String?): Boolean {
+        val value = url.orEmpty()
+        if (!value.startsWith("https://")) return false
+        val host = runCatching { java.net.URI(value).host }.getOrNull()
+        return ChatHosts.isChat(host)
+    }
+}
+
 /** Which hosts may stay inside the app, and which page may report state. */
 object ChatHosts {
     const val START = "https://chatgpt.com/"

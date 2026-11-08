@@ -172,3 +172,65 @@ class ChatHostsTest {
         }
     }
 }
+
+class ChatTitlesTest {
+    @Test
+    fun `the conversation name is taken from the page title`() {
+        assertEquals("Projektplan", ChatTitles.clean("Projektplan", "Chat 1"))
+        assertEquals("Projektplan", ChatTitles.clean("ChatGPT - Projektplan", "Chat 1"))
+        assertEquals("Projektplan", ChatTitles.clean("Projektplan | ChatGPT", "Chat 1"))
+    }
+
+    @Test
+    fun `a title that says nothing falls back to the tab name`() {
+        assertEquals("Chat 3", ChatTitles.clean("ChatGPT", "Chat 3"))
+        assertEquals("Chat 3", ChatTitles.clean("   ", "Chat 3"))
+        assertEquals("Chat 3", ChatTitles.clean(null, "Chat 3"))
+    }
+
+    @Test
+    fun `a long title is shortened so the tab stays readable`() {
+        val cleaned = ChatTitles.clean("x".repeat(100), "Chat 1")
+        assertEquals(ChatTitles.MAX_LENGTH, cleaned.length)
+        assertTrue(cleaned.endsWith("…"))
+    }
+}
+
+class SessionStoreTest {
+    @Test
+    fun `only real conversation addresses are worth restoring`() {
+        assertTrue(SessionStore.isRestorable("https://chatgpt.com/c/abc"))
+        assertFalse(SessionStore.isRestorable("https://chatgpt.com.example.com/c/abc"))
+        assertFalse(SessionStore.isRestorable("http://chatgpt.com/c/abc"))
+        assertFalse(SessionStore.isRestorable("https://accounts.google.com/signin"))
+        assertFalse(SessionStore.isRestorable(null))
+    }
+
+    @Test
+    fun `chats survive a restart with their address and their name`() {
+        val chats = listOf(
+            SavedChat("https://chatgpt.com/c/one", "Projektplan"),
+            SavedChat("https://chatgpt.com/c/two", null)
+        )
+        val restored = SessionStore.decode(SessionStore.encode(chats))
+        assertEquals(2, restored.size)
+        assertEquals("https://chatgpt.com/c/one", restored[0].url)
+        assertEquals("Projektplan", restored[0].name)
+        assertNull(restored[1].name)
+    }
+
+    @Test
+    fun `broken or foreign entries are dropped instead of restored`() {
+        assertTrue(SessionStore.decode(null).isEmpty())
+        assertTrue(SessionStore.decode("").isEmpty())
+        assertTrue(SessionStore.decode("not json").isEmpty())
+        assertTrue(SessionStore.decode("""[{"url":"https://evil.test/c/x"}]""").isEmpty())
+        assertEquals(1, SessionStore.decode("""[{"url":"https://evil.test/x"},{"url":"https://chatgpt.com/c/ok"}]""").size)
+    }
+
+    @Test
+    fun `no more chats are restored than the app can hold`() {
+        val many = (1..20).map { SavedChat("https://chatgpt.com/c/$it", null) }
+        assertEquals(LoopService.MAX_SESSIONS, SessionStore.decode(SessionStore.encode(many)).size)
+    }
+}
