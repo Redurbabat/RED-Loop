@@ -40,7 +40,7 @@ test('homepage renders all 12 original studies with working deep links and categ
     category.click();
     assert.equal(discovery.category,'Material');
     assert.equal(category.getAttribute('aria-pressed'),'true');
-    assert.equal(doc.querySelectorAll('#scene-discovery-results a[data-scene]').length,3);
+    assert.equal(doc.querySelectorAll('#scene-discovery-results a[data-scene]').length,4);
   }finally{dom.window.close();}
 });
 
