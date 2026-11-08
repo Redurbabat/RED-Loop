@@ -77,6 +77,7 @@ class LoopService : Service(), SessionListener {
             // without onDestroy, say so instead of leaving it a mystery.
             val killedWith = if (preferences.getBoolean(CLEAN_SHUTDOWN, true)) 0
             else preferences.getInt(RUNNING_BEFORE, 0)
+            val resume = killedWith > 0 && preferences.getBoolean("resumeAfterStop", true)
             preferences.edit().putBoolean(CLEAN_SHUTDOWN, false).putInt(RUNNING_BEFORE, 0).apply()
             main.post {
                 if (loaded == null) {
@@ -86,10 +87,14 @@ class LoopService : Service(), SessionListener {
                     // Every tab comes back on the conversation it had open.
                     if (_sessions.isEmpty()) {
                         if (restored.isEmpty()) addSession()
-                        else restored.forEach { addSession(it.url, it.name, it.autoStart, it.autoRetry) }
+                        else restored.forEach {
+                            // A chat the system interrupted picks its work back
+                            // up; one the user had stopped stays stopped.
+                            addSession(it.url, it.name, it.autoStart, it.autoRetry, resume && it.wasRunning)
+                        }
                     }
                 }
-                if (killedWith > 0) announceKilled(killedWith)
+                if (killedWith > 0) announceKilled(killedWith, resume)
                 notifyListener()
                 updateNotification()
             }
@@ -105,6 +110,8 @@ class LoopService : Service(), SessionListener {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        // A deliberate stop is not something to recover from.
+        persistSessions(running = false)
         preferences().edit().putBoolean(CLEAN_SHUTDOWN, true).putInt(RUNNING_BEFORE, 0).apply()
         releaseWakeLock()
         _sessions.forEach { it.destroy() }
@@ -121,11 +128,14 @@ class LoopService : Service(), SessionListener {
         startUrl: String = ChatHosts.START,
         savedName: String? = null,
         autoStart: Boolean = false,
-        autoRetry: Boolean = false
+        autoRetry: Boolean = false,
+        resumeNow: Boolean = false
     ): ChatSession? {
         val loaded = script ?: return null
         if (_sessions.size >= MAX_SESSIONS) return null
-        val session = ChatSession(nextId++, applicationContext, loaded, startUrl, savedName, autoStart, autoRetry, this)
+        val session = ChatSession(
+            nextId++, applicationContext, loaded, startUrl, savedName, autoStart, autoRetry, resumeNow, this
+        )
         session.parkingLot = overlay.ensure()
         _sessions.add(session)
         persistSessions()
@@ -214,13 +224,27 @@ class LoopService : Service(), SessionListener {
         }.start()
     }
 
-    private fun announceKilled(count: Int) {
+    /** On by default: an interrupted night should not need a hand. */
+    var resumeAfterStop: Boolean
+        get() = preferences().getBoolean("resumeAfterStop", true)
+        set(value) {
+            preferences().edit().putBoolean("resumeAfterStop", value).apply()
+            notifyListener()
+        }
+
+    private fun announceKilled(count: Int, resumed: Boolean) {
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val body = "Das System hat RED Loop beendet, während $count Lauf/Läufe aktiv waren. " +
-            "Prüfe in der Übersicht die Freigaben für Hintergrundbetrieb."
+        val body = if (resumed) {
+            "Das System hat RED Loop beendet, während $count Lauf/Läufe aktiv waren. " +
+                "Sie werden fortgesetzt, sobald die Unterhaltungen geladen sind. " +
+                "Prüfe in der Übersicht die Freigaben für Hintergrundbetrieb."
+        } else {
+            "Das System hat RED Loop beendet, während $count Lauf/Läufe aktiv waren. " +
+                "Prüfe in der Übersicht die Freigaben für Hintergrundbetrieb."
+        }
         val notification = NotificationCompat.Builder(this, STOPS_CHANNEL)
             .setContentTitle("Läufe wurden vom System gestoppt")
             .setContentText(body)
@@ -232,8 +256,10 @@ class LoopService : Service(), SessionListener {
         runCatching { NotificationManagerCompat.from(this).notify(KILLED_ID, notification) }
     }
 
-    private fun persistSessions() {
-        val stored = SessionStore.encode(_sessions.mapNotNull { it.saved() })
+    private fun persistSessions(running: Boolean? = null) {
+        val stored = SessionStore.encode(_sessions.mapNotNull { session ->
+            if (running == null) session.saved() else session.saved(running)
+        })
         preferences().edit().putString(SessionStore.KEY, stored).apply()
     }
 

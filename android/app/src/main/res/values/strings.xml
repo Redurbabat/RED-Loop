@@ -31,4 +31,6 @@
     <string name="save">Speichern</string>
     <string name="boot_on">Beim Einschalten starten: an</string>
     <string name="boot_off">Beim Einschalten starten: aus</string>
+    <string name="resume_on">Nach Systemstopp fortsetzen: an</string>
+    <string name="resume_off">Nach Systemstopp fortsetzen: aus</string>
 </resources>

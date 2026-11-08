@@ -18,6 +18,8 @@ assert.equal(canonical,await readFile('ios/REDLoop/Resources/red-loop-webview.js
 assert.equal(canonical,await readFile('dist/red-loop-webview.js','utf8'),'Run npm run build to publish the in-app script');
 assert.equal(canonical,await readFile('android/app/src/main/assets/red-loop-webview.js','utf8'),'Run npm run build to sync the bundled Android script');
 assert.match(canonical,/'ios-webview', 'android-webview'/,'Both native hosts must stay accepted by the canonical script');
+assert.match(canonical,/rl-autostart/,'The automatic start must stay in the canonical script');
+assert.match(canonical,/RED_LOOP_RUECKFRAGE/,'The question marker must stay in both presets');
 assert.match(canonical,/__RED_LOOP_HOST__/,'The in-app host hook must stay in the canonical script');
 assert.match(canonical,/chat\.openai\.com'\]\.includes\(location\.hostname\)/,'The canonical script must keep its origin guard');
 YAML.parse(await readFile('codemagic.yaml','utf8'));YAML.parse(await readFile('.github/workflows/validate.yml','utf8'));

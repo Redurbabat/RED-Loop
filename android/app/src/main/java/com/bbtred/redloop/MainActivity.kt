@@ -392,6 +392,12 @@ class MainActivity : AppCompatActivity() {
             })
         }
         overviewList.addView(Button(this).apply {
+            text = if (active.resumeAfterStop) getString(R.string.resume_on) else getString(R.string.resume_off)
+            isAllCaps = false
+            minimumHeight = dp(48)
+            setOnClickListener { active.resumeAfterStop = !active.resumeAfterStop }
+        })
+        overviewList.addView(Button(this).apply {
             text = if (active.startAtBoot) getString(R.string.boot_on) else getString(R.string.boot_off)
             isAllCaps = false
             minimumHeight = dp(48)

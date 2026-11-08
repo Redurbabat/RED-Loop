@@ -36,6 +36,8 @@ class ChatSession(
     savedName: String? = null,
     autoStart: Boolean = false,
     autoRetry: Boolean = false,
+    /** One-off: pick this chat's work back up after the system ended it. */
+    private val resumeNow: Boolean = false,
     private val listener: SessionListener
 ) {
     companion object {
@@ -113,7 +115,9 @@ class ChatSession(
                 if (!ChatHosts.isChat(Uri.parse(url ?: "").host)) return
                 // Document-end injection. The script itself refuses a second
                 // panel and every origin other than ChatGPT.
-                view.evaluateJavascript(ScriptSource.hostPrologue(12, autoStart, autoRetry) + script.body, null)
+                view.evaluateJavascript(
+                    ScriptSource.hostPrologue(12, autoStart || resumeNow, autoRetry) + script.body, null
+                )
             }
 
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -194,7 +198,8 @@ class ChatSession(
         return true
     }
 
-    fun saved(): SavedChat? = restorableUrl?.let { SavedChat(it, customName, autoStart, autoRetry) }
+    fun saved(running: Boolean = state.running): SavedChat? =
+        restorableUrl?.let { SavedChat(it, customName, autoStart, autoRetry, running) }
 
     fun destroy() {
         (webView.parent as? ViewGroup)?.removeView(webView)

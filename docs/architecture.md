@@ -11,6 +11,7 @@
 
 ## Safety boundaries
 
+- On Android, a run the system interrupted is picked back up on the next start, because an interrupted night should not need a hand. Only chats that were working at the time resume; a chat the user had paused stays paused, and stopping the service deliberately counts as intent and resumes nothing. The switch is in the overview.
 - Two opt-in automatic options, both off by default. **Automatic start** begins a run on its own once an answer is finished and stable; a pause the user asked for, a completion or user-input marker, a reached limit and a reset all block it until Start or a fresh tick of the box. **Bridging errors** retries a recoverable stop after 20 seconds, at most three times, and a successful send refills that budget; a detected draft, a completion and a question are never recoverable. Neither option can start a conversation that has no finished answer, and neither changes what a run does once it is going.
 - Maximum 50 continuations per explicitly started session, minimum 1. An explicit **endless** option replaces that number: the run then ends only on Pause, a requested completion or user-input marker, a detected error or the other stop conditions below, bounded by a 100000 counter ceiling. It is opt-in in the browser and preselected in the app's Chat tab, and it consumes service quota for as long as it runs.
 - Pause keeps the counter, so Start resumes the same run instead of restarting it. Reset clears the counter.

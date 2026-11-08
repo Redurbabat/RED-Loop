@@ -93,7 +93,9 @@ data class SavedChat(
     val url: String,
     val name: String?,
     val autoStart: Boolean = false,
-    val autoRetry: Boolean = false
+    val autoRetry: Boolean = false,
+    /** Was this chat working when the app last ended? */
+    val wasRunning: Boolean = false
 )
 
 object SessionStore {
@@ -108,6 +110,7 @@ object SessionStore {
                     .put("url", chat.url)
                     .put("autoStart", chat.autoStart)
                     .put("autoRetry", chat.autoRetry)
+                    .put("wasRunning", chat.wasRunning)
                     .apply { chat.name?.let { put("name", it) } }
             )
         }
@@ -128,7 +131,8 @@ object SessionStore {
                 SavedChat(
                     url, name,
                     autoStart = item.optBoolean("autoStart", false),
-                    autoRetry = item.optBoolean("autoRetry", false)
+                    autoRetry = item.optBoolean("autoRetry", false),
+                    wasRunning = item.optBoolean("wasRunning", false)
                 )
             )
         }

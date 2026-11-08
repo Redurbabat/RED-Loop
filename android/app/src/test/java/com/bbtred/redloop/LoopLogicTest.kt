@@ -245,3 +245,23 @@ class SessionStoreTest {
         assertEquals(LoopService.MAX_SESSIONS, SessionStore.decode(SessionStore.encode(many)).size)
     }
 }
+
+class ResumeAfterStopTest {
+    @Test
+    fun `a chat that was working when the app ended is marked for resuming`() {
+        val chats = listOf(
+            SavedChat("https://chatgpt.com/c/one", null, wasRunning = true),
+            SavedChat("https://chatgpt.com/c/two", null, wasRunning = false)
+        )
+        val restored = SessionStore.decode(SessionStore.encode(chats))
+        assertTrue("the interrupted chat is recognised", restored[0].wasRunning)
+        assertFalse("a chat the user had stopped stays stopped", restored[1].wasRunning)
+    }
+
+    @Test
+    fun `an entry from before this feature never resumes by itself`() {
+        val restored = SessionStore.decode("""[{"url":"https://chatgpt.com/c/old","name":"Alt"}]""")
+        assertEquals(1, restored.size)
+        assertFalse(restored[0].wasRunning)
+    }
+}

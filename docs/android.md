@@ -61,9 +61,15 @@ Drei Schalter nehmen dir die wiederkehrenden Handgriffe ab. Alle sind **aus**, b
 
 **Fehler selbst überbrücken** (pro Chat, dieselbe Stelle). Nach einem Antwortfehler, einer ausbleibenden Antwort oder einem nicht verfügbaren Senden-Knopf versucht es der Loop nach 20 Sekunden erneut, bis zu dreimal. Danach bleibt er stehen. Ein erkannter **Entwurf wird nie überbrückt** — dein eigener Text bleibt unangetastet, und eine Fertigmeldung oder Rückfrage ist kein Fehler.
 
+**Nach Systemstopp fortsetzen** (in der Übersicht, **von Anfang an an**). Beendet Android die App, während Chats arbeiten, nehmen genau diese Chats ihre Arbeit beim nächsten Start von selbst wieder auf — unabhängig davon, ob für sie *Automatisch starten* gesetzt ist. Ein Chat, den **du** pausiert hattest, bleibt pausiert; ein Beenden der App über den Dienst gilt als Absicht und setzt nichts fort. Die Meldung sagt dir, dass fortgesetzt wird.
+
 **Beim Einschalten starten** (in der Übersicht). Nach einem Neustart des Tablets fährt der Dienst von allein hoch und öffnet die Chats wieder auf ihren Unterhaltungen. Zusammen mit *Automatisch starten* nimmt ein Chat seine Arbeit ohne einen einzigen Handgriff wieder auf. Hersteller-Autostart muss dafür trotzdem erlaubt sein.
 
 In der Übersicht steht hinter jedem Chat, was für ihn gilt: **[A]** automatisch starten, **[F]** Fehler überbrücken.
+
+### Zwei Vorlagentexte
+
+Neben *Text für offene Aufgaben laden* gibt es **Text: selbst entscheiden**. Der verlangt, dass der Assistent an Entscheidungspunkten selbst die sinnvollste Wahl trifft, sie in einem Satz begründet und weiterarbeitet, statt zurückzufragen. Angehalten wird nur noch für Dinge, die wirklich nur du liefern kannst: Zugangsdaten, eine Freigabe für etwas Unumkehrbares, eine nicht erschließbare Information. Beide Texte lassen sich frei überschreiben — wenn du deine Anweisungen ohnehin in die erste Nachricht schreibst, brauchst du keinen von beiden.
 
 Die Einstellungen pro Chat überleben einen Neustart, weil die App sie neben Adresse und Namen sichert — der Sitzungsspeicher der Seite überlebt das Schließen des WebViews nicht.
 

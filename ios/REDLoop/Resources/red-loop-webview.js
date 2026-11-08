@@ -31,6 +31,7 @@
   const bridgeWantsText = !!bridge && bridge === window.RedLoopHost;
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
   const WORK_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn du eine Rückfrage, Zugangsdaten oder eine Freigabe von mir brauchst, halte an, erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
+  const DECIDE_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn eine Entscheidung ansteht, triff selbst die sinnvollste Wahl, nenne sie in einem Satz mit Begründung und arbeite weiter; frage nicht nach. Halte nur an, wenn du etwas brauchst, das ausschließlich ich liefern kann: Zugangsdaten, eine Freigabe für etwas Unumkehrbares oder eine Information, die du nicht erschließen kannst. Dann erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
   const state = { running: false, count: 0, limit: 10, endless: false, prompt: PROMPT, background: false, autoStart: false, autoRetry: false, autoBlocked: false, retries: 0, retryAt: 0, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '', composeText: '' };
   const key = () => PREFIX + (location.pathname.match(/(?:^|\/)c\/[^/]+/)?.[0] || location.pathname);
   let currentKey = key();
@@ -42,6 +43,7 @@
     <label class="rl-prompt-label" for="rl-prompt">Automatischer Folgetext</label>
     <textarea id="rl-prompt" rows="4" maxlength="4000" aria-describedby="rl-prompt-help"></textarea>
     <button class="rl-work" type="button">Text für offene Aufgaben laden</button>
+    <button class="rl-decide" type="button">Text: selbst entscheiden</button>
     <p id="rl-prompt-help">Wird nach jeder fertigen Antwort gesendet. Aktivieren mit Start.</p>
     <label class="rl-background-label"><input id="rl-background" type="checkbox" aria-describedby="rl-background-help"> Auch im Hintergrund weiterarbeiten</label>
     <p id="rl-background-help">Browser und Chat offen lassen; PC muss wach bleiben. Mit Auftragstext: Stopp bei Fertigmeldung oder Rückfrage.</p>
@@ -79,7 +81,7 @@
     state.running = false; state.pending = false; state.composing = false;
     $('.rl-start').disabled = false; $('.rl-stop').disabled = true; $('#rl-limit').disabled = state.endless;
     $('#rl-prompt').disabled = false;
-    $('#rl-background').disabled = false; $('.rl-work').disabled = false; $('#rl-endless').disabled = false;
+    $('#rl-background').disabled = false; $('.rl-work').disabled = false; $('.rl-decide').disabled = false; $('#rl-endless').disabled = false;
     $('#rl-autostart').disabled = false; $('#rl-retry').disabled = false;
     if (wasRunning && state.autoRetry && recoverable && state.retries < MAX_RETRIES) {
       state.retries += 1;
@@ -283,7 +285,7 @@
     state.prompt = prompt; state.running = true; state.pending = false;
     state.background = $('#rl-background').checked;
     $('#rl-prompt').value = prompt; $('#rl-prompt').disabled = true;
-    $('#rl-background').disabled = true; $('.rl-work').disabled = true; $('#rl-endless').disabled = true;
+    $('#rl-background').disabled = true; $('.rl-work').disabled = true; $('.rl-decide').disabled = true; $('#rl-endless').disabled = true;
     showCounter();
     state.lastMessage = signature(); state.lastChange = Date.now();
     $('.rl-start').disabled = true; $('.rl-stop').disabled = false; $('#rl-limit').disabled = true;
@@ -300,6 +302,11 @@
     if (state.running) return;
     state.prompt = WORK_PROMPT; $('#rl-prompt').value = WORK_PROMPT; persist();
     status('Auftragstext geladen · Limit wählen und Start');
+  });
+  $('.rl-decide').addEventListener('click', () => {
+    if (state.running) return;
+    state.prompt = DECIDE_PROMPT; $('#rl-prompt').value = DECIDE_PROMPT; persist();
+    status('Selbstständig-Text geladen · hält nur bei echten Hindernissen');
   });
   $('#rl-background').addEventListener('change', () => {
     if (state.running) return;
@@ -425,7 +432,7 @@
   style.textContent += '#red-loop-root.rl-min #rl-prompt{display:none}';
   // touch-action keeps a drag from scrolling the page underneath.
   style.textContent += '#red-loop-root .rl-head{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}#red-loop-root .rl-head:active{cursor:grabbing}#red-loop-root .rl-head button{cursor:pointer;touch-action:auto}';
-  style.textContent += '#red-loop-root .rl-work{width:100%;margin-top:6px;font-size:12px}#red-loop-root .rl-background-label,#red-loop-root .rl-endless-label{display:flex;align-items:flex-start;gap:8px;font-size:12px}#red-loop-root #rl-background,#red-loop-root #rl-endless{width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#b83c56}#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{font-size:11px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{color:#65646c}}';
+  style.textContent += '#red-loop-root .rl-work,#red-loop-root .rl-decide{width:100%;margin-top:6px;font-size:12px}#red-loop-root .rl-background-label,#red-loop-root .rl-endless-label{display:flex;align-items:flex-start;gap:8px;font-size:12px}#red-loop-root #rl-background,#red-loop-root #rl-endless{width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#b83c56}#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{font-size:11px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{color:#65646c}}';
   if (embedded) {
     // In the app the page is always the active view, so the foreground option
     // is meaningless there. The inset keeps the panel above the app toolbar.
