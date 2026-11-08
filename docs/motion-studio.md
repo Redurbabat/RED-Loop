@@ -57,7 +57,7 @@ The engine retains its last visual frame when stopped. It pauses when the docume
 
 ## Safety & quality
 
-The studio does not start cloud jobs, send ChatGPT messages, store credentials or persist input data. Selected scene and all four slider values are encoded in the shareable URL (`scene`, `density`, `depth`, `speed`, `hue`), not saved to local storage. The session-only favorite list has no storage. Clipboard operations show success only after the API resolves, and show an error otherwise. The browser-local preview is not a SwiftUI or Android implementation.
+The studio does not start cloud jobs, send ChatGPT messages, or store credentials. Selected scene and four slider values are encoded in the shareable URL (`scene`, `density`, `depth`, `speed`, `hue`) and are not saved to local storage. **Only bookmarked scene IDs are stored locally in the current browser** for quick access across reloads; search queries are never persisted. Clipboard operations show success only after the API resolves, and show an error otherwise. The browser-local preview is not a SwiftUI or Android implementation.
 
 ### Tests and verification
 
@@ -131,11 +131,11 @@ At browser widths **850px and below**, the catalog behaves as an explicit modal 
 
 Regression coverage includes HTML/control assertions and Playwright scenarios for focus wrap, inert background, closing, outside taps and focus restoration on compact viewports. Since GitHub Actions is currently blocked (issue #9), the new browser tests are committed but their successful hosted execution must still be confirmed.
 
-## Session favorites and quick catalog filter (November 2026)
+## Favorites and quick catalog filter (November 2026)
 
 A dedicated **★ Gemerkte (N)** filter now appears alongside the existing categories. It shows only scenes bookmarked with the existing **Merken** control, including a small star marker and accessible `gemerkt` announcement for each bookmarked catalog entry. The count updates immediately, even if a different category or search filter is currently selected.
 
-- Bookmarks and catalog filters remain **session-only in memory**, with no `localStorage` or server persistence.
+- Bookmarked scene IDs are saved locally in the browser using a versioned `localStorage` key; category and search filters remain session-only. No bookmarks are sent to any server, and private browsing or disabled storage gracefully falls back to in-memory bookmarks.
 - Favoriting/unfavoriting does **not** reselect the scene, reset its parameters, change its URL or stop a running animation. Switching to a different scene still pauses playback as before.
 - The favorites filter combines with the existing text search. When no scenes are saved, it displays a specific explanation with the `Merken` action; an ordinary unmatched search retains the original no-results message.
 - Both desktop and compact-screen catalogs use the same category and count state. The mobile dialog/accessibility behavior from PR #13 is unchanged.
@@ -196,7 +196,7 @@ The sidebar search now supports rapid keyboard navigation across the ten motion 
 - Modified cursor shortcuts (Ctrl, Alt, Meta) are left to the browser. When no scene matches, arrow keys do not steal input focus.
 - A polite, atomic, screen-reader status announces `0 Komponenten gefunden`, `1 Komponente gefunden`, etc. The input is associated with the keyboard hint via `aria-describedby`. Existing focus outlines, reduced motion and accessible mobile dialog behavior remain unchanged.
 
-This is an incremental, dependency-free enhancement of the existing catalog. It does not call a cloud service, save search history or introduce user tracking. The existing URL preset and session-only favorites filters continue to work.
+This is an incremental, dependency-free enhancement of the existing catalog. It does not call a cloud service, save search history or introduce user tracking. The existing URL preset and locally stored favorites filter continue to work.
 
 Validation: the **actual catalog event handlers** extracted from the feature branch passed **27 deterministic runtime checks**, covering first/last navigation, Home/End, matching and empty search, Enter activation, desktop and mobile focus restoration and modified shortcuts. The actual entrypoint jsdom smoke test, source-regression checks and Playwright viewport tests were extended. Full hosted CI and physical device verification remain blocked by [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9).
 
@@ -211,3 +211,16 @@ The three view controls now follow the **WAI-ARIA tab / tablist / tabpanel** int
 - The existing accessible focus outline and reduced-motion rules remain in effect. No external UI framework or React Bits Pro code is required.
 
 Regression tests cover semantic HTML/CSS, actual entrypoint initialization and keyboard switching, active/inactive panel visibility, a single tab stop, and paused playback. The full browser/iOS test suites remain separately blocked by GitHub Actions infrastructure [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9).
+
+## Persistent local favorites (November 2026)
+
+The **★ Gemerkte (N)** view now restores selected scene bookmarks after refreshing or reopening the Motion Studio in the same browser. This makes frequently used visual components easier to locate across sessions, without using an account or sending data to a backend.
+
+- Storage: the versioned key `red-loop.motion-studio.favorites.v1` holds a JSON array of **valid scene IDs only**. It does **not** contain scene settings, query text, copied links, authentication data, or user content. Removing the last bookmark removes the key.
+- On startup, malformed JSON, invalid shapes, duplicate identifiers, and deleted/unknown scene IDs are discarded. Only IDs present in the current ten-scene catalog are accepted. There is no migration from earlier session-only favorites because they were never stored.
+- If access to `localStorage` throws (private browsing or browser policy), the catalog still works in memory, with no startup crash and an honest **In dieser Sitzung gemerkt** notice. When persistence succeeds, the toast says **Lokal im Browser gemerkt**.
+- The category filter, accessible bookmarks, canvas playback, and preset URL behavior are unchanged. No new packages, analytics, tracking, or cloud integration were added. Users can remove individual bookmarks with **Gemerkt** and can clear all data through browser site-data settings.
+
+Regression coverage: pure `tests/motion-favorites.test.mjs` verifies round-trip, refresh, removal, storage-disabled fallback, invalid input, and strict ID-only serialization. The real-entrypoint jsdom smoke test checks that toggling the favorite writes/removes the key, and Playwright tests cover an actual reload and simulated denied-storage scenario.
+
+**Release limitations:** full hosted Web/iOS CI and production-device validation are not confirmed while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) remains unresolved.

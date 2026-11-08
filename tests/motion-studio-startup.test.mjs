@@ -83,6 +83,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
     assert.equal(playButton.getAttribute('aria-pressed'), 'true', 'bookmarking never pauses playback')
     assert.equal(favoriteButton.getAttribute('aria-pressed'), 'true')
     assert.match(favoritesFilter.textContent, /Gemerkte \(1\)/)
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem('red-loop.motion-studio.favorites.v1')), ['iris-caustics'])
 
     favoritesFilter.click()
     const saved = document.querySelectorAll('#ui-loop-scene-list button')
@@ -92,6 +93,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
 
     favoriteButton.click()
     assert.equal(playButton.getAttribute('aria-pressed'), 'true')
+    assert.equal(dom.window.localStorage.getItem('red-loop.motion-studio.favorites.v1'), null)
     assert.equal(document.querySelectorAll('#ui-loop-scene-list button').length, 0)
     assert.match(document.querySelector('.ui-loop-no-results').textContent, /Noch nichts gemerkt/)
     assert.match(favoritesFilter.textContent, /Gemerkte \(0\)/)

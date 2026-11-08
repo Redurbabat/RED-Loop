@@ -1,13 +1,16 @@
 import {scenes,createMotionEngine} from './motion-engine.js';
 import {defaultMotionSettings,readMotionPreset,serializeMotionPreset,formatMotionUsage} from './motion-presets.js';
 import {encodeCanvasPng} from './motion-export.js';
+import {readMotionFavorites,saveMotionFavorites} from './motion-favorites.js';
 
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
 const defaults=defaultMotionSettings;
 const sceneIds=scenes.map(item=>item.id);
 const initialPreset=readMotionPreset(location.search,sceneIds);
-const favoriteIds=new Set();
+// Access can throw in private browsing or when browser storage is disabled.
+const favoriteStorage=(()=>{try{return window.localStorage}catch{return null}})();
+const favoriteIds=new Set(readMotionFavorites(favoriteStorage,sceneIds));
 let active=scenes.find(item=>item.id===initialPreset.scene)||scenes[0];
 let category='Alle',search='',sourceText='',view='preview';
 const searchInput=$('#ui-loop-search');
@@ -218,7 +221,10 @@ $('#ui-loop-favorite').addEventListener('click',()=>{
   // Updating a bookmark must never reselect the scene or stop playback.
   updateFavoriteButton(active.id);
   updateCatalog();
-  notify(favoriteIds.has(active.id)?'In dieser Sitzung gemerkt':'Aus Merkliste entfernt');
+  const saved=saveMotionFavorites(favoriteStorage,favoriteIds,sceneIds);
+  notify(favoriteIds.has(active.id)
+    ?(saved?'Lokal im Browser gemerkt':'In dieser Sitzung gemerkt')
+    :'Aus Merkliste entfernt');
 });
 $('#ui-loop-copy-link').addEventListener('click',()=>copy(presetUrl().toString(),'Voreinstellungslink'));
 $('#ui-loop-save-image').addEventListener('click',async()=>{

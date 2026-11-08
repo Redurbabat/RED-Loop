@@ -175,7 +175,7 @@ test('compact catalog backdrop closes on outside pointer tap',async({page})=>{
   await expect(page.locator('#ui-loop-backdrop')).toBeHidden()
 })
 
-test('session favorites can be filtered without stopping the current animation', async ({ page }) => {
+test('favorites can be filtered without stopping the current animation', async ({ page }) => {
   const play = page.locator('#ui-loop-play')
   const favorite = page.locator('#ui-loop-favorite')
   const filter = page.locator('#ui-loop-filters button[data-category="Gemerkte"]')
@@ -411,4 +411,49 @@ test('view tabs have full ARIA relationships, keyboard wrapping and paused playb
   await expect(usage).toBeFocused()
   await expect(usage).toHaveAttribute('tabindex', '0')
   await expect(preview).toHaveAttribute('tabindex', '-1')
+})
+
+test('bookmarked scenes survive reload and can be removed from local storage', async ({page})=>{
+  const favorite=page.locator('#ui-loop-favorite')
+  const filter=page.locator('#ui-loop-filters button[data-category="Gemerkte"]')
+  await expect(favorite).toHaveAttribute('aria-pressed','false')
+  await favorite.click()
+  await expect(favorite).toHaveAttribute('aria-pressed','true')
+  await expect(filter).toContainText('(1)')
+  const stored=await page.evaluate(()=>localStorage.getItem('red-loop.motion-studio.favorites.v1'))
+  expect(JSON.parse(stored)).toEqual(['spectral-fold'])
+
+  await page.reload()
+  await expect(favorite).toHaveAttribute('aria-pressed','true')
+  await expect(filter).toContainText('(1)')
+  const compact=await page.evaluate(()=>matchMedia('(max-width:850px)').matches)
+  if(compact)await page.locator('#ui-loop-mobile-catalog').click()
+  await filter.click()
+  await expect(page.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(1)
+  await expect(page.locator('#ui-loop-scene-list button[data-scene="spectral-fold"]')).toBeVisible()
+  if(compact)await page.locator('#ui-loop-sidebar-close').click()
+  await favorite.click()
+  await expect(filter).toContainText('(0)')
+  await page.reload()
+  await expect(favorite).toHaveAttribute('aria-pressed','false')
+  await expect(filter).toContainText('(0)')
+  expect(await page.evaluate(()=>localStorage.getItem('red-loop.motion-studio.favorites.v1'))).toBeNull()
+})
+
+test('blocked browser storage preserves in-memory favorites and catalog startup',async({page})=>{
+  await page.addInitScript(()=>{
+    Object.defineProperty(window,'localStorage',{configurable:true,get(){throw new Error('Storage disabled')}})
+  })
+  await page.reload()
+  await expect(page.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(10)
+  const favorite=page.locator('#ui-loop-favorite')
+  const filter=page.locator('#ui-loop-filters button[data-category="Gemerkte"]')
+  await favorite.click()
+  await expect(favorite).toHaveAttribute('aria-pressed','true')
+  await expect(filter).toContainText('(1)')
+  await expect(page.locator('#ui-loop-toast')).toContainText('In dieser Sitzung gemerkt')
+  const compact=await page.evaluate(()=>matchMedia('(max-width:850px)').matches)
+  if(compact)await page.locator('#ui-loop-mobile-catalog').click()
+  await filter.click()
+  await expect(page.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(1)
 })
