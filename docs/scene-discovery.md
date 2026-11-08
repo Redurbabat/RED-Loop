@@ -65,3 +65,17 @@ This reuses `saveMotionFavorites` and the same **`red-loop.motion-studio.favorit
 Regression coverage extends the real homepage DOM tests and Playwright specs for direct marking/removal, storage fallback, link-versus-button separation, focus preservation, and sync to an already-open Motion Studio tab. The dedicated observer for static thumbnails is disconnected and rebuilt when the card order changes, as with existing filters.
 
 **Current limitation:** hosted CI, Playwright rendering and physical-device verification remain unconfirmed while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is unresolved.
+
+## Side-by-side scene comparison (November 2026)
+
+The homepage now lets users compare the appearance of **up to two original RED Morph studies side by side** without leaving the component finder. Each card has a separate 44px-tall **↔ Vergleichen** button, independent of its scene link and ★ bookmark button. Selecting a study reveals an accessible comparison region above the gallery. A second selection displays both original scenes with their **actual still Canvas thumbnails**, category labels, direct Motion Studio links and individually labelled **Entfernen** buttons. The empty second slot explains how to continue.
+
+The comparison is deliberately constrained to **two studies**: choosing a third replaces the oldest selected study; the result is announced via the existing polite live-status region, and a visible description also explains this behavior. Re-selecting a chosen study removes it. **Vergleich löschen** clears both, hides the panel and restores focus to the catalog search. Removing an item from the comparison restores focus to its corresponding toggle if visible, otherwise to search.
+
+Comparison choice is **in-memory only**. It does not change favorites, write `localStorage`, alter URLs, contact servers, or trigger Cloudflare jobs. Filters and search do not discard selected comparisons. Changes to the comparison update only the comparison region and the `aria-pressed` state of toggles, **not the gallery itself**; thus original lazy thumbnails are not repainted or reallocated merely because the user compares scenes.
+
+The comparison region reuses `observeStaticMotionThumbnails` and the canonical scene engine; only visible static frames are drawn, and each render's observers are disconnected before replacing comparison contents. No animation is automatically started; reduced-motion behavior is unchanged. The panel presents two columns at desktop, tablet and mobile web widths (320px and up). It follows existing light/dark and forced-colors styles.
+
+Tests: `tests/scene-comparison.test.mjs` checks the bounded selection policy, allowlisted scene IDs, immutable inputs, removal and third-scene replacement. `tests/scene-discovery-dom.test.mjs` checks the actual panel, independent controls, stable original card DOM, no storage writes, announced updates and focus after filtering/clearing. `tests/browser/scene-discovery.spec.js` adds static side-by-side bitmap, 320/390/768/1440px layout and keyboard regression cases.
+
+**Validation boundary:** Targeted V8/unit and production-handler tests are separate from full hosted Node/Playwright/iOS verification. GitHub Actions remains blocked without job logs under [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9); no live deployment or real-device rendering is asserted.
