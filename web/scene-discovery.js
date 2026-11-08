@@ -5,6 +5,7 @@
 import {scenes} from './motion-engine.js';
 import {motionFavoritesStorageKey,readMotionFavorites,saveMotionFavorites} from './motion-favorites.js';
 import {observeStaticMotionThumbnails} from './motion-thumbnails.js';
+import {defaultMotionSettings,formatMotionUsage} from './motion-presets.js';
 
 const categories=['Alle','Gemerkte',...new Set(scenes.map(scene=>scene.category))];
 const sceneIds=scenes.map(scene=>scene.id);
@@ -54,12 +55,61 @@ export function initMotionDiscovery(doc=document){
   const comparisonItems=doc.getElementById('scene-discovery-comparison-items');
   const comparisonCount=doc.getElementById('scene-discovery-comparison-count');
   const comparisonClear=doc.getElementById('scene-discovery-comparison-clear');
+  const usagePanel=doc.getElementById('scene-discovery-usage');
+  const usageScene=doc.getElementById('scene-discovery-usage-scene');
+  const usageText=doc.getElementById('scene-discovery-usage-text');
+  const usageSource=doc.getElementById('scene-discovery-usage-source');
+  const usageCopy=doc.getElementById('scene-discovery-usage-copy');
+  const usageClose=doc.getElementById('scene-discovery-usage-close');
   const stored=(()=>{try{return win.localStorage}catch{return null}})();
   let savedIds=new Set(readMotionFavorites(stored,sceneIds));
   let category='Alle';
   let stopObservingThumbnails=()=>{};
   let stopObservingComparison=()=>{};
   let comparedIds=[];
+  let openUsageScene=null;
+  
+  function updateUsageControls(){
+    for(const button of results.querySelectorAll('button[data-usage]')){
+      button.setAttribute('aria-expanded',String(button.dataset.usage===openUsageScene));
+    }
+  }
+  function showUsage(sceneId){
+    const scene=scenes.find(item=>item.id===sceneId);
+    if(!scene)return;
+    openUsageScene=scene.id;
+    usageScene.textContent=scene.name;
+    // Use the exact same canonical integration snippet as Motion Studio.
+    usageText.textContent=formatMotionUsage({scene:scene.id,...defaultMotionSettings});
+    usagePanel.hidden=false;
+    updateUsageControls();
+    usageSource.focus();
+    feedback.textContent='Einbau-Code für '+scene.name+' geöffnet';
+  }
+  function closeUsage(){
+    const previous=openUsageScene;
+    openUsageScene=null;
+    usagePanel.hidden=true;
+    updateUsageControls();
+    const origin=[...results.querySelectorAll('button[data-usage]')]
+      .find(button=>button.dataset.usage===previous);
+    (origin||search).focus();
+    feedback.textContent='Einbau-Code geschlossen';
+  }
+  usageClose.addEventListener('click',closeUsage);
+  usageCopy.addEventListener('click',async()=>{
+    const snippet=usageText.textContent;
+    const label=usageScene.textContent;
+    if(!openUsageScene||!snippet)return;
+    try{
+      if(!win.navigator?.clipboard?.writeText)throw new Error('Clipboard API unavailable');
+      await win.navigator.clipboard.writeText(snippet);
+      feedback.textContent='Einbau-Code für '+label+' kopiert';
+    }catch{
+      usageSource.focus();
+      feedback.textContent='Kopieren nicht verfügbar. Bitte den Code manuell markieren.';
+    }
+  });
 
   // Compare remains independent of active filters and saved bookmarks.
   // Changing a selection never rebuilds the gallery or redraws its thumbnails.
@@ -129,6 +179,7 @@ export function initMotionDiscovery(doc=document){
   function render(){
     const focusedScene=doc.activeElement?.closest?.('#scene-discovery-results a[data-scene]')?.dataset.scene;
     const focusedBookmark=doc.activeElement?.closest?.('#scene-discovery-results button[data-bookmark]')?.dataset.bookmark;
+    const focusedUsage=doc.activeElement?.closest?.('#scene-discovery-results button[data-usage]')?.dataset.usage;
     const matches=findMotionScenes(scenes,{query:search.value,category,favorites:savedIds});
     const cards=matches.map(scene=>{
       const index=scenes.findIndex(item=>item.id===scene.id)+1;
@@ -207,10 +258,19 @@ export function initMotionDiscovery(doc=document){
           :scene.name+(comparedIds.includes(scene.id)?' für Vergleich ausgewählt':' aus Vergleich entfernt');
         renderComparison();
       });
+      const usageButton=doc.createElement('button');
+      usageButton.type='button';
+      usageButton.className='scene-discovery-usage-toggle';
+      usageButton.dataset.usage=scene.id;
+      usageButton.setAttribute('aria-controls','scene-discovery-usage');
+      usageButton.setAttribute('aria-expanded',String(openUsageScene===scene.id));
+      usageButton.setAttribute('aria-label',scene.name+' Einbau-Code anzeigen');
+      usageButton.textContent='⌘ Einbau-Code';
+      usageButton.addEventListener('click',()=>showUsage(scene.id));
       const actions=doc.createElement('div');
       actions.className='scene-discovery-actions';
-      actions.append(compare);
-      // Two independent controls; neither is nested inside the scene link.
+      actions.append(compare,usageButton);
+      // All card actions are siblings of the scene link.
       entry.append(link,bookmark,actions);
       return entry;
     });
@@ -233,6 +293,10 @@ export function initMotionDiscovery(doc=document){
     }else if(focusedBookmark){
       const replacement=cards.find(card=>card.dataset.scene===focusedBookmark)
         ?.querySelector('button[data-bookmark]');
+      (replacement||search).focus();
+    }else if(focusedUsage){
+      const replacement=cards.find(card=>card.dataset.scene===focusedUsage)
+        ?.querySelector('button[data-usage]');
       (replacement||search).focus();
     }
     return cards;
@@ -288,7 +352,7 @@ export function initMotionDiscovery(doc=document){
   });
 
   render();
-  return {render,get category(){return category},get favorites(){return new Set(savedIds)},get comparison(){return [...comparedIds]}};
+  return {render,get category(){return category},get favorites(){return new Set(savedIds)},get comparison(){return [...comparedIds]},get usageScene(){return openUsageScene}};
 }
 
 if(typeof document!=='undefined')initMotionDiscovery(document);

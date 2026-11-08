@@ -234,3 +234,76 @@ test('comparison replaces oldest selection and restores focus after removal and 
     assert.equal(dom.window.localStorage.length,0);
   }finally{dom.window.close();}
 });
+
+test('homepage opens canonical integration code without navigation or gallery replacement',()=>{
+  const {dom,doc,discovery}=createPage();
+  try{
+    const open=doc.querySelector('button[data-usage="mercury-droplets"]');
+    const original=doc.querySelector('a[data-scene="spectral-fold"]');
+    const panel=doc.getElementById('scene-discovery-usage');
+    const text=doc.getElementById('scene-discovery-usage-text');
+    assert.equal(panel.hidden,true);
+    assert.equal(open.closest('a'),null,'code action must not be nested inside a link');
+    open.click();
+    assert.equal(discovery.usageScene,'mercury-droplets');
+    assert.equal(panel.hidden,false);
+    assert.equal(open.getAttribute('aria-expanded'),'true');
+    assert.equal(doc.activeElement,doc.getElementById('scene-discovery-usage-source'));
+    assert.match(text.textContent,/scene: 'mercury-droplets'/);
+    assert.match(text.textContent,/density: 58, depth: 58, speed: 42, hue: 340/);
+    assert.match(text.textContent,/createMotionEngine/);
+    assert.equal(doc.querySelector('a[data-scene="spectral-fold"]'),original,
+      'opening integration code does not rebuild existing gallery thumbnails');
+    assert.equal(dom.window.localStorage.length,0,'source display saves no user data');
+
+    doc.querySelector('button[data-usage="aurora-threads"]').click();
+    assert.match(text.textContent,/scene: 'aurora-threads'/);
+    assert.doesNotMatch(text.textContent,/mercury-droplets/);
+    assert.equal(open.getAttribute('aria-expanded'),'false');
+    doc.getElementById('scene-discovery-usage-close').click();
+    assert.equal(panel.hidden,true);
+    assert.equal(discovery.usageScene,null);
+    assert.equal(doc.activeElement,doc.querySelector('button[data-usage="aurora-threads"]'),
+      'closing restores focus to the button that opened the inspector');
+  }finally{dom.window.close();}
+});
+
+test('usage inspector remains readable if the selected card is filtered away',()=>{
+  const {dom,doc}=createPage();
+  try{
+    doc.querySelector('button[data-usage="mercury-droplets"]').click();
+    doc.querySelector('button[data-category="Partikel"]').click();
+    assert.equal(doc.getElementById('scene-discovery-usage').hidden,false);
+    assert.match(doc.getElementById('scene-discovery-usage-text').textContent,/mercury-droplets/);
+    doc.getElementById('scene-discovery-usage-close').click();
+    assert.equal(doc.activeElement,doc.getElementById('scene-discovery-search'),
+      'closing after filtering restores focus to search');
+  }finally{dom.window.close();}
+});
+
+test('canonical snippet copy handles success and unavailable Clipboard API',async()=>{
+  const {dom,doc}=createPage();
+  try{
+    const open=doc.querySelector('button[data-usage="aurora-threads"]');
+    open.click();
+    const source=doc.getElementById('scene-discovery-usage-text');
+    const feedback=doc.getElementById('scene-discovery-feedback');
+    const button=doc.getElementById('scene-discovery-usage-copy');
+    let copied=null;
+    Object.defineProperty(dom.window.navigator,'clipboard',{configurable:true,value:{
+      writeText:async value=>{copied=value},
+    }});
+    button.click();
+    await new Promise(resolve=>setTimeout(resolve,0));
+    assert.equal(copied,source.textContent);
+    assert.match(feedback.textContent,/Aurora Threads kopiert/);
+    Object.defineProperty(dom.window.navigator,'clipboard',{configurable:true,value:{
+      writeText:async()=>{throw new Error('Clipboard denied')},
+    }});
+    button.click();
+    await new Promise(resolve=>setTimeout(resolve,0));
+    assert.match(feedback.textContent,/Kopieren nicht verfügbar/);
+    assert.equal(doc.activeElement,doc.getElementById('scene-discovery-usage-source'));
+    assert.equal(doc.getElementById('scene-discovery-usage').hidden,false);
+  }finally{dom.window.close();}
+});
