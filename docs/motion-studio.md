@@ -172,3 +172,16 @@ Regression coverage:
 - `tests/motion-snapshot.test.mjs`: exercise the actual engine without completing any scheduled animation frame; verify synchronous painting, current scene, updated iPhone-style dimensions, frame cancellation, paused state and cleanup.
 - `tests/browser/motion-studio.spec.js`: download PNG after choosing Vector Bloom and iPhone/Android preview sizes, inspect actual PNG dimensions and check that distinct previews produce distinct image bytes on Chromium.
 - Full hosted CI and physical-device export verification remain separate release gates while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is open.
+
+## Reliable asynchronous PNG encoding (November 2026)
+
+PNG snapshots now have two distinct, explicit stages: synchronous `engine.renderForExport()` paints the currently selected frame, and asynchronous `encodeCanvasPng()` asks the browser to encode those pixels. The **requested scene ID is frozen before the asynchronous callback starts**. If the user selects another scene while encoding finishes, the download filename still correctly identifies the captured scene rather than the newly selected one.
+
+- A maximum **12-second encoding wait** prevents a stalled `toBlob` callback from permanently disabling the export control.
+- Unsupported encoding, `null` blobs, unexpected MIME formats and browser exceptions produce the existing error message. Late or duplicate callbacks cannot settle the same export twice.
+- While encoding is in progress the button is disabled, marked `aria-busy="true"` and displays a temporary progress label. Its original label and enabled state are restored in `finally` on either success or failure.
+- Download links are removed after activation, and their object URLs retain the existing delayed revocation period.
+
+Regression coverage: `tests/motion-export.test.mjs` tests valid PNG encoding, unsupported/null/wrong-format results, exceptions, bounded wait, late and duplicate callbacks. Playwright checks that delayed encoding followed by navigation still downloads the **original** scene's filename, and verifies that a failed export unlocks the button.
+
+Validation: the actual feature-branch encoding helper and actual click handler were executed with controlled asynchronous callbacks, producing **13 passing assertions**, including a forced timeout, delayed scene switch and both error/success cleanup paths. The hosted CI/real-device checks remain unverified while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is open.
