@@ -2,7 +2,7 @@
 
 ## Why
 
-The RED Loop landing page previously included a Motion Studio navigation link, but users had to open a different page **before** they could discover or choose one of the ten original Canvas effects. RED Morph now surfaces those scenes directly below the homepage introduction and **above** the existing bounded-demo controls.
+The RED Loop landing page previously included a Motion Studio navigation link, but users had to open a different page **before** they could discover or choose one of the twelve original Canvas effects. RED Morph now surfaces those scenes directly below the homepage introduction and **above** the existing bounded-demo controls.
 
 The component finder is a frontend-only convenience. Cloud jobs, demo state, integration workflows and existing routes are unchanged.
 
@@ -19,7 +19,7 @@ The gallery automatically adopts the existing light/dark/system theme. It shows 
 
 ## Data boundaries and architecture
 
-The source of truth is `web/motion-engine.js` (`scenes`). `web/scene-discovery.js` imports those scene definitions and the existing read-only favorites helper; it never duplicates a competing list and **never** calls the cloud API. Search input and category state stay in memory. Favorite IDs are read from the same versioned localStorage key already used by Motion Studio, and the homepage listens to browser `storage` changes to update its saved filter. The gallery does not write storage or track searches. If storage is unavailable, all ten effects remain browsable.
+The source of truth is `web/motion-engine.js` (`scenes`). `web/scene-discovery.js` imports those scene definitions and the existing read-only favorites helper; it never duplicates a competing list and **never** calls the cloud API. Search input and category state stay in memory. Favorite IDs are read from the same versioned localStorage key already used by Motion Studio, and the homepage listens to browser `storage` changes to update its saved filter. The gallery does not write storage or track searches. If storage is unavailable, all twelve effects remain browsable.
 
 Files: `web/index.html` (progressive-enhancement shell), `web/style.css` (scoped optical-glass cards and responsive layout), and `web/scene-discovery.js` (metadata search, safe deep links, and accessible DOM interactions).
 
@@ -50,7 +50,7 @@ The renderer uses **one shared IntersectionObserver per active search-result set
 
 Each preview is marked `aria-hidden="true"`; the scene name, category and description remain the accessible link content. The image itself is not a button, does not intercept touch or keyboard events, and never starts motion. Reduced-motion users receive the same stable static image. The existing responsive four/three/two/one-column layout remains, with a compact thumbnail above the text.
 
-Coverage: `tests/motion-thumbnails.test.mjs` checks lifecycle cleanup, failure fallback, observation, unobserving, older browsers and retries. The existing homepage DOM regression now requires 10 matched, decorative canvases; Playwright checks that visible thumbnails paint, differ between scenes, stay pixel-identical over time, survive filtering and respect reduced motion.
+Coverage: `tests/motion-thumbnails.test.mjs` checks lifecycle cleanup, failure fallback, observation, unobserving, older browsers and retries. The existing homepage DOM regression now requires 12 matched, decorative canvases; Playwright checks that visible thumbnails paint, differ between scenes, stay pixel-identical over time, survive filtering and respect reduced motion.
 
 **Release gate:** full hosted CI and visual production/device tests remain unverified until [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is resolved.
 

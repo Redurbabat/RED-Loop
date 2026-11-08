@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => { await page.goto(studio) })
 test.describe('RED Loop Motion Studio', () => {
 
   test('initializes all catalog controls and updates color profiles without runtime error', async ({ page }) => {
-    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(10)
+    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(12)
     await expect(page.locator('#ui-loop-usage-source')).toContainText('spectral-fold')
     await expect(page.locator('.ui-loop-swatches button[data-hue="340"]')).toHaveAttribute('aria-pressed', 'true')
     await page.locator('#ui-loop-hue').evaluate(input => {
@@ -24,7 +24,7 @@ test.describe('RED Loop Motion Studio', () => {
   test('catalog search, scene switching and settings remain functional', async ({ page }) => {
     const compact = await page.evaluate(() => matchMedia('(max-width: 850px)').matches)
     if (compact) await page.getByRole('button', { name: 'Katalog' }).click()
-    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(10)
+    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(12)
     await page.locator('#ui-loop-search').fill('Glass Filament')
     await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(1)
     await page.locator('[data-scene="glass-filament"]').click()
@@ -208,7 +208,7 @@ test('favorites can be filtered without stopping the current animation', async (
   await expect(page.locator('.ui-loop-no-results')).toContainText('Noch nichts gemerkt')
   await expect(filter).toContainText('0')
   await page.locator('#ui-loop-filters button[data-category="Alle"]').click()
-  await expect(items).toHaveCount(10)
+  await expect(items).toHaveCount(12)
 })
 
 test('focusable canvas supports arrow keys and Home without starting animation', async ({ page }) => {
@@ -445,7 +445,7 @@ test('blocked browser storage preserves in-memory favorites and catalog startup'
     Object.defineProperty(window,'localStorage',{configurable:true,get(){throw new Error('Storage disabled')}})
   })
   await page.reload()
-  await expect(page.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(10)
+  await expect(page.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(12)
   const favorite=page.locator('#ui-loop-favorite')
   const filter=page.locator('#ui-loop-filters button[data-category="Gemerkte"]')
   await favorite.click()
@@ -508,9 +508,44 @@ test('unrelated storage changes leave the open catalog and keyboard focus alone'
     await scene.focus();
     await page.evaluate(()=>localStorage.setItem('unrelated.settings','example'));
     await expect(scene).toBeFocused();
-    await expect(other.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(10);
+    await expect(other.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(12);
     await expect(other.locator('#ui-loop-favorite')).toHaveAttribute('aria-pressed','false');
   }finally{
     await other.close();
   }
+});
+
+test('new Aurora and Mercury studies render distinct original static images and support deep links',async({page})=>{
+  const images=[];
+  for(const [id,title] of [['aurora-threads','Aurora Threads'],['mercury-droplets','Mercury Droplets']]){
+    await page.goto('/motion-studio.html?scene='+id);
+    await expect(page.locator('#ui-loop-title')).toContainText(title);
+    await expect(page.locator('#ui-loop-scene-list button[data-scene="'+id+'"]')).toHaveAttribute('aria-current','true');
+    await expect(page.locator('#ui-loop-play')).toHaveAttribute('aria-pressed','false');
+    const canvas=page.locator('#ui-loop-canvas');
+    await expect(canvas).toBeVisible();
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    images.push(await canvas.evaluate(el=>el.toDataURL('image/png')));
+    const [width,height]=await canvas.evaluate(el=>[el.width,el.height]);
+    expect(width).toBeGreaterThan(1);
+    expect(height).toBeGreaterThan(1);
+    const bookmark=page.locator('#ui-loop-favorite');
+    await bookmark.click();
+    await expect(bookmark).toHaveAttribute('aria-pressed','true');
+  }
+  expect(images[0]).not.toBe(images[1]);
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await expect(page.locator('#ui-loop-play')).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('#ui-loop-filters button[data-category="Gemerkte"]')).toContainText('(2)');
+});
+
+test('new original material opens from responsive catalog on phone and desktop',async({page})=>{
+  const compact=await page.evaluate(()=>matchMedia('(max-width:850px)').matches);
+  if(compact)await page.locator('#ui-loop-mobile-catalog').click();
+  await page.locator('#ui-loop-search').fill('Mercury Droplets');
+  await expect(page.locator('#ui-loop-result-count')).toHaveText('01');
+  await page.locator('#ui-loop-scene-list button[data-scene="mercury-droplets"]').click();
+  await expect(page.locator('#ui-loop-title')).toContainText('Mercury Droplets');
+  await expect(page).toHaveURL(/scene=mercury-droplets/);
+  if(compact)await expect(page.locator('#ui-loop-mobile-catalog')).toHaveAttribute('aria-expanded','false');
 });

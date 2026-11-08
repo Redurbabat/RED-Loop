@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultMotionSettings, normalizeMotionSettings, readMotionPreset, serializeMotionPreset, formatMotionUsage } from '../web/motion-presets.js';
+import {scenes} from '../web/motion-engine.js';
 
 const ids=['spectral-fold','glass-filament','iris-caustics'];
 test('URL presets keep selection and clamp all settings',()=>{
@@ -35,4 +36,17 @@ test('normalization rounds slider parameters and snippet uses current values',()
   const source=formatMotionUsage({scene:'glass-filament',density:34,depth:1,speed:20,hue:255});
   assert.match(source,/scene: 'glass-filament', density: 34, depth: 1, speed: 20, hue: 255/);
   assert.doesNotMatch(formatMotionUsage({scene:"evil';foo()",...defaultMotionSettings}),/foo\(\)/);
+});
+
+test('new original studies round-trip through safe deep links and copyable usage snippets',()=>{
+  const available=scenes.map(scene=>scene.id);
+  for(const id of ['aurora-threads','mercury-droplets']){
+    const preset={scene:id,density:66,depth:73,speed:38,hue:315};
+    const url=serializeMotionPreset(preset);
+    assert.deepEqual(readMotionPreset('?'+url+'&token=not-shared',available),preset);
+    assert.deepEqual([...new URLSearchParams(url).keys()],['scene','density','depth','speed','hue']);
+    const usage=formatMotionUsage(preset);
+    assert.match(usage,new RegExp("scene: '"+id+"'"));
+    assert.doesNotMatch(usage,/token|not-shared/);
+  }
 });

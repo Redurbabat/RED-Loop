@@ -103,13 +103,13 @@ The studio provides **five browser viewport presets**: MacBook (wide rounded sta
 
 **Prism Veil** and **Vector Bloom** use original Canvas 2D geometry with no external shaders, premium assets or additional dependencies. Both are static at rest and react to pointer/touch input or explicit playback. Pointer-cancel is handled to avoid stale touch focus during scroll cancellation. Motion remains disabled by the system's reduced-motion setting.
 
-Node tests now cover ten unique scenes, preview profile markup, drawing and pointer event disposal. New Playwright coverage selects each platform preview and both scenes and checks for horizontal overflow. Full CI and physical-device verification remain release gates; adding tests does not prove a successful remote run.
+Node tests now cover twelve unique scenes, preview profile markup, drawing and pointer event disposal. New Playwright coverage selects each platform preview and both scenes and checks for horizontal overflow. Full CI and physical-device verification remain release gates; adding tests does not prove a successful remote run.
 
 ## Initialization regression fix (November 2026)
 
 Two startup and slider handlers previously called `querySelector('.ui-loop-swatches button').forEach(...)`. The singular selector returns an element rather than a list and causes a `TypeError` during initial preset application. Both handlers now use `querySelectorAll` through the existing `$$` helper.
 
-The browser suite's common `beforeEach` now applies to **all** cases, including previously standalone PNG-export and device-switching cases, so tests cannot run against an empty page. In addition to browser assertions, `tests/motion-studio-startup.test.mjs` imports the **actual** browser entrypoint in a jsdom-backed HTML document with mocked Canvas and browser APIs; it checks preset hydration, all 10 catalog entries, both swatch paths, updated URL and generated usage code.
+The browser suite's common `beforeEach` now applies to **all** cases, including previously standalone PNG-export and device-switching cases, so tests cannot run against an empty page. In addition to browser assertions, `tests/motion-studio-startup.test.mjs` imports the **actual** browser entrypoint in a jsdom-backed HTML document with mocked Canvas and browser APIs; it checks preset hydration, all 12 catalog entries, both swatch paths, updated URL and generated usage code.
 
 This is a regression repair, not a new animation or native-client feature. Complete GitHub Actions, deployed-site and physical-device checks remain the independent quality gates. Do not treat a successful GitHub merge as a deployment.
 
@@ -236,3 +236,15 @@ To avoid disturbing keyboard users, a catalog button that currently has focus is
 No polling, analytics, cloud API, account synchronization or new storage keys are introduced. Disabled browser storage still uses the existing in-memory fallback. Synchronization operates only among tabs sharing the same browser storage partition; it is not synchronization between devices or browsers.
 
 Regression coverage includes `tests/motion-favorites.test.mjs` (cross-tab additions, removals, clear, irrelevant events, malformed IDs and unchanged membership), real-entrypoint startup checks, and Playwright tests with two pages in the same browser context. Hosted CI and physical-device tests remain unverified while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is unresolved.
+
+## Two new original optical studies (November 2026)
+
+RED Morph expands its independent Canvas library from ten to **twelve** original studies. Both new entries use the existing renderer infrastructure and its safe settings, rather than copied third-party implementations or licensed component assets.
+
+**Aurora Threads** (`aurora-threads`, Lichtfelder) draws multiple softly layered, deterministic luminous threads. The geometry changes with focus position, material depth, scene hue and animation time. At rest it presents a still woven-light surface, without a permanent glow animation or background timer.
+
+**Mercury Droplets** (`mercury-droplets`, Material) uses original radial-gradient droplet geometry, restrained edge highlights and deterministic spatial placement to suggest reflective liquid metal. The droplets respond to pointer focus, depth and hue. It reuses the same high-DPI, bounded Canvas backing buffer and pause/reduced-motion handling as the original library.
+
+Both studies are available through the Motion Studio catalog, category and name search, copyable usage format, URL deep links, session/profile favorites, keyboard Canvas interaction, iPhone/Android/tablet/MacBook/Windows responsive web previews, local PNG export and the lazy homepage thumbnails. Their metadata lives in `web/motion-engine.js`; there are no separate or diverging catalog lists.
+
+**Regression verification:** `tests/motion-original-studies.test.mjs` executes the canonical Canvas code in a controlled drawing context for both studies, validates distinct finite geometry, pointer and configuration response, reduced-motion support and complete listener/RAF teardown. Existing catalog and homepage tests were adjusted to twelve studies, and Playwright scenarios were added for scene URLs, thumbnails, material search, actual Canvas dimensions, favorites and compact catalog behavior. A full green hosted CI or real-device visual run is **not** established while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) remains open.

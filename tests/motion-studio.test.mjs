@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createMotionEngine,scenes} from '../web/motion-engine.js';
 
-test('ten unique original materials with descriptive metadata',()=>{
-  assert.equal(scenes.length,10);
-  assert.equal(new Set(scenes.map(item=>item.id)).size,10);
+test('twelve unique original materials with descriptive metadata',()=>{
+  assert.equal(scenes.length,12);
+  assert.equal(new Set(scenes.map(item=>item.id)).size,12);
   for(const scene of scenes){
     assert.ok(scene.name && scene.category && scene.description.length>25);
     assert.ok(Array.isArray(scene.tags) && scene.tags.length>=3);
@@ -26,7 +26,7 @@ test('studio HTML has core landmarks, accessible controls and no inline scripts'
   assert.match(html,/id="ui-loop-sidebar-close"/);
   assert.match(html,/id="ui-loop-code-panel"/);
   assert.match(html,/id="ui-loop-save-image"/);
-  assert.match(html,/id="ui-loop-result-count">10/);
+  assert.match(html,/id="ui-loop-result-count">12/);
     for(const mode of ['macbook','windows','tablet','iphone','android']) assert.match(html,new RegExp('data-device="'+mode+'"'));
   assert.doesNotMatch(html,/<script(?![^>]*src=)[^>]*>/i);
 });

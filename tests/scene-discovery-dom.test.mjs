@@ -22,25 +22,25 @@ function key(dom,element,value){
   return event.defaultPrevented;
 }
 
-test('homepage renders all 10 original studies with working deep links and category filters',()=>{
+test('homepage renders all 12 original studies with working deep links and category filters',()=>{
   const {dom,doc,discovery}=createPage();
   try{
     const all=doc.querySelectorAll('#scene-discovery-results a[data-scene]');
-    assert.equal(all.length,10);
+    assert.equal(all.length,12);
     const previews=doc.querySelectorAll('#scene-discovery-results canvas[data-scene]');
-    assert.equal(previews.length,10,'each link has a decorative static Canvas preview');
+    assert.equal(previews.length,12,'each link has a decorative static Canvas preview');
     for(const canvas of previews){
       assert.equal(canvas.dataset.scene,canvas.closest('a[data-scene]').dataset.scene);
       assert.equal(canvas.getAttribute('aria-hidden'),'true');
     }
-    assert.equal(doc.querySelector('#scene-discovery-count').textContent,'10 Komponenten gefunden');
+    assert.equal(doc.querySelector('#scene-discovery-count').textContent,'12 Komponenten gefunden');
     assert.equal(all[0].getAttribute('href'),'/motion-studio.html?scene=spectral-fold');
     assert.equal(doc.querySelectorAll('#scene-discovery-filters button[data-category]').length,5);
     const category=doc.querySelector('#scene-discovery-filters button[data-category="Material"]');
     category.click();
     assert.equal(discovery.category,'Material');
     assert.equal(category.getAttribute('aria-pressed'),'true');
-    assert.equal(doc.querySelectorAll('#scene-discovery-results a[data-scene]').length,3);
+    assert.equal(doc.querySelectorAll('#scene-discovery-results a[data-scene]').length,4);
   }finally{dom.window.close();}
 });
 
@@ -71,7 +71,7 @@ test('homepage search is keyboard-first and reset recovers from no matches',()=>
     doc.getElementById('scene-discovery-reset').click();
     assert.equal(input.value,'');
     assert.equal(doc.activeElement,input);
-    assert.equal(results.querySelectorAll('a[data-scene]').length,10);
+    assert.equal(results.querySelectorAll('a[data-scene]').length,12);
     assert.equal(doc.getElementById('scene-discovery-empty').hidden,true);
   }finally{dom.window.close();}
 });
@@ -113,7 +113,7 @@ test('private-mode storage failures cannot block homepage discoverability',()=>{
   try{
     Object.defineProperty(dom.window,'localStorage',{configurable:true,get(){throw new Error('storage disabled')}});
     initMotionDiscovery(dom.window.document);
-    assert.equal(dom.window.document.querySelectorAll('#scene-discovery-results a').length,10);
+    assert.equal(dom.window.document.querySelectorAll('#scene-discovery-results a').length,12);
     dom.window.document.querySelector('#scene-discovery-filters button[data-category="Gemerkte"]').click();
     assert.equal(dom.window.document.querySelectorAll('#scene-discovery-results a').length,0);
   }finally{dom.window.close();}
