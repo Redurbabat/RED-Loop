@@ -25,9 +25,14 @@ export function readMotionPreset(search,availableScenes,fallbackScene='spectral-
   return {scene,...normalizeMotionSettings(candidate)};
 }
 
-export function serializeMotionPreset(preset,existingSearch=''){
-  const params=new URLSearchParams(existingSearch);
-  if(preset.scene)params.set('scene',preset.scene);
+/**
+ * Produce an explicit allowlist of public visual settings.
+ * Never retain unrelated URL parameters (such as access tokens) in shared links.
+ */
+export function serializeMotionPreset(preset){
+  const params=new URLSearchParams();
+  const scene=/^[a-z][a-z0-9-]{0,63}$/.test(preset.scene||'')?preset.scene:'spectral-fold';
+  params.set('scene',scene);
   const values=normalizeMotionSettings(preset);
   for(const [key,value] of Object.entries(values))params.set(key,String(value));
   return params.toString();
