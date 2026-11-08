@@ -40,7 +40,7 @@ function withMockCanvas(run){
     const engine=createMotionEngine(canvas);
     try{return run({
       engine,canvas,canvasEvents,media,
-      get operations(){return operations},
+      snapshot(){return operations},
       reset(){operations=[]},
       setRect(value){rect=value},
     });}
@@ -76,14 +76,14 @@ test('two distinct original studies have complete metadata and safe catalog iden
 });
 
 test('Aurora Threads and Mercury Droplets render different finite original geometry',()=>{
-  withMockCanvas(({engine,canvas,operations,reset})=>{
+  withMockCanvas(({engine,canvas,snapshot,reset})=>{
     const traces={};
     for(const scene of studies){
       reset();
       engine.configure({scene,density:58,depth:62,hue:340});
       assert.equal(engine.renderForExport(),true);
       assert.deepEqual([canvas.width,canvas.height],[640,368]);
-      const trace=operations;
+      const trace=snapshot();
       assert.ok(trace.length>150,'many optical operations for '+scene);
       for(const op of trace){
         assert.equal(op.slice(1).filter(x=>typeof x==='number').every(Number.isFinite),true,
@@ -104,20 +104,20 @@ test('Aurora Threads and Mercury Droplets render different finite original geome
 });
 
 test('new studies respond to pointer and tuning changes without autoplay',()=>{
-  withMockCanvas(({engine,canvasEvents,reset,operations,media})=>{
+  withMockCanvas(({engine,canvasEvents,reset,snapshot,media})=>{
     for(const scene of studies){
       engine.configure({scene,depth:45,density:48,hue:220});
       reset();
       assert.equal(engine.renderForExport(),true);
-      const neutral=JSON.stringify(operations);
+      const neutral=JSON.stringify(snapshot());
       canvasEvents.get('pointermove')({clientX:280,clientY:140});
       reset();
       assert.equal(engine.renderForExport(),true);
-      assert.notEqual(JSON.stringify(operations),neutral,scene+' responds to pointer position');
+      assert.notEqual(JSON.stringify(snapshot()),neutral,scene+' responds to pointer position');
       engine.configure({depth:90,hue:340});
       reset();
       assert.equal(engine.renderForExport(),true);
-      assert.notEqual(JSON.stringify(operations),neutral,scene+' responds to material settings');
+      assert.notEqual(JSON.stringify(snapshot()),neutral,scene+' responds to material settings');
       canvasEvents.get('pointerleave')();
       assert.equal(engine.running,false);
       media.matches=true;
