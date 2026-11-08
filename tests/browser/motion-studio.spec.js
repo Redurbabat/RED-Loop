@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => { await page.goto(studio) })
 test.describe('RED Loop Motion Studio', () => {
 
   test('initializes all catalog controls and updates color profiles without runtime error', async ({ page }) => {
-    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(10)
+    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(12)
     await expect(page.locator('#ui-loop-usage-source')).toContainText('spectral-fold')
     await expect(page.locator('.ui-loop-swatches button[data-hue="340"]')).toHaveAttribute('aria-pressed', 'true')
     await page.locator('#ui-loop-hue').evaluate(input => {
@@ -24,7 +24,7 @@ test.describe('RED Loop Motion Studio', () => {
   test('catalog search, scene switching and settings remain functional', async ({ page }) => {
     const compact = await page.evaluate(() => matchMedia('(max-width: 850px)').matches)
     if (compact) await page.getByRole('button', { name: 'Katalog' }).click()
-    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(10)
+    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(12)
     await page.locator('#ui-loop-search').fill('Glass Filament')
     await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(1)
     await page.locator('[data-scene="glass-filament"]').click()
@@ -445,7 +445,7 @@ test('blocked browser storage preserves in-memory favorites and catalog startup'
     Object.defineProperty(window,'localStorage',{configurable:true,get(){throw new Error('Storage disabled')}})
   })
   await page.reload()
-  await expect(page.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(10)
+  await expect(page.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(12)
   const favorite=page.locator('#ui-loop-favorite')
   const filter=page.locator('#ui-loop-filters button[data-category="Gemerkte"]')
   await favorite.click()
@@ -508,7 +508,7 @@ test('unrelated storage changes leave the open catalog and keyboard focus alone'
     await scene.focus();
     await page.evaluate(()=>localStorage.setItem('unrelated.settings','example'));
     await expect(scene).toBeFocused();
-    await expect(other.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(10);
+    await expect(other.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(12);
     await expect(other.locator('#ui-loop-favorite')).toHaveAttribute('aria-pressed','false');
   }finally{
     await other.close();
