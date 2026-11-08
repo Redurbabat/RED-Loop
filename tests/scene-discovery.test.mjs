@@ -5,8 +5,8 @@ import {findMotionScenes,motionSceneHref} from '../web/scene-discovery.js';
 
 test('homepage indexes the complete source catalog with no duplicate scenes',()=>{
   const result=findMotionScenes(scenes);
-  assert.equal(result.length,10);
-  assert.equal(new Set(result.map(scene=>scene.id)).size,10);
+  assert.equal(result.length,12);
+  assert.equal(new Set(result.map(scene=>scene.id)).size,12);
   assert.deepEqual(result.map(scene=>scene.id),scenes.map(scene=>scene.id));
 });
 
@@ -22,7 +22,7 @@ test('multiword queries search names, categories, descriptions and tags',()=>{
 });
 
 test('category filters combine with search and saved-only collection',()=>{
-  assert.equal(findMotionScenes(scenes,{category:'Material'}).length,3);
+  assert.equal(findMotionScenes(scenes,{category:'Material'}).length,4);
   assert.deepEqual(findMotionScenes(scenes,{category:'Lichtfelder',query:'iris'}).map(x=>x.id),['iris-caustics']);
   assert.deepEqual(findMotionScenes(scenes,{category:'Gemerkte',favorites:new Set(['vector-bloom','spectral-fold'])}).map(x=>x.id),
     ['spectral-fold','vector-bloom']);
