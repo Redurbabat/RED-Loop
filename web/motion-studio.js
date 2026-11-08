@@ -78,7 +78,7 @@ function applySettings(values){
     input.value=String(values[key]??value);
     $('#ui-loop-'+key+'-output').textContent=String(input.value)+({depth:'%',speed:'%',hue:'°'}[key]||'');
   }
-  $('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
+  $$('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
   refreshUsage();
 }
 function selectScene(id,historyChange=false){
@@ -125,7 +125,7 @@ for(const key of ['density','depth','speed','hue']){
     const value=Number(input.value);
     output.textContent=String(value)+({depth:'%',speed:'%',hue:'°'}[key]||'');
     engine.configure({[key]:value});
-    $('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
+    $$('.ui-loop-swatches button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.hue)===Number($('#ui-loop-hue').value))));
     refreshUsage();
   });
   input.addEventListener('change',()=>updateAddress());
