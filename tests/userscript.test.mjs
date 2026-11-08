@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 const source=readFileSync('userscripts/red-loop.user.js','utf8');
-function setup(saved, {modern=false,path='/c/test',paragraphs=false,host=null}={}) {
+function setup(saved, {modern=false,path='/c/test',paragraphs=false,host=null,android=false}={}) {
   const html=modern ? '<body><section><h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4><div data-markdown-text-style="assistant-message">Done</div></section><form data-chatgpt-composer><div contenteditable="true" role="textbox" data-composer-markdown aria-label="ChatGPT fragen"></div><button type="button" aria-label="Senden">Send</button></form></body>' : '<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>';
   const dom=new JSDOM(html,{url:'https://chatgpt.com'+path,runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window; let tick,now=100000,sends=0; const sent=[];
@@ -19,7 +19,8 @@ function setup(saved, {modern=false,path='/c/test',paragraphs=false,host=null}={
     if(editor instanceof w.HTMLTextAreaElement) editor.value='';else editor.textContent='';
   };
   const posted=[];
-  if(host){w.__RED_LOOP_HOST__=host;w.webkit={messageHandlers:{redLoop:{postMessage:value=>posted.push(value)}}};}
+  if(host&&android) {w.__RED_LOOP_HOST__=host;w.RedLoopHost={postMessage:value=>posted.push(value)};}
+  else if(host){w.__RED_LOOP_HOST__=host;w.webkit={messageHandlers:{redLoop:{postMessage:value=>posted.push(value)}}};}
   w.eval(source);
   // advance runs the interval; warp only moves the clock, like a suspended app.
   return {w,dom,sent,posted,get sends(){return sends;},click:s=>w.document.querySelector(s).click(),advance:ms=>{now+=ms;tick();},warp:ms=>{now+=ms;}};
@@ -317,4 +318,19 @@ test('a suspended app resumes waiting instead of reporting a missing response',(
   f.advance(1500);assert.match(f.w.document.querySelector('.rl-status').textContent,/Warte auf neue Antwort/);
   f.w.document.querySelector('[data-markdown-text-style]').textContent='Antwort nach Rückkehr';
   f.advance(1500);f.advance(13000);assert.equal(f.sends,2);f.dom.window.close();
+});
+
+test('the Android host is accepted and receives the same state as JSON text',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview',bottomInset:0},android:true});
+  assert.equal(f.w.document.querySelector('#rl-endless').checked,true);
+  assert.equal(f.w.document.querySelector('#rl-background').checked,true);
+  assert.ok(f.w.document.getElementById('red-loop-root').classList.contains('rl-embedded'));
+  f.w.document.hasFocus=()=>false;
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  const last=f.posted.at(-1);
+  assert.equal(typeof last,'string','the Android interface takes a string');
+  const parsed=JSON.parse(last);
+  assert.equal(parsed.type,'state');assert.equal(parsed.running,true);assert.equal(parsed.endless,true);assert.equal(parsed.count,1);
+  assert.ok(!last.includes('offen'),'no follow-up or answer text reaches the native host');
+  f.dom.window.close();
 });

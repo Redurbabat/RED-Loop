@@ -21,9 +21,12 @@
   // Set by the native host immediately before injection; unknown in Safari,
   // Edge and Chrome. It carries no credentials and cannot start a run.
   const hostConfig = window.__RED_LOOP_HOST__;
-  const embedded = !!hostConfig && typeof hostConfig === 'object' && hostConfig.app === 'ios-webview';
-  const handler = embedded ? window.webkit?.messageHandlers?.redLoop : null;
+  const HOSTS = ['ios-webview', 'android-webview'];
+  const embedded = !!hostConfig && typeof hostConfig === 'object' && HOSTS.includes(hostConfig.app);
+  // WebKit's handler takes an object; the Android interface takes a string.
+  const handler = embedded ? window.webkit?.messageHandlers?.redLoop || window.RedLoopHost : null;
   const bridge = handler && typeof handler.postMessage === 'function' ? handler : null;
+  const bridgeWantsText = !!bridge && bridge === window.RedLoopHost;
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
   const WORK_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn du eine Rückfrage, Zugangsdaten oder eine Freigabe von mir brauchst, halte an, erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
   const state = { running: false, count: 0, limit: 10, endless: false, prompt: PROMPT, background: false, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '', composeText: '' };
@@ -55,7 +58,8 @@
     if (!bridge) return;
     // One-way status for the native host: counters and the panel's own status
     // line only. No conversation text and no follow-up text leave the page.
-    try { bridge.postMessage({ type: 'state', running: state.running, count: state.count, limit: state.limit, endless: state.endless, status: $('.rl-status').textContent }); } catch {}
+    const payload = { type: 'state', running: state.running, count: state.count, limit: state.limit, endless: state.endless, status: $('.rl-status').textContent };
+    try { bridge.postMessage(bridgeWantsText ? JSON.stringify(payload) : payload); } catch {}
   };
   const status = msg => { $('.rl-status').textContent = msg; report(); };
   const ratio = () => state.count + '/' + (state.endless ? '∞' : state.limit);

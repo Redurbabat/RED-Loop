@@ -16,3 +16,7 @@ debug.log
 xcuserdata/
 DerivedData/
 extensions/chromium/
+.gradle/
+local.properties
+*.apk
+*.aab

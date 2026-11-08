@@ -10,6 +10,11 @@ await copyFile('userscripts/red-loop.user.js', 'dist/red-loop.user.js');
 await mkdir('ios/REDLoop/Resources', {recursive:true});
 await copyFile('userscripts/red-loop.user.js', 'ios/REDLoop/Resources/red-loop-webview.js');
 await copyFile('userscripts/red-loop.user.js', 'dist/red-loop-webview.js');
+// The Android app bundles the same script and shares the iOS app icon.
+await mkdir('android/app/src/main/assets', {recursive:true});
+await mkdir('android/app/src/main/res/mipmap-xxhdpi', {recursive:true});
+await copyFile('userscripts/red-loop.user.js', 'android/app/src/main/assets/red-loop-webview.js');
+await copyFile('ios/REDLoop/Assets.xcassets/AppIcon.appiconset/AppIcon.png', 'android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png');
 const extensionDirectory = 'extensions/chromium';
 await mkdir(extensionDirectory, {recursive:true});
 const extensionFiles = {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RedLoop" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">#A9233B</item>
+        <item name="colorAccent">#A9233B</item>
+    </style>
+</resources>

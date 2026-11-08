@@ -42,6 +42,14 @@ The Windows developer package has baseline tests as an actual loaded Chromium ex
 
 **Windows verification:** the installed v0.3.0 work preset completed two benign steps in actual Edge/live ChatGPT and stopped at 2/3 on the completion marker. Script v0.4.0 passes 86 unit tests and 23 of 24 executed Chromium browser checks, including endless mode sending past a numeric limit in the loaded extension, two conversations looping side by side with separate counters, and the app-style injection reporting counters only; the exception is the headed natural-visibility check, which cannot start as root in the current container. WebKit profiles and all iOS work were not executed there. Its isolated native Chromium test records `document.hidden === true` and `document.hasFocus() === false` at the actual send event, then verifies completion stopping. This is separate from the real-service Edge run and from overnight endurance. See [evidence and version boundaries](docs/windows-live-test.md). The broader historical browser/iOS results concern the baseline labeled in the report.
 
+## Android tablet: several chats with the screen off
+
+The Android app (`android/`) is the only RED Loop path where continuations keep running while the screen is off and you do something else — iOS forbids that, Android allows it through a foreground service. It runs **up to eight conversations at once**, each in its own web view with its own panel, counter and limit, and the views belong to the service rather than to the screen, so leaving the app does not stop a run. An ongoing notification shows how many chats are active and carries **Alle pausieren**; each chat posts its own notification when its run ends on its own.
+
+Codemagic's `android-preview` workflow runs the JVM unit tests and builds `app-debug.apk`, which is signed with the standard debug key and installs directly on a tablet — no developer account, no store, no profiles.
+
+**On Xiaomi this needs four manual steps** (allow notifications, enable Autostart, set battery saving to "no restrictions", lock the app in recents), because MIUI and HyperOS kill background apps aggressively regardless of how the app is built. **Nothing here has been verified on a device yet.** [Installation, Xiaomi setup, mechanics and limits](docs/android.md).
+
 ## ChatGPT inside the iPhone app
 
 The app's **Chat** tab loads `chatgpt.com` in an in-app web view and puts the RED Loop panel on top of it, so no Safari extension and no website permission is involved. Sign in once inside the app, write the assignment into the chat yourself, wait for the first answer, then press **Start** in the panel. After every completed answer the panel sends your follow-up text again — with **Endlos bis Pause** without a step number, until you press **Pause**. Pause is always reachable from the app's bottom bar; Start stays in the panel so the follow-up text and limit are checked first. A pause keeps the counter, so Start resumes the same run.
@@ -83,6 +91,7 @@ On macOS, `bash scripts/ios-ci.sh` executes XCTest on an available iPhone simula
 ## Documentation and source
 
 - [ChatGPT in the iPhone app](docs/iphone-chat.md)
+- [Android: several chats with the screen off](docs/android.md)
 - [Deployment and signing](docs/deployment.md)
 - [Architecture and safety boundaries](docs/architecture.md)
 - [RED Morph design tokens](docs/brand-spec.md)

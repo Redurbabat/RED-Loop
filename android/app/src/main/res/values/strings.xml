@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RED Loop</string>
+    <string name="channel_name">Laufende Fortsetzungen</string>
+    <string name="channel_description">Zeigt, welche Chats gerade weiterarbeiten.</string>
+    <string name="stops_channel_name">Angehaltene Läufe</string>
+    <string name="stops_channel_description">Meldet, wenn ein Lauf von selbst anhält.</string>
+    <string name="pause_all">Alle pausieren</string>
+    <string name="add_chat">Chat hinzufügen</string>
+    <string name="pause">Pause</string>
+    <string name="loading_script">Loop-Skript laden …</string>
+</resources>

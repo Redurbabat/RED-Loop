@@ -24,6 +24,28 @@ workflows:
       - build/*.xcarchive
       - build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
       - build/ios/unsigned/*.ipa
+  android-preview:
+    name: RED Loop - Android APK (Debug, direkt installierbar)
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      java: 17
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'codex/*'
+          include: true
+          source: true
+        - pattern: 'claude/*'
+          include: true
+          source: true
+    scripts:
+      - name: Run JVM unit tests and build the debug APK
+        script: bash scripts/android-ci.sh
+    artifacts:
+      - android/app/build/outputs/apk/debug/*.apk
+      - android/app/build/reports/tests/**
   ios-signed:
     name: RED Loop - TestFlight/App Store (Apple-Profile erforderlich)
     instance_type: mac_mini_m2

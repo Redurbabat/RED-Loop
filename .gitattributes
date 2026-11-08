@@ -8,3 +8,7 @@
 *.pbxproj text eol=lf
 *.xcscheme text eol=lf
 *.png binary
+gradlew text eol=lf
+*.bat text eol=crlf
+*.kts text eol=lf
+*.kt text eol=lf
