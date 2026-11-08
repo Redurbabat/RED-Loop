@@ -206,3 +206,75 @@ test('new original Aurora and Mercury studies appear as responsive homepage thum
   await expect(grid.locator('a[data-scene]')).toHaveCount(4);
   await expect(grid.locator('a[data-scene="mercury-droplets"]')).toBeVisible();
 });
+
+test('two original studies compare side by side with independent static previews',async({page})=>{
+  const aurora=page.locator('#scene-discovery-results button[data-compare="aurora-threads"]');
+  const mercury=page.locator('#scene-discovery-results button[data-compare="mercury-droplets"]');
+  const comparison=page.locator('#scene-discovery-comparison');
+  const items=page.locator('#scene-discovery-comparison-items');
+  await expect(comparison).toBeHidden();
+  const initialGallery=page.locator('#scene-discovery-results a[data-scene="spectral-fold"] canvas');
+  await aurora.focus();
+  await aurora.click();
+  await expect(aurora).toBeFocused();
+  await expect(aurora).toHaveAttribute('aria-pressed','true');
+  await expect(comparison).toBeVisible();
+  await expect(items.locator('canvas[data-scene]')).toHaveCount(1);
+  await expect(page.locator('.scene-comparison-placeholder')).toBeVisible();
+  await mercury.click();
+  await expect(items.locator('canvas[data-scene]')).toHaveCount(2);
+  await expect(page.locator('#scene-discovery-comparison-count')).toHaveText('2 / 2');
+  const first=items.locator('canvas[data-scene="aurora-threads"]');
+  const second=items.locator('canvas[data-scene="mercury-droplets"]');
+  await comparison.scrollIntoViewIfNeeded();
+  await expect(first).toHaveAttribute('data-preview-ready','true');
+  await expect(second).toHaveAttribute('data-preview-ready','true');
+  const pixels=await Promise.all([first,second].map(locator=>locator.evaluate(canvas=>canvas.toDataURL('image/png'))));
+  expect(pixels[0]).not.toBe(pixels[1]);
+  await page.waitForTimeout(250);
+  expect(await first.evaluate(canvas=>canvas.toDataURL('image/png'))).toBe(pixels[0]);
+  await expect(items.locator('a[href="/motion-studio.html?scene=aurora-threads"]')).toBeVisible();
+  await expect(items.locator('a[href="/motion-studio.html?scene=mercury-droplets"]')).toBeVisible();
+  await expect(initialGallery).toHaveCount(1);
+  expect(await page.evaluate(()=>localStorage.getItem('red-loop.motion-studio.comparison'))).toBeNull();
+});
+
+test('third comparison replaces the oldest and removing or clearing restores accessible focus',async({page})=>{
+  const choose=id=>page.locator('#scene-discovery-results button[data-compare="'+id+'"]');
+  await choose('aurora-threads').click();
+  await choose('mercury-droplets').click();
+  await choose('prism-veil').click();
+  await expect(page.locator('#scene-discovery-feedback')).toContainText('ersetzt');
+  await expect(choose('aurora-threads')).toHaveAttribute('aria-pressed','false');
+  await expect(choose('prism-veil')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#scene-discovery-comparison-items canvas[data-scene]')).toHaveCount(2);
+  await page.locator('#scene-discovery-filters button[data-category="Partikel"]').click();
+  await expect(page.locator('#scene-discovery-comparison')).toBeVisible();
+  await page.locator('#scene-discovery-comparison-items button[data-remove-compare="mercury-droplets"]').click();
+  await expect(page.locator('#scene-discovery-search')).toBeFocused();
+  await expect(page.locator('#scene-discovery-comparison-count')).toHaveText('1 / 2');
+  await page.locator('#scene-discovery-comparison-clear').click();
+  await expect(page.locator('#scene-discovery-comparison')).toBeHidden();
+  await expect(page.locator('#scene-discovery-search')).toBeFocused();
+  await expect(choose('spectral-fold')).toHaveAttribute('aria-pressed','false');
+});
+
+test('side-by-side comparisons remain inside narrow mobile and desktop viewports',async({page})=>{
+  await page.locator('#scene-discovery-results button[data-compare="aurora-threads"]').click();
+  await page.locator('#scene-discovery-results button[data-compare="mercury-droplets"]').click();
+  for(const width of [320,390,768,1440]){
+    await page.setViewportSize({width,height:850});
+    const panel=page.locator('#scene-discovery-comparison');
+    await expect(panel).toBeVisible();
+    const geometry=await panel.evaluate(element=>{
+      const panelRect=element.getBoundingClientRect();
+      const boxes=[...element.querySelectorAll('.scene-comparison-item')].map(el=>el.getBoundingClientRect());
+      return {fits:panelRect.left>=-1&&panelRect.right<=innerWidth+1,
+        sideBySide:boxes.length===2&&Math.abs(boxes[0].top-boxes[1].top)<2,
+        clipped:boxes.some(box=>box.left<panelRect.left-1||box.right>panelRect.right+1)};
+    });
+    expect(geometry.fits).toBe(true);
+    expect(geometry.sideBySide).toBe(true);
+    expect(geometry.clipped).toBe(false);
+  }
+});
