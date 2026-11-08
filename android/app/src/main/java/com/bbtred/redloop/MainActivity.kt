@@ -186,11 +186,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun chatMenu(session: ChatSession) {
+        val actions = listOf<Pair<String, () -> Unit>>(
+            getString(R.string.rename) to { renameDialog(session) },
+            getString(R.string.reveal_panel) to { session.revealPanel() },
+            getString(R.string.reload_page) to { session.reload() },
+            getString(R.string.chat_list) to { session.goHome() },
+            getString(R.string.close_chat) to { confirmClose(session) }
+        )
         AlertDialog.Builder(this)
             .setTitle(session.title)
-            .setItems(arrayOf(getString(R.string.rename), getString(R.string.close_chat))) { _, index ->
-                if (index == 0) renameDialog(session) else confirmClose(session)
-            }
+            .setItems(actions.map { it.first }.toTypedArray()) { _, index -> actions[index].second() }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
@@ -365,6 +370,24 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener { action() }
             })
         }
+        overviewList.addView(Button(this).apply {
+            text = if (active.useCloudScript) getString(R.string.script_cloud_on) else getString(R.string.script_cloud_off)
+            isAllCaps = false
+            minimumHeight = dp(48)
+            setOnClickListener {
+                active.useCloudScript = !active.useCloudScript
+                active.reloadScript()
+            }
+        })
+        overviewList.addView(Button(this).apply {
+            setText(R.string.script_reload)
+            isAllCaps = false
+            minimumHeight = dp(48)
+            setOnClickListener {
+                active.reloadScript()
+                Toast.makeText(this@MainActivity, "Laufende Chats behalten ihr Skript bis zum nächsten Neuladen.", Toast.LENGTH_LONG).show()
+            }
+        })
         overviewList.addView(View(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(12))
         })

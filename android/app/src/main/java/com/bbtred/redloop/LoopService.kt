@@ -33,6 +33,9 @@ class LoopService : Service(), SessionListener {
         private const val RUNNING_ID = 1
         private const val WAKE_TAG = "RedLoop::loops"
         const val PREFERENCES = "red-loop"
+        private const val CLEAN_SHUTDOWN = "cleanShutdown"
+        private const val RUNNING_BEFORE = "runningBefore"
+        private const val KILLED_ID = 900
     }
 
     inner class LocalBinder : Binder() {
@@ -70,6 +73,11 @@ class LoopService : Service(), SessionListener {
             val allowCloud = preferences.getBoolean("cloudScript", true)
             val loaded = ScriptSource.load(applicationContext, server, allowCloud)
             val restored = SessionStore.decode(preferences.getString(SessionStore.KEY, null))
+            // The system kills background apps silently. If the last run ended
+            // without onDestroy, say so instead of leaving it a mystery.
+            val killedWith = if (preferences.getBoolean(CLEAN_SHUTDOWN, true)) 0
+            else preferences.getInt(RUNNING_BEFORE, 0)
+            preferences.edit().putBoolean(CLEAN_SHUTDOWN, false).putInt(RUNNING_BEFORE, 0).apply()
             main.post {
                 if (loaded == null) {
                     scriptError = "Loop-Skript nicht gefunden. Verbindung prüfen."
@@ -81,6 +89,7 @@ class LoopService : Service(), SessionListener {
                         else restored.forEach { addSession(it.url, it.name) }
                     }
                 }
+                if (killedWith > 0) announceKilled(killedWith)
                 notifyListener()
                 updateNotification()
             }
@@ -96,6 +105,7 @@ class LoopService : Service(), SessionListener {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        preferences().edit().putBoolean(CLEAN_SHUTDOWN, true).putInt(RUNNING_BEFORE, 0).apply()
         releaseWakeLock()
         _sessions.forEach { it.destroy() }
         _sessions.clear()
@@ -146,6 +156,7 @@ class LoopService : Service(), SessionListener {
 
     override fun onState(session: ChatSession, previous: LoopState, current: LoopState) {
         refreshWakeLock()
+        preferences().edit().putInt(RUNNING_BEFORE, runningCount).apply()
         StopClassifier.notice(previous, current, session.title)?.let { announce(session.id, it) }
         notifyListener()
         updateNotification()
@@ -156,10 +167,62 @@ class LoopService : Service(), SessionListener {
         notifyListener()
     }
 
+    private fun preferences() = getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    var useCloudScript: Boolean
+        get() = preferences().getBoolean("cloudScript", true)
+        set(value) {
+            preferences().edit().putBoolean("cloudScript", value).apply()
+            notifyListener()
+        }
+
+    /**
+     * Fetches the script again and reloads the chats that are idle. A running
+     * chat keeps the script it started with, because a reload would end its
+     * run; reload it yourself once it has stopped.
+     */
+    fun reloadScript() {
+        val allowCloud = useCloudScript
+        Thread {
+            val loaded = ScriptSource.load(applicationContext, preferences().getString("server", ScriptSource.DEFAULT_SERVER), allowCloud)
+            main.post {
+                if (loaded == null) {
+                    scriptError = "Loop-Skript nicht gefunden. Verbindung prüfen."
+                } else {
+                    scriptError = null
+                    script = loaded
+                    _sessions.forEach { session ->
+                        session.script = loaded
+                        if (!session.state.running) session.reload()
+                    }
+                }
+                notifyListener()
+                updateNotification()
+            }
+        }.start()
+    }
+
+    private fun announceKilled(count: Int) {
+        val open = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val body = "Das System hat RED Loop beendet, während $count Lauf/Läufe aktiv waren. " +
+            "Prüfe in der Übersicht die Freigaben für Hintergrundbetrieb."
+        val notification = NotificationCompat.Builder(this, STOPS_CHANNEL)
+            .setContentTitle("Läufe wurden vom System gestoppt")
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(this).notify(KILLED_ID, notification) }
+    }
+
     private fun persistSessions() {
         val stored = SessionStore.encode(_sessions.mapNotNull { it.saved() })
-        getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
-            .putString(SessionStore.KEY, stored).apply()
+        preferences().edit().putString(SessionStore.KEY, stored).apply()
     }
 
     private fun notifyListener() = listener?.invoke()

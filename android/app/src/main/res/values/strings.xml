@@ -19,4 +19,10 @@
     <string name="fix_overlay">Über anderen Apps anzeigen</string>
     <string name="fix_battery">Akku-Optimierung aus</string>
     <string name="fix_autostart">Autostart und Sperren (Hersteller)</string>
+    <string name="reveal_panel">Panel einblenden</string>
+    <string name="reload_page">Seite neu laden</string>
+    <string name="chat_list">Zur Chatliste</string>
+    <string name="script_cloud_on">Skript von Cloudflare: an</string>
+    <string name="script_cloud_off">Skript von Cloudflare: aus</string>
+    <string name="script_reload">Skript neu laden</string>
 </resources>

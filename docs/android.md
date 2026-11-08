@@ -53,6 +53,16 @@ Die Rückmeldung läuft über eine `@JavascriptInterface`-Brücke namens `RedLoo
 
 Navigationen im Hauptrahmen bleiben nur auf ChatGPT, seinen Anmeldediensten und den angebotenen Identitätsanbietern; alles andere geht an den Systembrowser.
 
+## Wenn das System die App beendet
+
+Android kann einen Hintergrundprozess jederzeit beenden, und bisher merktest du das nur daran, dass nichts mehr passierte. Der Dienst hinterlegt jetzt beim Start eine Markierung und löscht sie beim ordentlichen Beenden. Fehlt sie beim nächsten Start und waren Läufe aktiv, meldet die App: **„Läufe wurden vom System gestoppt"** mit der Anzahl und dem Hinweis auf die Freigaben in der Übersicht. Die Chats selbst kommen mit ihrer Unterhaltung zurück; fortgesetzt wird nichts von allein — Start bleibt deine Entscheidung.
+
+## Chat-Menü und Skriptquelle
+
+Langes Drücken auf einen Tab öffnet: *Umbenennen*, *Panel einblenden* (holt ein verschobenes oder minimiertes Panel zurück in die Ecke), *Seite neu laden*, *Zur Chatliste* und *Schließen*.
+
+In der Übersicht lässt sich außerdem das Laden des Skripts von Cloudflare ein- und ausschalten und das Skript neu holen. Neu geladen werden dabei nur Chats, die gerade **nicht** laufen — ein Neuladen würde deren Lauf beenden. Laufende Chats behalten ihr Skript, bis du sie selbst neu lädst.
+
 ## Woher das Skript kommt
 
 Dasselbe wie bei iOS: `userscripts/red-loop.user.js`, geholt von deinem privaten Worker unter `/red-loop-webview.js`, mit der zuletzt geladenen und der mitgelieferten Fassung als Rückfall. `npm run check` erzwingt, dass die mitgelieferte Android-Fassung byteweise mit der Quelle übereinstimmt. Wer auf diesen Worker veröffentlichen kann, bestimmt damit Code, der in deiner angemeldeten ChatGPT-Seite läuft — siehe [In-App-Chat](iphone-chat.md).

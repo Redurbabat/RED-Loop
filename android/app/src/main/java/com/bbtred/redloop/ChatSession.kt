@@ -31,7 +31,7 @@ interface SessionListener {
 class ChatSession(
     val id: Int,
     context: Context,
-    private val script: LoopScript,
+    script: LoopScript,
     startUrl: String = ChatHosts.START,
     savedName: String? = null,
     private val listener: SessionListener
@@ -61,6 +61,9 @@ class ChatSession(
 
     /** Where the view lives while no activity shows it. */
     var parkingLot: ViewGroup? = null
+
+    /** Replaced when a newer script is fetched; used on the next injection. */
+    var script: LoopScript = script
 
     private val main = Handler(Looper.getMainLooper())
 
