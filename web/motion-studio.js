@@ -213,15 +213,45 @@ initializeFilters();applySettings(initialPreset);selectScene(initialPreset.scene
 window.addEventListener('pagehide',()=>engine.setPlaying(false));
 const catalogButton=$('#ui-loop-mobile-catalog');
 const catalogSidebar=$('#ui-loop-sidebar');
+const catalogBackdrop=$('#ui-loop-backdrop');
 const compactViewport=window.matchMedia('(max-width: 850px)');
+const modalSiblings=[$('.ui-loop-topbar'),$('.ui-loop-main'),$('.ui-loop-inspector')];
 function setCatalogOpen(open){
   const next=Boolean(open)&&compactViewport.matches;
+  const wasOpen=catalogButton.getAttribute('aria-expanded')==='true';
   catalogSidebar.classList.toggle('ui-loop-sidebar--open',next);
   catalogSidebar.inert=compactViewport.matches&&!next;
+  catalogBackdrop.hidden=!next;
+  document.body.classList.toggle('ui-loop-modal-open',next);
   catalogButton.setAttribute('aria-expanded',String(next));
-  if(!next&&compactViewport.matches&&catalogSidebar.contains(document.activeElement))catalogButton.focus();
+  for(const sibling of modalSiblings)sibling.inert=next;
+  if(next){
+    catalogSidebar.setAttribute('role','dialog');
+    catalogSidebar.setAttribute('aria-modal','true');
+    // Do not leave keyboard focus on an inert background element.
+    if(!wasOpen)searchInput.focus();
+  }else{
+    catalogSidebar.removeAttribute('role');
+    catalogSidebar.removeAttribute('aria-modal');
+    if(wasOpen&&compactViewport.matches&&catalogSidebar.contains(document.activeElement))catalogButton.focus();
+  }
 }
 catalogButton.addEventListener('click',()=>setCatalogOpen(catalogButton.getAttribute('aria-expanded')!=='true'));
+$('#ui-loop-sidebar-close').addEventListener('click',()=>setCatalogOpen(false));
+catalogBackdrop.addEventListener('click',()=>setCatalogOpen(false));
 $('#ui-loop-scene-list').addEventListener('click',()=>setCatalogOpen(false));
+window.addEventListener('keydown',event=>{
+  if(event.key!=='Tab'||catalogButton.getAttribute('aria-expanded')!=='true')return;
+  const focusable=[...catalogSidebar.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')];
+  if(!focusable.length)return;
+  const first=focusable[0],last=focusable.at(-1),current=document.activeElement;
+  if(!catalogSidebar.contains(current)){
+    event.preventDefault();first.focus();
+  }else if(event.shiftKey&&current===first){
+    event.preventDefault();last.focus();
+  }else if(!event.shiftKey&&current===last){
+    event.preventDefault();first.focus();
+  }
+});
 compactViewport.addEventListener('change',()=>setCatalogOpen(false));
 setCatalogOpen(false);
