@@ -6,6 +6,7 @@ import {scenes} from './motion-engine.js';
 import {motionFavoritesStorageKey,readMotionFavorites,saveMotionFavorites} from './motion-favorites.js';
 import {observeStaticMotionThumbnails} from './motion-thumbnails.js';
 import {defaultMotionSettings,formatMotionUsage} from './motion-presets.js';
+import {createMotionStarterFiles,buildStoredZip} from './motion-starter.js';
 
 const categories=['Alle','Gemerkte',...new Set(scenes.map(scene=>scene.category))];
 const sceneIds=scenes.map(scene=>scene.id);
@@ -60,6 +61,7 @@ export function initMotionDiscovery(doc=document){
   const usageText=doc.getElementById('scene-discovery-usage-text');
   const usageSource=doc.getElementById('scene-discovery-usage-source');
   const usageCopy=doc.getElementById('scene-discovery-usage-copy');
+  const usageDownload=doc.getElementById('scene-discovery-usage-download');
   const usageClose=doc.getElementById('scene-discovery-usage-close');
   const stored=(()=>{try{return win.localStorage}catch{return null}})();
   let savedIds=new Set(readMotionFavorites(stored,sceneIds));
@@ -97,6 +99,43 @@ export function initMotionDiscovery(doc=document){
     feedback.textContent='Einbau-Code geschlossen';
   }
   usageClose.addEventListener('click',closeUsage);
+  let downloadingStarter=false;
+  usageDownload.addEventListener('click',async()=>{
+    // Freeze the selected scene before asynchronous source retrieval.
+    const selected=openUsageScene;
+    if(!selected||downloadingStarter)return;
+    downloadingStarter=true;
+    usageDownload.disabled=true;
+    usageDownload.setAttribute('aria-busy','true');
+    const label=usageDownload.textContent;
+    usageDownload.textContent='Starterpaket wird erstellt …';
+    let objectUrl=null;
+    try{
+      // Same-origin canonical engine; never download from a URL entered by a user.
+      const response=await win.fetch('/motion-engine.js',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw new Error('Original motion engine unavailable');
+      const engineSource=await response.text();
+      const files=createMotionStarterFiles(selected,engineSource);
+      const zip=buildStoredZip(files);
+      objectUrl=win.URL.createObjectURL(new win.Blob([zip],{type:'application/zip'}));
+      const link=doc.createElement('a');
+      link.href=objectUrl;
+      link.download='red-morph-'+selected+'-starter.zip';
+      doc.body.append(link);
+      try{link.click()}finally{link.remove()}
+      win.setTimeout(()=>win.URL.revokeObjectURL(objectUrl),30000);
+      feedback.textContent='Starterpaket für '+scenes.find(item=>item.id===selected).name+' zum Download vorbereitet';
+    }catch{
+      if(objectUrl)win.URL.revokeObjectURL(objectUrl);
+      feedback.textContent='Starterpaket konnte nicht erstellt werden. Bitte erneut versuchen.';
+    }finally{
+      downloadingStarter=false;
+      usageDownload.disabled=false;
+      usageDownload.removeAttribute('aria-busy');
+      usageDownload.textContent=label;
+    }
+  });
+
   usageCopy.addEventListener('click',async()=>{
     const snippet=usageText.textContent;
     const label=usageScene.textContent;
