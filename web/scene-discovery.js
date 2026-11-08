@@ -4,6 +4,7 @@
  */
 import {scenes} from './motion-engine.js';
 import {motionFavoritesStorageKey,readMotionFavorites} from './motion-favorites.js';
+import {observeStaticMotionThumbnails} from './motion-thumbnails.js';
 
 const categories=['Alle','Gemerkte',...new Set(scenes.map(scene=>scene.category))];
 const sceneIds=scenes.map(scene=>scene.id);
@@ -41,6 +42,7 @@ export function initMotionDiscovery(doc=document){
   const stored=(()=>{try{return win.localStorage}catch{return null}})();
   let savedIds=new Set(readMotionFavorites(stored,sceneIds));
   let category='Alle';
+  let stopObservingThumbnails=()=>{};
 
   function render(){
     const focusedScene=doc.activeElement?.closest?.('#scene-discovery-results a[data-scene]')?.dataset.scene;
@@ -51,6 +53,13 @@ export function initMotionDiscovery(doc=document){
       link.className='scene-discovery-card';
       link.href=motionSceneHref(scene.id);
       link.dataset.scene=scene.id;
+      const preview=doc.createElement('span');
+      preview.className='scene-discovery-card-preview';
+      preview.setAttribute('aria-hidden','true');
+      const canvas=doc.createElement('canvas');
+      canvas.dataset.scene=scene.id;
+      canvas.setAttribute('aria-hidden','true');
+      preview.append(canvas);
       const ordinal=doc.createElement('span');
       ordinal.className='scene-discovery-index';
       ordinal.textContent=String(index).padStart(2,'0');
@@ -71,10 +80,16 @@ export function initMotionDiscovery(doc=document){
       end.setAttribute('aria-hidden','true');
       end.textContent=savedIds.has(scene.id)?'★':'↗';
       if(savedIds.has(scene.id))link.setAttribute('aria-label',scene.name+', gemerkt, '+scene.category);
-      link.append(ordinal,details,end);
+      const content=doc.createElement('span');
+      content.className='scene-discovery-card-content';
+      content.append(ordinal,details,end);
+      link.append(preview,content);
       return link;
     });
+    // Disconnect observation of detached canvases before replacing results.
+    stopObservingThumbnails();
     results.replaceChildren(...cards);
+    stopObservingThumbnails=observeStaticMotionThumbnails(results,{win});
     count.textContent=matches.length===1?'1 Komponente gefunden':matches.length+' Komponenten gefunden';
     empty.hidden=matches.length!==0;
     for(const button of filterRoot.querySelectorAll('button[data-category]')){
