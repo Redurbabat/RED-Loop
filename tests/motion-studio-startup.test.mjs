@@ -51,7 +51,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
     await import('../web/motion-studio.js?startup-smoke')
 
     const document = dom.window.document
-    assert.equal(document.querySelectorAll('#ui-loop-scene-list button').length, 10)
+    assert.equal(document.querySelectorAll('#ui-loop-scene-list button').length, 12)
     assert.match(document.querySelector('#ui-loop-title').textContent, /Iris Caustics/)
     assert.equal(document.querySelector('#ui-loop-density').value, '72')
     assert.equal(document.querySelector('.ui-loop-swatches button[data-hue="255"]').getAttribute('aria-pressed'), 'true')
@@ -99,7 +99,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
     assert.match(favoritesFilter.textContent, /Gemerkte \(0\)/)
 
     document.querySelector('#ui-loop-filters button[data-category="Alle"]').click()
-    assert.equal(document.querySelectorAll('#ui-loop-scene-list button').length, 10)
+    assert.equal(document.querySelectorAll('#ui-loop-scene-list button').length, 12)
 
     // Search results must be reachable and selectable without touching a pointer.
     const searchInput = document.querySelector('#ui-loop-search')
