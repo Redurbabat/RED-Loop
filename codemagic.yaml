@@ -26,7 +26,8 @@ workflows:
       - build/ios/unsigned/*.ipa
   android-preview:
     name: RED Loop - Android APK (Debug, direkt installierbar)
-    instance_type: linux_x2
+    # The same machine the iOS workflows use; Linux instances need a paid plan.
+    instance_type: mac_mini_m2
     max_build_duration: 45
     environment:
       java: 17
