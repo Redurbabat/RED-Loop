@@ -89,6 +89,26 @@ Langes Drücken auf einen Tab öffnet: *Umbenennen*, *Panel einblenden* (holt ei
 
 In der Übersicht lässt sich außerdem das Laden des Skripts von Cloudflare ein- und ausschalten und das Skript neu holen. Neu geladen werden dabei nur Chats, die gerade **nicht** laufen — ein Neuladen würde deren Lauf beenden. Laufende Chats behalten ihr Skript, bis du sie selbst neu lädst.
 
+## Speicher: Chats entladen
+
+Mehrere geöffnete ChatGPT-Seiten sind schwer. Meldet Android knappen Speicher, gibt die App die Seiten der Chats zurück, die **weder laufen noch angezeigt werden**. Der Chat bleibt als Tab stehen, mit Punkt davor und dem Hinweis „Entladen"; beim Antippen baut er sich mit seiner Unterhaltung wieder auf.
+
+Ein **laufender Chat wird nie entladen** — das würde seinen Lauf beenden, ohne dass du es verlangt hast. Von Hand geht es über *Chat entladen* im Tab-Menü oder *Ruhende Chats entladen* in der Übersicht.
+
+Das ist die Maßnahme gegen den Prozess-Abschuss, gegen den keine Freigabe hilft: lieber ein paar Seiten freigeben als vom System beendet werden.
+
+## Verlauf
+
+Die Übersicht führt unten ein Protokoll: wann ein Chat gestartet wurde, wann und **warum** er aufgehört hat, jeweils mit Zählerstand. Dazu die Ereignisse der App selbst — Systemstopps und entladene Chats. Die letzten 40 Zeilen bleiben gespeichert und **überleben auch einen Systemstopp**, denn genau dann willst du wissen, was passiert ist.
+
+Ein Morgenblick sieht dann etwa so aus:
+
+```
+08.11. 02:14  Projektplan: Kontingent erschöpft · wartet 10 Min (1/12) · 34 / ∞
+08.11. 02:24  Projektplan: Gestartet
+08.11. 05:02  Projektplan: Auftrag abgeschlossen · 61 / ∞
+```
+
 ## Woher das Skript kommt
 
 Dasselbe wie bei iOS: `userscripts/red-loop.user.js`, geholt von deinem privaten Worker unter `/red-loop-webview.js`, mit der zuletzt geladenen und der mitgelieferten Fassung als Rückfall. `npm run check` erzwingt, dass die mitgelieferte Android-Fassung byteweise mit der Quelle übereinstimmt. Wer auf diesen Worker veröffentlichen kann, bestimmt damit Code, der in deiner angemeldeten ChatGPT-Seite läuft — siehe [In-App-Chat](iphone-chat.md).

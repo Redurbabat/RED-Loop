@@ -265,3 +265,44 @@ class ResumeAfterStopTest {
         assertFalse(restored[0].wasRunning)
     }
 }
+
+class EventLogTest {
+    @Test
+    fun `the newest entries survive and the oldest fall away`() {
+        var entries = emptyList<LogEntry>()
+        for (index in 1..(EventLog.MAX + 10)) {
+            entries = EventLog.append(entries, LogEntry(index.toLong(), "Chat 1", "Ereignis $index"))
+        }
+        assertEquals(EventLog.MAX, entries.size)
+        assertEquals("Ereignis ${EventLog.MAX + 10}", entries.last().text)
+        assertEquals("Ereignis 11", entries.first().text)
+    }
+
+    @Test
+    fun `a long line is shortened instead of filling the storage`() {
+        val entries = EventLog.append(emptyList(), LogEntry(1L, "Chat 1", "x".repeat(500)))
+        assertEquals(120, entries.first().text.length)
+    }
+
+    @Test
+    fun `the history survives a restart`() {
+        val entries = listOf(
+            LogEntry(1_700_000_000_000L, "Projektplan", "Gestartet"),
+            LogEntry(1_700_000_060_000L, "Projektplan", "Auftrag abgeschlossen · 12 / ∞")
+        )
+        val restored = EventLog.decode(EventLog.encode(entries))
+        assertEquals(2, restored.size)
+        assertEquals("Projektplan", restored[1].chat)
+        assertEquals("Auftrag abgeschlossen · 12 / ∞", restored[1].text)
+        assertEquals(1_700_000_060_000L, restored[1].time)
+    }
+
+    @Test
+    fun `broken storage is dropped rather than shown`() {
+        assertTrue(EventLog.decode(null).isEmpty())
+        assertTrue(EventLog.decode("not json").isEmpty())
+        assertTrue(EventLog.decode("""[{"c":"Chat","m":"ohne Zeit"}]""").isEmpty())
+        assertTrue(EventLog.decode("""[{"t":1,"c":"Chat","m":"   "}]""").isEmpty())
+        assertEquals("Chat", EventLog.decode("""[{"t":1,"m":"ohne Namen"}]""").first().chat)
+    }
+}

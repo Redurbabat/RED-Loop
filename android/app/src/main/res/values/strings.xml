@@ -33,4 +33,8 @@
     <string name="boot_off">Beim Einschalten starten: aus</string>
     <string name="resume_on">Nach Systemstopp fortsetzen: an</string>
     <string name="resume_off">Nach Systemstopp fortsetzen: aus</string>
+    <string name="unload_chat">Chat entladen</string>
+    <string name="unload_idle">Ruhende Chats entladen</string>
+    <string name="history">Verlauf</string>
+    <string name="clear_history">Verlauf leeren</string>
 </resources>

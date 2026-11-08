@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.ComponentCallbacks2
 import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
@@ -54,12 +55,18 @@ class LoopService : Service(), SessionListener {
         private set
 
     private var nextId = 1
+    private var events: List<LogEntry> = emptyList()
+    /** The chat an activity currently shows; never unloaded for memory. */
+    var visibleSession: ChatSession? = null
     private val overlay by lazy { OverlayHost(this) }
     private var wakeLock: PowerManager.WakeLock? = null
     private var listener: (() -> Unit)? = null
 
     /** False while chats that nobody looks at cannot be parked in a window. */
     val backgroundLayoutReady: Boolean get() = overlay.permitted
+
+    /** Newest last. */
+    val log: List<LogEntry> get() = events
 
     val runningCount: Int get() = _sessions.count { it.state.running }
     val totalContinuations: Int get() = _sessions.sumOf { it.state.count }
@@ -74,6 +81,7 @@ class LoopService : Service(), SessionListener {
             val allowCloud = preferences.getBoolean("cloudScript", true)
             val loaded = ScriptSource.load(applicationContext, server, allowCloud)
             val restored = SessionStore.decode(preferences.getString(SessionStore.KEY, null))
+            val storedLog = EventLog.decode(preferences.getString(EventLog.KEY, null))
             // The system kills background apps silently. If the last run ended
             // without onDestroy, say so instead of leaving it a mystery.
             val killedWith = if (preferences.getBoolean(CLEAN_SHUTDOWN, true)) 0
@@ -97,7 +105,11 @@ class LoopService : Service(), SessionListener {
                         }
                     }
                 }
-                if (killedWith > 0) announceKilled(killedWith, resume, kills)
+                events = storedLog
+                if (killedWith > 0) {
+                    note("App", "Vom System beendet, $killedWith Lauf/Läufe betroffen")
+                    announceKilled(killedWith, resume, kills)
+                }
                 notifyListener()
                 updateNotification()
             }
@@ -175,6 +187,9 @@ class LoopService : Service(), SessionListener {
     override fun onState(session: ChatSession, previous: LoopState, current: LoopState) {
         refreshWakeLock()
         preferences().edit().putInt(RUNNING_BEFORE, runningCount).apply()
+        if (previous.running != current.running) {
+            note(session.title, if (current.running) "Gestartet" else "${current.status} · ${current.progress}")
+        }
         StopClassifier.notice(previous, current, session.title)?.let { announce(session.id, it) }
         notifyListener()
         updateNotification()
@@ -183,6 +198,44 @@ class LoopService : Service(), SessionListener {
     override fun onDetails(session: ChatSession) {
         persistSessions()
         notifyListener()
+    }
+
+    private fun note(chat: String, text: String) {
+        events = EventLog.append(events, LogEntry(System.currentTimeMillis(), chat, text))
+        preferences().edit().putString(EventLog.KEY, EventLog.encode(events)).apply()
+    }
+
+    fun clearLog() {
+        events = emptyList()
+        preferences().edit().remove(EventLog.KEY).apply()
+        notifyListener()
+    }
+
+    /**
+     * Several ChatGPT pages are heavy. When the system says memory is short,
+     * give back the chats nobody is looking at and that are not working; they
+     * keep their address and come back when opened.
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return
+        val freed = _sessions.count { it !== visibleSession && it.unload() }
+        if (freed > 0) {
+            note("App", "Speicher knapp: $freed Chat(s) entladen")
+            notifyListener()
+            updateNotification()
+        }
+    }
+
+    /** Frees every idle chat except the one on screen, on request. */
+    fun unloadIdle(): Int {
+        val freed = _sessions.count { it !== visibleSession && it.unload() }
+        if (freed > 0) {
+            note("App", "$freed Chat(s) von Hand entladen")
+            notifyListener()
+            updateNotification()
+        }
+        return freed
     }
 
     private fun preferences() = getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)

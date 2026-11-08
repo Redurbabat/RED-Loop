@@ -70,6 +70,46 @@ object StopClassifier {
     }
 }
 
+/** One line of what happened, so a morning glance tells the whole night. */
+data class LogEntry(val time: Long, val chat: String, val text: String)
+
+object EventLog {
+    const val KEY = "events"
+    const val MAX = 40
+    private const val MAX_TEXT = 120
+
+    /** Newest last, oldest dropped. */
+    fun append(entries: List<LogEntry>, entry: LogEntry): List<LogEntry> =
+        (entries + entry.copy(text = entry.text.take(MAX_TEXT))).takeLast(MAX)
+
+    fun encode(entries: List<LogEntry>): String {
+        val array = org.json.JSONArray()
+        entries.takeLast(MAX).forEach {
+            array.put(
+                org.json.JSONObject()
+                    .put("t", it.time)
+                    .put("c", it.chat)
+                    .put("m", it.text.take(MAX_TEXT))
+            )
+        }
+        return array.toString()
+    }
+
+    fun decode(stored: String?): List<LogEntry> {
+        if (stored.isNullOrBlank()) return emptyList()
+        val array = runCatching { org.json.JSONArray(stored) }.getOrNull() ?: return emptyList()
+        val entries = mutableListOf<LogEntry>()
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val time = item.optLong("t", 0L)
+            val text = item.optString("m").trim()
+            if (time <= 0L || text.isEmpty()) continue
+            entries.add(LogEntry(time, item.optString("c").trim().ifEmpty { "Chat" }, text.take(MAX_TEXT)))
+        }
+        return entries.takeLast(MAX)
+    }
+}
+
 /** Turns ChatGPT's own page title into a short tab name. */
 object ChatTitles {
     const val MAX_LENGTH = 28

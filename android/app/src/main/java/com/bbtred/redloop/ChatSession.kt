@@ -17,27 +17,29 @@ import android.webkit.WebViewClient
 
 interface SessionListener {
     fun onState(session: ChatSession, previous: LoopState, current: LoopState)
-    /** Name or address changed; nothing about the loop itself. */
+    /** Name, address or loaded state changed; nothing about the loop itself. */
     fun onDetails(session: ChatSession)
 }
 
 /**
  * One ChatGPT conversation in its own web view. The view belongs to the
  * service, not to the activity, so a conversation keeps working while the
- * activity is gone and the screen is off. While no activity shows it, the
- * view is measured and laid out by hand, because a page with no layout has no
- * visible composer for the panel to use.
+ * activity is gone and the screen is off.
+ *
+ * A chat that is neither running nor on screen can give its view back under
+ * memory pressure; it keeps its address, name and settings and builds the
+ * view again when it is opened. A running chat is never unloaded.
  */
 class ChatSession(
     val id: Int,
-    context: Context,
+    private val context: Context,
     script: LoopScript,
     startUrl: String = ChatHosts.START,
     savedName: String? = null,
     autoStart: Boolean = false,
     autoRetry: Boolean = false,
     /** One-off: pick this chat's work back up after the system ended it. */
-    private val resumeNow: Boolean = false,
+    private var resumeNow: Boolean = false,
     private val listener: SessionListener
 ) {
     companion object {
@@ -47,21 +49,8 @@ class ChatSession(
             "(()=>{const b=document.querySelector('#red-loop-root .rl-stop');if(b&&!b.disabled){b.click();return true}return false})()"
         private const val REVEAL_JS =
             "(()=>{const r=document.getElementById('red-loop-root');if(!r)return false;r.classList.remove('rl-min');r.style.left='';r.style.top='';r.style.right='';r.style.bottom='';return true})()"
+        const val UNLOADED_STATUS = "Entladen – antippen zum Öffnen"
     }
-
-    /** A name the user typed always wins over the page title. */
-    var customName: String? = savedName
-        private set
-    private var pageTitle: String = "Chat $id"
-
-    val title: String get() = customName?.takeIf { it.isNotBlank() } ?: pageTitle
-
-    var state: LoopState = LoopState()
-        private set
-
-    /** The address worth restoring after a restart. */
-    var restorableUrl: String? = startUrl.takeIf { SessionStore.isRestorable(it) }
-        private set
 
     /** Where the view lives while no activity shows it. */
     var parkingLot: ViewGroup? = null
@@ -75,25 +64,45 @@ class ChatSession(
     var autoRetry: Boolean = autoRetry
         private set
 
+    var customName: String? = savedName
+        private set
+    private var pageTitle: String = "Chat $id"
+
+    val title: String get() = customName?.takeIf { it.isNotBlank() } ?: pageTitle
+
+    var state: LoopState = LoopState()
+        private set
+
+    /** The address worth restoring after a restart. */
+    var restorableUrl: String? = startUrl.takeIf { SessionStore.isRestorable(it) }
+        private set
+
+    var webView: WebView? = null
+        private set
+
+    val loaded: Boolean get() = webView != null
+
     private val main = Handler(Looper.getMainLooper())
 
-    @SuppressLint("SetJavaScriptEnabled")
-    val webView: WebView = WebView(context).apply {
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.databaseEnabled = true
-        settings.javaScriptCanOpenWindowsAutomatically = false
-        settings.setSupportMultipleWindows(false)
-        settings.mediaPlaybackRequiresUserGesture = true
-        settings.userAgentString = ScriptSource.userAgent(settings.userAgentString)
+    init {
+        build(startUrl)
     }
 
-    init {
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun build(url: String) {
+        val view = WebView(context)
+        view.settings.javaScriptEnabled = true
+        view.settings.domStorageEnabled = true
+        view.settings.databaseEnabled = true
+        view.settings.javaScriptCanOpenWindowsAutomatically = false
+        view.settings.setSupportMultipleWindows(false)
+        view.settings.mediaPlaybackRequiresUserGesture = true
+        view.settings.userAgentString = ScriptSource.userAgent(view.settings.userAgentString)
         CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
-        webView.addJavascriptInterface(Bridge(), "RedLoopHost")
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onReceivedTitle(view: WebView?, title: String?) {
+        CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
+        view.addJavascriptInterface(Bridge(), "RedLoopHost")
+        view.webChromeClient = object : WebChromeClient() {
+            override fun onReceivedTitle(target: WebView?, title: String?) {
                 // ChatGPT puts the conversation name in the document title.
                 val cleaned = ChatTitles.clean(title, "Chat $id")
                 if (cleaned == pageTitle) return
@@ -101,38 +110,58 @@ class ChatSession(
                 listener.onDetails(this@ChatSession)
             }
         }
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        view.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(target: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
                 val uri = request.url ?: return true
                 if (ChatHosts.staysInApp(uri.host)) return false
-                openOutside(view.context, uri)
+                openOutside(uri)
                 return true
             }
 
-            override fun onPageFinished(view: WebView, url: String?) {
-                rememberUrl(url)
-                if (!ChatHosts.isChat(Uri.parse(url ?: "").host)) return
+            override fun onPageFinished(target: WebView, address: String?) {
+                rememberUrl(address)
+                if (!ChatHosts.isChat(Uri.parse(address ?: "").host)) return
                 // Document-end injection. The script itself refuses a second
                 // panel and every origin other than ChatGPT.
-                view.evaluateJavascript(
+                target.evaluateJavascript(
                     ScriptSource.hostPrologue(12, autoStart || resumeNow, autoRetry) + script.body, null
                 )
             }
 
-            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+            override fun doUpdateVisitedHistory(target: WebView, address: String?, isReload: Boolean) {
                 // ChatGPT changes conversation without a page load.
-                rememberUrl(url)
+                rememberUrl(address)
             }
         }
+        webView = view
         detachAndLayout()
-        webView.loadUrl(startUrl)
+        view.loadUrl(url)
+    }
+
+    /** Builds the view again after it was given back. */
+    fun load() {
+        if (webView != null) return
+        state = LoopState()
+        build(restorableUrl ?: ChatHosts.START)
+        listener.onDetails(this)
     }
 
     /**
-     * Flips the option in the panel itself, so the page stays the one place
-     * that owns the run. A running loop locks its options, as it always has.
+     * Gives the view back to free memory. Refused while the chat is working,
+     * because that would end its run without being asked to.
      */
+    fun unload(): Boolean {
+        if (state.running) return false
+        val view = webView ?: return false
+        webView = null
+        resumeNow = false
+        release(view)
+        state = LoopState(status = UNLOADED_STATUS)
+        listener.onDetails(this)
+        return true
+    }
+
     fun setAutomatic(start: Boolean, retry: Boolean) {
         autoStart = start
         autoRetry = retry
@@ -141,7 +170,7 @@ class ChatSession(
         listener.onDetails(this)
     }
 
-    private fun applyOption(id: String, value: Boolean) = webView.evaluateJavascript(
+    private fun applyOption(id: String, value: Boolean) = webView?.evaluateJavascript(
         "(()=>{const b=document.getElementById('$id');if(!b||b.disabled)return false;" +
             "if(b.checked!==$value)b.click();return true})()",
         null
@@ -154,9 +183,10 @@ class ChatSession(
 
     /** Puts the view into an activity for display. */
     fun attachTo(container: ViewGroup) {
-        (webView.parent as? ViewGroup)?.removeView(webView)
+        val view = webView ?: return
+        (view.parent as? ViewGroup)?.removeView(view)
         container.addView(
-            webView,
+            view,
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
     }
@@ -167,34 +197,36 @@ class ChatSession(
      * and background chats may stall.
      */
     fun detachAndLayout() {
+        val view = webView ?: return
         val lot = parkingLot
         if (lot != null) {
-            if (webView.parent === lot) return
-            (webView.parent as? ViewGroup)?.removeView(webView)
-            lot.addView(webView, ViewGroup.LayoutParams(OFFSCREEN_WIDTH, OFFSCREEN_HEIGHT))
+            if (view.parent === lot) return
+            (view.parent as? ViewGroup)?.removeView(view)
+            lot.addView(view, ViewGroup.LayoutParams(OFFSCREEN_WIDTH, OFFSCREEN_HEIGHT))
             return
         }
-        (webView.parent as? ViewGroup)?.removeView(webView)
-        webView.measure(
+        (view.parent as? ViewGroup)?.removeView(view)
+        view.measure(
             View.MeasureSpec.makeMeasureSpec(OFFSCREEN_WIDTH, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(OFFSCREEN_HEIGHT, View.MeasureSpec.EXACTLY)
         )
-        webView.layout(0, 0, OFFSCREEN_WIDTH, OFFSCREEN_HEIGHT)
+        view.layout(0, 0, OFFSCREEN_WIDTH, OFFSCREEN_HEIGHT)
     }
 
     /** The panel's own Pause button, reachable from the app and the notification. */
-    fun pause() = webView.evaluateJavascript(PAUSE_JS, null)
+    fun pause() = webView?.evaluateJavascript(PAUSE_JS, null)
 
     /** Opens the panel and puts it back in its default corner. */
-    fun revealPanel() = webView.evaluateJavascript(REVEAL_JS, null)
+    fun revealPanel() = webView?.evaluateJavascript(REVEAL_JS, null)
 
-    fun reload() = webView.reload()
+    fun reload() = webView?.reload()
 
-    fun goHome() = webView.loadUrl(ChatHosts.START)
+    fun goHome() = webView?.loadUrl(ChatHosts.START)
 
     fun goBack(): Boolean {
-        if (!webView.canGoBack()) return false
-        webView.goBack()
+        val view = webView ?: return false
+        if (!view.canGoBack()) return false
+        view.goBack()
         return true
     }
 
@@ -202,11 +234,16 @@ class ChatSession(
         restorableUrl?.let { SavedChat(it, customName, autoStart, autoRetry, running) }
 
     fun destroy() {
-        (webView.parent as? ViewGroup)?.removeView(webView)
-        webView.removeJavascriptInterface("RedLoopHost")
-        webView.webChromeClient = null
-        webView.loadUrl("about:blank")
-        webView.destroy()
+        webView?.let { release(it) }
+        webView = null
+    }
+
+    private fun release(view: WebView) {
+        (view.parent as? ViewGroup)?.removeView(view)
+        view.removeJavascriptInterface("RedLoopHost")
+        view.webChromeClient = null
+        view.loadUrl("about:blank")
+        view.destroy()
     }
 
     private fun rememberUrl(url: String?) {
@@ -216,7 +253,7 @@ class ChatSession(
         listener.onDetails(this)
     }
 
-    private fun openOutside(context: Context, uri: Uri) {
+    private fun openOutside(uri: Uri) {
         val scheme = uri.scheme?.lowercase()
         if (scheme != "http" && scheme != "https" && scheme != "mailto" && scheme != "tel") return
         runCatching {
@@ -230,8 +267,9 @@ class ChatSession(
         fun postMessage(message: String?) {
             val parsed = LoopState.fromBridge(message) ?: return
             main.post {
+                val view = webView ?: return@post
                 // Only the signed-in ChatGPT page may report panel status.
-                if (!ChatHosts.isChat(Uri.parse(webView.url ?: "").host)) return@post
+                if (!ChatHosts.isChat(Uri.parse(view.url ?: "").host)) return@post
                 val previous = state
                 state = parsed
                 listener.onState(this@ChatSession, previous, parsed)

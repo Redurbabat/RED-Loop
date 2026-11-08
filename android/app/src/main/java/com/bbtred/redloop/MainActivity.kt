@@ -13,6 +13,7 @@ import android.provider.Settings
 import android.os.Bundle
 import android.os.IBinder
 import android.text.InputType
+import android.text.format.DateFormat
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -168,7 +169,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun tabButton(session: ChatSession) = Button(this).apply {
-        text = (if (session.state.running) "● " else "") + session.title
+        text = (if (session.state.running) "● " else if (!session.loaded) "· " else "") + session.title
         isAllCaps = false
         minimumHeight = dp(48)
         alpha = if (session === selected && !showingOverview) 1f else 0.6f
@@ -181,6 +182,8 @@ class MainActivity : AppCompatActivity() {
             selected?.detachAndLayout()
             selected = session
         }
+        // A chat that gave its view back under memory pressure comes back.
+        if (!session.loaded) session.load()
         showingOverview = false
         render()
     }
@@ -192,6 +195,7 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.reveal_panel) to { session.revealPanel() },
             getString(R.string.reload_page) to { session.reload() },
             getString(R.string.chat_list) to { session.goHome() },
+            getString(R.string.unload_chat) to { unload(session) },
             getString(R.string.close_chat) to { confirmClose(session) }
         )
         AlertDialog.Builder(this)
@@ -234,6 +238,14 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun unload(session: ChatSession) {
+        if (session.unload()) {
+            render()
+        } else {
+            Toast.makeText(this, "Ein laufender Chat wird nicht entladen. Erst pausieren.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun confirmClose(session: ChatSession) {
         AlertDialog.Builder(this)
             .setTitle("${session.title} schließen?")
@@ -252,12 +264,14 @@ class MainActivity : AppCompatActivity() {
         container.visibility = View.VISIBLE
         overviewButton.setText(R.string.overview)
         val current = selected
-        if (current == null) {
+        active.visibleSession = current
+        val view = current?.webView
+        if (view == null) {
             container.removeAllViews()
             container.addView(placeholderView(active, sessions))
             return
         }
-        if (current.webView.parent !== container) {
+        if (view.parent !== container) {
             container.removeAllViews()
             current.attachTo(container)
         }
@@ -268,6 +282,7 @@ class MainActivity : AppCompatActivity() {
             active.scriptError != null -> active.scriptError
             active.script == null -> getString(R.string.loading_script)
             sessions.isEmpty() -> "Mit + einen Chat öffnen."
+            selected?.loaded == false -> ChatSession.UNLOADED_STATUS
             else -> ""
         }
         (placeholder.parent as? ViewGroup)?.removeView(placeholder)
@@ -282,6 +297,7 @@ class MainActivity : AppCompatActivity() {
     private fun renderOverview(active: LoopService, sessions: List<ChatSession>) {
         container.visibility = View.GONE
         overview.visibility = View.VISIBLE
+        active.visibleSession = selected
         overviewButton.setText(R.string.back_to_chat)
         overviewList.removeAllViews()
 
@@ -304,6 +320,52 @@ class MainActivity : AppCompatActivity() {
             minimumHeight = dp(48)
             isEnabled = active.runningCount > 0
             setOnClickListener { service?.pauseAll() }
+        })
+        overviewList.addView(Button(this).apply {
+            setText(R.string.unload_idle)
+            isAllCaps = false
+            minimumHeight = dp(48)
+            setOnClickListener {
+                val freed = active.unloadIdle()
+                Toast.makeText(
+                    this@MainActivity,
+                    if (freed > 0) "$freed Chat(s) entladen" else "Nichts zu entladen",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        })
+        renderLog(active)
+    }
+
+    /** What happened while nobody watched, newest first. */
+    private fun renderLog(active: LoopService) {
+        val entries = active.log
+        overviewList.addView(TextView(this).apply {
+            setText(R.string.history)
+            textSize = 14f
+            setPadding(0, dp(16), 0, dp(4))
+        })
+        if (entries.isEmpty()) {
+            overviewList.addView(TextView(this).apply {
+                text = "Noch nichts passiert."
+                textSize = 12f
+                alpha = 0.75f
+            })
+            return
+        }
+        entries.asReversed().take(20).forEach { entry ->
+            overviewList.addView(TextView(this).apply {
+                text = "${DateFormat.format("dd.MM. HH:mm", entry.time)}  ${entry.chat}: ${entry.text}"
+                textSize = 12f
+                alpha = 0.8f
+                setPadding(0, dp(2), 0, dp(2))
+            })
+        }
+        overviewList.addView(Button(this).apply {
+            setText(R.string.clear_history)
+            isAllCaps = false
+            minimumHeight = dp(48)
+            setOnClickListener { active.clearLog() }
         })
     }
 
