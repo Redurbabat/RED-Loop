@@ -46,7 +46,7 @@ export function createMotionStarterFiles(sceneId,engineSource){
     p{margin:0;color:#c3c8d4;line-height:1.65}
     .surface{padding:clamp(10px,2vw,18px);border-radius:24px;border:1px solid #ffffff22;background:linear-gradient(140deg,#171d2d,#0d1321)}
     canvas{display:block;width:100%;height:clamp(245px,52vw,480px);border-radius:17px;outline-offset:4px;touch-action:pan-y;background:#080d17}
-    button{min-height:48px;justify-self:start;padding:12px 22px;border:1px solid #ffffff44;border-radius:12px;background:#202a3c;color:#fff;font:600 14px inherit;cursor:pointer}
+    button{min-height:48px;justify-self:start;padding:12px 22px;border:1px solid #ffffff44;border-radius:12px;background:#202a3c;color:#fff;font:600 14px/1.4 ui-sans-serif,system-ui,sans-serif;cursor:pointer}
     button:hover{background:#2d3a51}
     button:focus-visible,canvas:focus-visible{outline:3px solid #e6b5d5}
     .note{font-size:12px;max-width:620px}
