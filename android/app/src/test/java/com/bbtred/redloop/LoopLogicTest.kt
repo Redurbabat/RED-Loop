@@ -306,3 +306,30 @@ class EventLogTest {
         assertEquals("Chat", EventLog.decode("""[{"t":1,"m":"ohne Namen"}]""").first().chat)
     }
 }
+
+class ScriptVersionTest {
+    @Test
+    fun `a newer or equal version is accepted`() {
+        assertTrue(ScriptSource.atLeast("0.4.0", "0.4.0"))
+        assertTrue(ScriptSource.atLeast("0.4.1", "0.4.0"))
+        assertTrue(ScriptSource.atLeast("0.5", "0.4.9"))
+        assertTrue(ScriptSource.atLeast("1.0.0", "0.9.9"))
+        assertTrue(ScriptSource.atLeast("0.4.0.1", "0.4.0"))
+    }
+
+    @Test
+    fun `an older server copy must not beat the one shipped with the app`() {
+        assertFalse(ScriptSource.atLeast("0.3.9", "0.4.0"))
+        assertFalse(ScriptSource.atLeast("0.4.0", "0.4.1"))
+        assertFalse(ScriptSource.atLeast("0.9.9", "1.0.0"))
+    }
+
+    @Test
+    fun `an unreadable version counts as older`() {
+        assertFalse(ScriptSource.atLeast("unbekannt", "0.4.0"))
+        assertFalse(ScriptSource.atLeast("", "0.4.0"))
+        assertFalse(ScriptSource.atLeast("0.4.x", "0.4.0"))
+        // With nothing to compare against, anything is allowed through.
+        assertTrue(ScriptSource.atLeast("0.4.0", "unbekannt"))
+    }
+}

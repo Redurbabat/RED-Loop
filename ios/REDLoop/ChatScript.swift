@@ -114,21 +114,59 @@ struct ChatScriptLoader {
         return "unbekannt"
     }
 
-    /// Cloud copy, else the last good download, else the bundled copy.
+    /// True when `candidate` is at least `reference`. An unreadable version
+    /// counts as older, so a surprise never wins over what ships with the app.
+    static func atLeast(_ candidate: String, _ reference: String) -> Bool {
+        guard let left = numbers(candidate) else { return false }
+        guard let right = numbers(reference) else { return true }
+        for index in 0..<max(left.count, right.count) {
+            let a = index < left.count ? left[index] : 0
+            let b = index < right.count ? right[index] : 0
+            if a != b { return a > b }
+        }
+        return true
+    }
+
+    private static func numbers(_ value: String) -> [Int]? {
+        let parts = value.trimmingCharacters(in: .whitespaces).split(separator: ".", omittingEmptySubsequences: false)
+        guard !parts.isEmpty else { return nil }
+        var result: [Int] = []
+        for part in parts {
+            guard !part.isEmpty, part.allSatisfy(\.isNumber), let number = Int(part) else { return nil }
+            result.append(number)
+        }
+        return result
+    }
+
+    /// Cloud copy, else the last good download, else the bundled copy — but
+    /// never a copy older than the one shipped with the app. A server that was
+    /// not redeployed must not quietly take features away.
     func script(allowCloud: Bool = true) async throws -> ChatScript {
         var failure: Error?
+        let bundledBody = bundled()
+        let floor = bundledBody.map { ChatScriptLoader.version(in: $0) }
+        func acceptable(_ body: String) -> Bool {
+            guard let floor else { return true }
+            return ChatScriptLoader.atLeast(ChatScriptLoader.version(in: body), floor)
+        }
+
         if allowCloud, let url = ChatScriptLoader.scriptURL(server: server) {
             do {
                 let body = try ChatScriptLoader.validate(try await transfer.data(from: url))
-                store(body)
-                return ChatScript(source: .cloud, version: ChatScriptLoader.version(in: body), body: body)
+                if acceptable(body) {
+                    store(body)
+                    return ChatScript(source: .cloud, version: ChatScriptLoader.version(in: body), body: body)
+                }
             } catch { failure = error }
+        }
+        if let cached = cached(), acceptable(cached) {
+            return ChatScript(source: .cache, version: ChatScriptLoader.version(in: cached), body: cached)
+        }
+        if let bundledBody {
+            return ChatScript(source: .bundle, version: ChatScriptLoader.version(in: bundledBody), body: bundledBody)
         }
         if let cached = cached() {
             return ChatScript(source: .cache, version: ChatScriptLoader.version(in: cached), body: cached)
-        }
-        if let bundled = bundled() {
-            return ChatScript(source: .bundle, version: ChatScriptLoader.version(in: bundled), body: bundled)
         }
         throw failure ?? ChatScriptError.missing
     }

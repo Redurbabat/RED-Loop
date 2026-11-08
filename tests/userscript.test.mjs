@@ -497,3 +497,35 @@ test('a long answer that is still being written is not mistaken for a stall',()=
   assert.equal(f.sends,2,'and continues once the answer is done');
   f.dom.window.close();
 });
+
+test('in an app the panel keeps away from the composer and starts collapsed',()=>{
+  const f=setup(null,{modern:true,host:{app:'ios-webview',bottomInset:12}});
+  const root=f.w.document.getElementById('red-loop-root');
+  assert.ok(root.classList.contains('rl-embedded'));
+  assert.ok(root.classList.contains('rl-min'),'starts out of the way');
+  assert.equal(root.querySelector('.rl-collapse').getAttribute('aria-expanded'),'false');
+  const css=f.w.document.querySelector('style').textContent;
+  assert.match(css,/#red-loop-root\.rl-embedded\{[^}]*top:calc\(env\(safe-area-inset-top/,'anchored to the top');
+  assert.match(css,/#red-loop-root\.rl-embedded\{[^}]*bottom:auto/,'never anchored to the bottom');
+  // Start and Pause stay reachable while collapsed.
+  assert.ok(f.w.document.querySelector('.rl-start'));
+  f.click('.rl-collapse');
+  assert.equal(root.classList.contains('rl-min'),false,'one tap opens it');
+  f.dom.window.close();
+});
+
+test('a panel the user has dragged keeps its place instead of jumping to the top',()=>{
+  const dom=new JSDOM('<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>',
+    {url:'https://chatgpt.com/c/test',runScripts:'outside-only',pretendToBeVisual:true});
+  const w=dom.window;
+  w.HTMLElement.prototype.getClientRects=function(){return [{width:200,height:40}];};
+  w.setInterval=()=>1;
+  w.localStorage.setItem('red-loop:v1:panel-position',JSON.stringify({left:40,top:90}));
+  w.__RED_LOOP_HOST__={app:'android-webview'};
+  w.eval(source);
+  const root=w.document.getElementById('red-loop-root');
+  assert.equal(root.style.left,'40px');
+  assert.equal(root.style.top,'90px');
+  assert.equal(root.classList.contains('rl-min'),false,'a placed panel stays open');
+  dom.window.close();
+});

@@ -109,6 +109,16 @@ Ein Morgenblick sieht dann etwa so aus:
 08.11. 05:02  Projektplan: Auftrag abgeschlossen · 61 / ∞
 ```
 
+## Das Panel sitzt oben rechts
+
+In der App startet das Panel **eingeklappt oben rechts** — Kopfzeile plus Start, Pause und Reset. Unten links wäre es im Weg: dort stehen ChatGPTs Eingabezeile und sein Senden-Knopf, und ein Panel darüber macht das Schreiben eigener Nachrichten unmöglich. Antippen des `+` öffnet es, Ziehen am Kopf verschiebt es, und eine einmal gewählte Position gewinnt auch beim nächsten Öffnen.
+
+## Eine veraltete Serverfassung kann nichts mehr wegnehmen
+
+Die App vergleicht die Version der geladenen Fassung mit der, die sie selbst mitbringt. Ist die vom Server **älter**, wird sie verworfen und die mitgelieferte genutzt. Ein Worker, der länger nicht neu deployt wurde, kann der App damit keine Funktionen mehr stillschweigend entziehen — genau das war passiert, als die ausgelieferte Fassung `android-webview` noch nicht kannte und die App sich deshalb nicht als App zu erkennen gab. Dieselbe Prüfung gilt in der iPhone-App.
+
+Die Quelle steht in der Statuszeile unten: *Cloudflare*, *Zwischenspeicher* oder *App*.
+
 ## Woher das Skript kommt
 
 Dasselbe wie bei iOS: `userscripts/red-loop.user.js`, geholt von deinem privaten Worker unter `/red-loop-webview.js`, mit der zuletzt geladenen und der mitgelieferten Fassung als Rückfall. `npm run check` erzwingt, dass die mitgelieferte Android-Fassung byteweise mit der Quelle übereinstimmt. Wer auf diesen Worker veröffentlichen kann, bestimmt damit Code, der in deiner angemeldeten ChatGPT-Seite läuft — siehe [In-App-Chat](iphone-chat.md).

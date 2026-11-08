@@ -163,3 +163,24 @@ final class ChatScriptTests: XCTestCase {
         }
     }
 }
+
+final class ChatScriptVersionTests: XCTestCase {
+    func testANewerOrEqualVersionIsAccepted() {
+        XCTAssertTrue(ChatScriptLoader.atLeast("0.5.0", "0.5.0"))
+        XCTAssertTrue(ChatScriptLoader.atLeast("0.5.1", "0.5.0"))
+        XCTAssertTrue(ChatScriptLoader.atLeast("0.6", "0.5.9"))
+        XCTAssertTrue(ChatScriptLoader.atLeast("1.0.0", "0.9.9"))
+    }
+
+    func testAnOlderServerCopyMustNotBeatTheOneShippedWithTheApp() {
+        XCTAssertFalse(ChatScriptLoader.atLeast("0.4.0", "0.5.0"))
+        XCTAssertFalse(ChatScriptLoader.atLeast("0.9.9", "1.0.0"))
+    }
+
+    func testAnUnreadableVersionCountsAsOlder() {
+        XCTAssertFalse(ChatScriptLoader.atLeast("unbekannt", "0.5.0"))
+        XCTAssertFalse(ChatScriptLoader.atLeast("", "0.5.0"))
+        XCTAssertFalse(ChatScriptLoader.atLeast("0.5.x", "0.5.0"))
+        XCTAssertTrue(ChatScriptLoader.atLeast("0.5.0", "unbekannt"))
+    }
+}

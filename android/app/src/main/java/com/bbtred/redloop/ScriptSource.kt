@@ -67,22 +67,50 @@ object ScriptSource {
         "window.__RED_LOOP_HOST__ = {app: 'android-webview', bottomInset: ${bottomInset.coerceIn(0, 240)}, " +
             "autoStart: $autoStart, autoRetry: $autoRetry};\n"
 
-    /** Cloud copy, else the last good download, else the bundled asset. */
+    /**
+     * True when `candidate` is at least `reference`. An unreadable version
+     * counts as older, so a surprise never wins over what ships with the app.
+     */
+    fun atLeast(candidate: String, reference: String): Boolean {
+        val left = numbers(candidate) ?: return false
+        val right = numbers(reference) ?: return true
+        for (index in 0 until maxOf(left.size, right.size)) {
+            val a = left.getOrElse(index) { 0 }
+            val b = right.getOrElse(index) { 0 }
+            if (a != b) return a > b
+        }
+        return true
+    }
+
+    private fun numbers(value: String): List<Int>? {
+        val parts = value.trim().split('.')
+        if (parts.isEmpty() || parts.any { part -> part.isEmpty() || !part.all(Char::isDigit) }) return null
+        return parts.mapNotNull { it.toIntOrNull() }.takeIf { it.size == parts.size }
+    }
+
+    /**
+     * Cloud copy, else the last good download, else the bundled asset — but
+     * never a copy older than the one shipped with the app. A server that was
+     * not redeployed must not quietly take features away.
+     */
     fun load(context: Context, server: String?, allowCloud: Boolean): LoopScript? {
+        val bundled = validate(
+            runCatching { context.assets.open(ASSET).use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+        )
+        val floor = bundled?.let { version(it) }
+        val acceptable = { body: String -> floor == null || atLeast(version(body), floor) }
+
         if (allowCloud) {
             val downloaded = validate(download(url(server)))
-            if (downloaded != null) {
+            if (downloaded != null && acceptable(downloaded)) {
                 runCatching { cacheFile(context).writeText(downloaded) }
                 return LoopScript(ScriptOrigin.CLOUD, version(downloaded), downloaded)
             }
         }
-        val cached = runCatching { cacheFile(context).takeIf { it.isFile }?.readText() }.getOrNull()
-        validate(cached)?.let { return LoopScript(ScriptOrigin.CACHE, version(it), it) }
-        val bundled = runCatching {
-            context.assets.open(ASSET).use { it.readBytes().toString(Charsets.UTF_8) }
-        }.getOrNull()
-        validate(bundled)?.let { return LoopScript(ScriptOrigin.BUNDLE, version(it), it) }
-        return null
+        val cached = validate(runCatching { cacheFile(context).takeIf { it.isFile }?.readText() }.getOrNull())
+        if (cached != null && acceptable(cached)) return LoopScript(ScriptOrigin.CACHE, version(cached), cached)
+        if (bundled != null) return LoopScript(ScriptOrigin.BUNDLE, version(bundled), bundled)
+        return cached?.let { LoopScript(ScriptOrigin.CACHE, version(it), it) }
     }
 
     private fun cacheFile(context: Context) = File(context.filesDir, CACHE_NAME)

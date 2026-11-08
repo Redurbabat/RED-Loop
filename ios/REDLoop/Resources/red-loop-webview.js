@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.4.0
+// @version      0.5.0
 // @description  Opt-in automatic continuation for one ChatGPT conversation: bounded by a step limit or endless until you pause.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -58,7 +58,7 @@
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Pause</button><button class="rl-reset" type="button">Reset</button></div>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.4.0 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
+    <small>v0.5.0 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -459,7 +459,17 @@
     root.classList.add('rl-embedded');
     const requested = Number(hostConfig.bottomInset);
     const inset = Number.isFinite(requested) ? Math.max(0, Math.min(240, Math.round(requested))) : 0;
-    style.textContent += '#red-loop-root.rl-embedded{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + ' + inset + 'px);width:min(290px,calc(100vw - 20px))}#red-loop-root.rl-embedded .rl-background-label,#red-loop-root.rl-embedded #rl-background-help{display:none}';
+    // Top right, not bottom right: the composer and its send button live at
+    // the bottom, and a panel over them makes the chat unusable.
+    style.textContent += '#red-loop-root.rl-embedded{right:10px;top:calc(env(safe-area-inset-top,0px) + 56px);bottom:auto;width:min(290px,calc(100vw - 20px));max-height:calc(100dvh - ' + (inset + 140) + 'px)}#red-loop-root.rl-embedded .rl-background-label,#red-loop-root.rl-embedded #rl-background-help{display:none}';
+    // Start out of the way: the head plus Start, Pause and Reset. The app's
+    // own bar carries the status, and the panel opens with one tap.
+    if (!root.style.top) {
+      root.classList.add('rl-min');
+      $('.rl-collapse').textContent = '+';
+      $('.rl-collapse').setAttribute('aria-label', 'Panel öffnen');
+      $('.rl-collapse').setAttribute('aria-expanded', 'false');
+    }
   }
   report();
 })();
