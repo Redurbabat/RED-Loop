@@ -30,6 +30,16 @@ export function motionSceneHref(sceneId){
   return '/motion-studio.html?scene='+encodeURIComponent(sceneId);
 }
 
+/** Keep at most two unique, known scenes. A third pick replaces the oldest. */
+export function toggleMotionComparison(current,sceneId,availableIds=sceneIds){
+  const allowed=new Set(availableIds);
+  const unique=[...new Set(Array.isArray(current)?current:[])]
+    .filter(id=>allowed.has(id)).slice(-2);
+  if(!allowed.has(sceneId))return unique;
+  if(unique.includes(sceneId))return unique.filter(id=>id!==sceneId);
+  return [...unique.slice(-1),sceneId];
+}
+
 export function initMotionDiscovery(doc=document){
   const results=doc.getElementById('scene-discovery-results');
   if(!results)return null;
@@ -40,10 +50,81 @@ export function initMotionDiscovery(doc=document){
   const empty=doc.getElementById('scene-discovery-empty');
   const reset=doc.getElementById('scene-discovery-reset');
   const feedback=doc.getElementById('scene-discovery-feedback');
+  const comparison=doc.getElementById('scene-discovery-comparison');
+  const comparisonItems=doc.getElementById('scene-discovery-comparison-items');
+  const comparisonCount=doc.getElementById('scene-discovery-comparison-count');
+  const comparisonClear=doc.getElementById('scene-discovery-comparison-clear');
   const stored=(()=>{try{return win.localStorage}catch{return null}})();
   let savedIds=new Set(readMotionFavorites(stored,sceneIds));
   let category='Alle';
   let stopObservingThumbnails=()=>{};
+  let stopObservingComparison=()=>{};
+  let comparedIds=[];
+
+  // Compare remains independent of active filters and saved bookmarks.
+  // Changing a selection never rebuilds the gallery or redraws its thumbnails.
+  function renderComparison(){
+    stopObservingComparison();
+    comparison.hidden=comparedIds.length===0;
+    comparisonCount.textContent=comparedIds.length+' / 2';
+    const entries=comparedIds.map(id=>{
+      const scene=scenes.find(item=>item.id===id);
+      const entry=doc.createElement('div');
+      entry.className='scene-comparison-item';
+      const preview=doc.createElement('div');
+      preview.className='scene-comparison-preview';
+      preview.setAttribute('aria-hidden','true');
+      const canvas=doc.createElement('canvas');
+      canvas.dataset.scene=scene.id;
+      canvas.setAttribute('aria-hidden','true');
+      preview.append(canvas);
+      const link=doc.createElement('a');
+      link.className='scene-comparison-link';
+      link.href=motionSceneHref(scene.id);
+      link.textContent=scene.name+' ↗';
+      const categoryText=doc.createElement('span');
+      categoryText.className='scene-comparison-category';
+      categoryText.textContent=scene.category;
+      const remove=doc.createElement('button');
+      remove.type='button';
+      remove.dataset.removeCompare=scene.id;
+      remove.textContent='Entfernen';
+      remove.setAttribute('aria-label',scene.name+' aus Vergleich entfernen');
+      remove.addEventListener('click',()=>{
+        comparedIds=toggleMotionComparison(comparedIds,scene.id,sceneIds);
+        renderComparison();
+        const corresponding=[...results.querySelectorAll('button[data-compare]')]
+          .find(item=>item.dataset.compare===scene.id);
+        (corresponding||search).focus();
+        feedback.textContent=scene.name+' aus Vergleich entfernt';
+      });
+      entry.append(preview,categoryText,link,remove);
+      return entry;
+    });
+    if(comparedIds.length===1){
+      const placeholder=doc.createElement('p');
+      placeholder.className='scene-comparison-placeholder';
+      placeholder.textContent='Wähle unten ein zweites Motiv zum direkten Vergleich.';
+      entries.push(placeholder);
+    }
+    comparisonItems.replaceChildren(...entries);
+    if(comparedIds.length)stopObservingComparison=observeStaticMotionThumbnails(comparisonItems,{win});
+    else stopObservingComparison=()=>{};
+    for(const button of results.querySelectorAll('button[data-compare]')){
+      const selected=comparedIds.includes(button.dataset.compare);
+      const scene=scenes.find(item=>item.id===button.dataset.compare);
+      button.setAttribute('aria-pressed',String(selected));
+      button.setAttribute('aria-label',scene.name+(selected?' aus Vergleich entfernen':' zum Vergleich hinzufügen'));
+      button.textContent=selected?'✓ Im Vergleich':'↔ Vergleichen';
+    }
+  }
+
+  comparisonClear.addEventListener('click',()=>{
+    comparedIds=[];
+    renderComparison();
+    search.focus();
+    feedback.textContent='Vergleichsauswahl gelöscht';
+  });
 
   function render(){
     const focusedScene=doc.activeElement?.closest?.('#scene-discovery-results a[data-scene]')?.dataset.scene;
@@ -109,8 +190,28 @@ export function initMotionDiscovery(doc=document){
           :scene.name+' aus Favoriten entfernt';
         render();
       });
-      // Never nest an interactive favorite button inside the scene link.
-      entry.append(link,bookmark);
+      const compare=doc.createElement('button');
+      compare.type='button';
+      compare.className='scene-discovery-compare-toggle';
+      compare.dataset.compare=scene.id;
+      const chosen=comparedIds.includes(scene.id);
+      compare.setAttribute('aria-pressed',String(chosen));
+      compare.setAttribute('aria-label',scene.name+(chosen?' aus Vergleich entfernen':' zum Vergleich hinzufügen'));
+      compare.textContent=chosen?'✓ Im Vergleich':'↔ Vergleichen';
+      compare.addEventListener('click',()=>{
+        const before=comparedIds;
+        comparedIds=toggleMotionComparison(comparedIds,scene.id,sceneIds);
+        const replaced=before.length===2&&!before.includes(scene.id)?before[0]:null;
+        feedback.textContent=replaced
+          ?scene.name+' ersetzt '+scenes.find(item=>item.id===replaced).name+' im Vergleich'
+          :scene.name+(comparedIds.includes(scene.id)?' für Vergleich ausgewählt':' aus Vergleich entfernt');
+        renderComparison();
+      });
+      const actions=doc.createElement('div');
+      actions.className='scene-discovery-actions';
+      actions.append(compare);
+      // Two independent controls; neither is nested inside the scene link.
+      entry.append(link,bookmark,actions);
       return entry;
     });
     // Disconnect observation of detached canvases before replacing results.
@@ -187,7 +288,7 @@ export function initMotionDiscovery(doc=document){
   });
 
   render();
-  return {render,get category(){return category},get favorites(){return new Set(savedIds)}};
+  return {render,get category(){return category},get favorites(){return new Set(savedIds)},get comparison(){return [...comparedIds]}};
 }
 
 if(typeof document!=='undefined')initMotionDiscovery(document);
