@@ -323,8 +323,9 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
     // Assigning width/height clears the bitmap, even when unchanged.
     if(canvas.width!==nextWidth||canvas.height!==nextHeight){
       canvas.width=nextWidth;canvas.height=nextHeight;
-      ctx.setTransform(dpr,0,0,dpr,0,0);
     }
+    // DPR can change without a pixel-size change; always keep the transform current.
+    ctx.setTransform(dpr,0,0,dpr,0,0);
     renderOnce();
     return true;
   }
