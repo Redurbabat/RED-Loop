@@ -85,8 +85,16 @@ object ChatTitles {
     }
 }
 
-/** What survives a restart: which conversation a tab had open, and its name. */
-data class SavedChat(val url: String, val name: String?)
+/**
+ * What survives a restart: which conversation a tab had open, its name, and
+ * whether it should pick its work back up on its own.
+ */
+data class SavedChat(
+    val url: String,
+    val name: String?,
+    val autoStart: Boolean = false,
+    val autoRetry: Boolean = false
+)
 
 object SessionStore {
     const val KEY = "chats"
@@ -95,7 +103,13 @@ object SessionStore {
     fun encode(chats: List<SavedChat>): String {
         val array = org.json.JSONArray()
         chats.take(MAX).forEach { chat ->
-            array.put(org.json.JSONObject().put("url", chat.url).apply { chat.name?.let { put("name", it) } })
+            array.put(
+                org.json.JSONObject()
+                    .put("url", chat.url)
+                    .put("autoStart", chat.autoStart)
+                    .put("autoRetry", chat.autoRetry)
+                    .apply { chat.name?.let { put("name", it) } }
+            )
         }
         return array.toString()
     }
@@ -110,7 +124,13 @@ object SessionStore {
             // Only a real ChatGPT conversation address is worth restoring.
             if (!isRestorable(url)) continue
             val name = item.optString("name").trim().takeIf { it.isNotEmpty() }?.take(ChatTitles.MAX_LENGTH)
-            chats.add(SavedChat(url, name))
+            chats.add(
+                SavedChat(
+                    url, name,
+                    autoStart = item.optBoolean("autoStart", false),
+                    autoRetry = item.optBoolean("autoRetry", false)
+                )
+            )
         }
         return chats
     }

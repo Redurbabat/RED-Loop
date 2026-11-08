@@ -53,6 +53,20 @@ Die Rückmeldung läuft über eine `@JavascriptInterface`-Brücke namens `RedLoo
 
 Navigationen im Hauptrahmen bleiben nur auf ChatGPT, seinen Anmeldediensten und den angebotenen Identitätsanbietern; alles andere geht an den Systembrowser.
 
+## So wenig Handarbeit wie möglich
+
+Drei Schalter nehmen dir die wiederkehrenden Handgriffe ab. Alle sind **aus**, bis du sie einschaltest.
+
+**Automatisch starten** (pro Chat, langes Drücken auf den Tab → *Automatik*). Der Chat beginnt von selbst, sobald eine fertige Antwort dasteht und sich nichts mehr ändert. Du schreibst nur noch den Auftrag und lässt ihn liegen. Eine Pause, die du drückst, eine Fertigmeldung, eine Rückfrage und ein erreichtes Limit **blockieren den automatischen Start** — nichts davon startet sich selbst wieder. Erst Start oder das erneute Ankreuzen hebt die Blockade auf.
+
+**Fehler selbst überbrücken** (pro Chat, dieselbe Stelle). Nach einem Antwortfehler, einer ausbleibenden Antwort oder einem nicht verfügbaren Senden-Knopf versucht es der Loop nach 20 Sekunden erneut, bis zu dreimal. Danach bleibt er stehen. Ein erkannter **Entwurf wird nie überbrückt** — dein eigener Text bleibt unangetastet, und eine Fertigmeldung oder Rückfrage ist kein Fehler.
+
+**Beim Einschalten starten** (in der Übersicht). Nach einem Neustart des Tablets fährt der Dienst von allein hoch und öffnet die Chats wieder auf ihren Unterhaltungen. Zusammen mit *Automatisch starten* nimmt ein Chat seine Arbeit ohne einen einzigen Handgriff wieder auf. Hersteller-Autostart muss dafür trotzdem erlaubt sein.
+
+In der Übersicht steht hinter jedem Chat, was für ihn gilt: **[A]** automatisch starten, **[F]** Fehler überbrücken.
+
+Die Einstellungen pro Chat überleben einen Neustart, weil die App sie neben Adresse und Namen sichert — der Sitzungsspeicher der Seite überlebt das Schließen des WebViews nicht.
+
 ## Wenn das System die App beendet
 
 Android kann einen Hintergrundprozess jederzeit beenden, und bisher merktest du das nur daran, dass nichts mehr passierte. Der Dienst hinterlegt jetzt beim Start eine Markierung und löscht sie beim ordentlichen Beenden. Fehlt sie beim nächsten Start und waren Läufe aktiv, meldet die App: **„Läufe wurden vom System gestoppt"** mit der Anzahl und dem Hinweis auf die Freigaben in der Übersicht. Die Chats selbst kommen mit ihrer Unterhaltung zurück; fortgesetzt wird nichts von allein — Start bleibt deine Entscheidung.

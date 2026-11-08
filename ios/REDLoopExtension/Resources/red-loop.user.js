@@ -17,6 +17,8 @@
   const PREFIX = 'red-loop:v1:';
   const MAX_STEPS = 50;
   const MAX_COUNT = 100000;
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 20000;
   const MAX_PROMPT_LENGTH = 4000;
   // Set by the native host immediately before injection; unknown in Safari,
   // Edge and Chrome. It carries no credentials and cannot start a run.
@@ -29,7 +31,7 @@
   const bridgeWantsText = !!bridge && bridge === window.RedLoopHost;
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
   const WORK_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn du eine Rückfrage, Zugangsdaten oder eine Freigabe von mir brauchst, halte an, erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
-  const state = { running: false, count: 0, limit: 10, endless: false, prompt: PROMPT, background: false, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '', composeText: '' };
+  const state = { running: false, count: 0, limit: 10, endless: false, prompt: PROMPT, background: false, autoStart: false, autoRetry: false, autoBlocked: false, retries: 0, retryAt: 0, lastMessage: '', lastChange: 0, pending: false, lastSubmit: 0, submittedSignature: '', awaiting: false, composing: false, composeStarted: 0, composeSignature: '', composeText: '' };
   const key = () => PREFIX + (location.pathname.match(/(?:^|\/)c\/[^/]+/)?.[0] || location.pathname);
   let currentKey = key();
   const root = document.createElement('aside');
@@ -43,6 +45,9 @@
     <p id="rl-prompt-help">Wird nach jeder fertigen Antwort gesendet. Aktivieren mit Start.</p>
     <label class="rl-background-label"><input id="rl-background" type="checkbox" aria-describedby="rl-background-help"> Auch im Hintergrund weiterarbeiten</label>
     <p id="rl-background-help">Browser und Chat offen lassen; PC muss wach bleiben. Mit Auftragstext: Stopp bei Fertigmeldung oder Rückfrage.</p>
+    <label class="rl-endless-label"><input id="rl-autostart" type="checkbox" aria-describedby="rl-auto-help"> Automatisch starten</label>
+    <label class="rl-endless-label"><input id="rl-retry" type="checkbox" aria-describedby="rl-auto-help"> Fehler selbst überbrücken</label>
+    <p id="rl-auto-help">Automatisch starten: beginnt von selbst, sobald eine fertige Antwort da ist. Fehler überbrücken: nach einem Fehler bis zu dreimal erneut versuchen. Beides endet bei Pause, Fertigmeldung oder Rückfrage.</p>
     <label class="rl-endless-label"><input id="rl-endless" type="checkbox" aria-describedby="rl-endless-help"> Endlos bis Pause</label>
     <p id="rl-endless-help">Ohne Zahlenlimit fortsetzen. Ende nur durch Pause, Fertigmeldung, Rückfrage oder Fehler. Verbraucht laufend ChatGPT-Kontingent.</p>
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
@@ -65,13 +70,25 @@
   const ratio = () => state.count + '/' + (state.endless ? '∞' : state.limit);
   const showCounter = () => { $('.rl-counter').textContent = state.count + ' / ' + (state.endless ? '∞' : state.limit) + ' Fortsetzungen'; };
   const persist = () => {
-    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, endless: state.endless, prompt: state.prompt, background: state.background })); } catch {}
+    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, endless: state.endless, prompt: state.prompt, background: state.background, autoStart: state.autoStart, autoRetry: state.autoRetry, autoBlocked: state.autoBlocked })); } catch {}
   };
-  const stop = msg => {
-    state.running = false; state.pending = false; state.composing = false; persist();
+  // `recoverable` marks a stop that a later attempt could get past. A draft,
+  // a completion, a question and the limit are never recoverable.
+  const stop = (msg, recoverable) => {
+    const wasRunning = state.running;
+    state.running = false; state.pending = false; state.composing = false;
     $('.rl-start').disabled = false; $('.rl-stop').disabled = true; $('#rl-limit').disabled = state.endless;
     $('#rl-prompt').disabled = false;
     $('#rl-background').disabled = false; $('.rl-work').disabled = false; $('#rl-endless').disabled = false;
+    $('#rl-autostart').disabled = false; $('#rl-retry').disabled = false;
+    if (wasRunning && state.autoRetry && recoverable && state.retries < MAX_RETRIES) {
+      state.retries += 1;
+      state.retryAt = Date.now() + RETRY_DELAY;
+      persist();
+      return status((msg || 'Gestoppt') + ' · Versuch ' + state.retries + '/' + MAX_RETRIES + ' folgt');
+    }
+    state.retryAt = 0;
+    persist();
     status(msg || 'Gestoppt');
   };
   const load = () => {
@@ -81,11 +98,19 @@
     // that is the whole point of the in-app view. Both stay user-editable.
     state.count = 0; state.limit = 10; state.endless = embedded;
     state.prompt = embedded ? WORK_PROMPT : PROMPT; state.background = embedded;
+    // The native host may preselect the automatic options per chat; session
+    // storage dies with the view, so the host is what survives a restart.
+    state.autoStart = embedded && hostConfig.autoStart === true;
+    state.autoRetry = embedded && hostConfig.autoRetry === true;
+    state.autoBlocked = false; state.retries = 0; state.retryAt = 0;
     try {
       const saved = JSON.parse(sessionStorage.getItem(currentKey) || '{}');
       state.count = Number.isInteger(saved.count) ? Math.max(0, Math.min(MAX_COUNT, saved.count)) : 0;
       state.limit = Number.isInteger(saved.limit) ? Math.max(1, Math.min(MAX_STEPS, saved.limit)) : 10;
       if (typeof saved.endless === 'boolean') state.endless = saved.endless;
+      if (typeof saved.autoStart === 'boolean') state.autoStart = saved.autoStart;
+      if (typeof saved.autoRetry === 'boolean') state.autoRetry = saved.autoRetry;
+      if (typeof saved.autoBlocked === 'boolean') state.autoBlocked = saved.autoBlocked;
       if (typeof saved.prompt === 'string' && saved.prompt.length <= MAX_PROMPT_LENGTH) state.prompt = saved.prompt;
       // A WKWebView is never focused the way a desktop tab is, so the
       // foreground-only mode would stop the run immediately in the app.
@@ -95,6 +120,8 @@
     $('#rl-prompt').value = state.prompt;
     $('#rl-background').checked = state.background;
     $('#rl-endless').checked = state.endless;
+    $('#rl-autostart').checked = state.autoStart;
+    $('#rl-retry').checked = state.autoRetry;
     showCounter();
     stop('Bereit');
     status('Bereit · ' + ratio());
@@ -164,35 +191,58 @@
   const attemptSend = () => {
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim() !== state.composeText) return stop('Entwurf geändert – nicht gesendet');
-    if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen');
+    if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen', true);
     const btn = sendButton();
     if (!btn || btn.disabled) {
-      if (Date.now() - state.composeStarted >= 6000) return stop('Senden nicht verfügbar – bitte prüfen');
+      if (Date.now() - state.composeStarted >= 6000) return stop('Senden nicht verfügbar – bitte prüfen', true);
       return status('Bereite Fortsetzung vor …');
     }
     btn.click();
     state.composing = false; state.count += 1;
     state.submittedSignature = state.composeSignature; state.awaiting = true;
     state.lastSubmit = Date.now(); state.lastChange = Date.now();
+    state.retries = 0;
     persist();
     showCounter();
     status('Fortsetzung ' + ratio() + ' gesendet');
   };
+  // While nothing runs: wait out a retry, or start by itself when asked to.
+  const canAutoStart = () => {
+    if (!state.autoStart || state.autoBlocked || state.retryAt) return false;
+    if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return false;
+    if (!state.background && (document.hidden || !document.hasFocus())) return false;
+    if (hasResponseError() || isGenerating()) return false;
+    const el = editor();
+    if (!el || (el.innerText || el.value || '').trim()) return false;
+    const sig = signature();
+    if (!sig) return false;
+    // Wait for the answer to settle, exactly as a running loop does.
+    if (sig !== state.lastMessage) { state.lastMessage = sig; state.lastChange = Date.now(); return false; }
+    return Date.now() - state.lastChange >= 6500;
+  };
+  const idle = () => {
+    if (state.retryAt) {
+      if (Date.now() >= state.retryAt) { state.retryAt = 0; begin(false); }
+      return;
+    }
+    if (canAutoStart()) begin(false);
+  };
   const tick = () => {
     if (key() !== currentKey) { stop('Gestoppt: Konversation gewechselt'); currentKey = key(); load(); return; }
-    if (!state.running || (!state.background && (document.hidden || !document.hasFocus()))) return;
+    if (!state.running) return idle();
+    if (!state.background && (document.hidden || !document.hasFocus())) return;
     if (state.composing) return attemptSend();
-    if (!state.endless && state.count >= state.limit) return stop('Limit erreicht');
+    if (!state.endless && state.count >= state.limit) { state.autoBlocked = true; return stop('Limit erreicht'); }
     if (state.count >= MAX_COUNT) return stop('Zähler-Obergrenze erreicht');
     const draft = editor();
     if (draft && (draft.innerText || draft.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
-    if (hasResponseError()) return stop('Antwortfehler erkannt');
+    if (hasResponseError()) return stop('Antwortfehler erkannt', true);
     if (isGenerating()) { status('ChatGPT antwortet …'); return; }
     const sig = signature();
     if (!sig) return status('Warte auf eine ChatGPT-Antwort …');
     if (state.awaiting) {
       if (sig === state.submittedSignature) {
-        if (Date.now() - state.lastSubmit > 90000) return stop('Keine neue Antwort – bitte ChatGPT prüfen');
+        if (Date.now() - state.lastSubmit > 90000) return stop('Keine neue Antwort – bitte ChatGPT prüfen', true);
         return status('Warte auf neue Antwort …');
       }
       state.awaiting = false; state.pending = false;
@@ -200,21 +250,21 @@
     if (sig !== state.lastMessage) { state.lastMessage = sig; state.lastChange = Date.now(); state.pending = false; return; }
     if (Date.now() - state.lastChange < 6500 || Date.now() - state.lastSubmit < 12000) return;
     const m = lastAssistant();
-    if (!m) return stop('Antwortfehler erkannt');
+    if (!m) return stop('Antwortfehler erkannt', true);
     const finalLine = (m.innerText || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).at(-1);
-    if (state.prompt.includes('[RED_LOOP_RUECKFRAGE]') && finalLine === '[RED_LOOP_RUECKFRAGE]') return stop('Rückfrage – bitte Chat prüfen');
-    if (state.prompt.includes('[RED_LOOP_FERTIG]') && finalLine === '[RED_LOOP_FERTIG]') return stop('Auftrag abgeschlossen');
+    if (state.prompt.includes('[RED_LOOP_RUECKFRAGE]') && finalLine === '[RED_LOOP_RUECKFRAGE]') { state.autoBlocked = true; return stop('Rückfrage – bitte Chat prüfen'); }
+    if (state.prompt.includes('[RED_LOOP_FERTIG]') && finalLine === '[RED_LOOP_FERTIG]') { state.autoBlocked = true; return stop('Auftrag abgeschlossen'); }
     const el = editor();
-    if (!el) return stop('Eingabefeld nicht gefunden – bitte Oberfläche prüfen');
+    if (!el) return stop('Eingabefeld nicht gefunden – bitte Oberfläche prüfen', true);
     if ((el.innerText || el.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
     if (state.pending) return;
     state.pending = true;
-    if (!insertPrompt(el, state.prompt)) return stop('Eingabe fehlgeschlagen – ChatGPT-Oberfläche prüfen');
+    if (!insertPrompt(el, state.prompt)) return stop('Eingabe fehlgeschlagen – ChatGPT-Oberfläche prüfen', true);
     state.composeText = (el.innerText || el.value || '').trim();
     state.composing = true; state.composeStarted = Date.now(); state.composeSignature = sig;
     attemptSend();
   };
-  $('.rl-start').addEventListener('click', () => {
+  const begin = manual => {
     if (state.running) return;
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return status('Bitte eine bestehende Konversation öffnen');
     if (!$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
@@ -237,8 +287,15 @@
     showCounter();
     state.lastMessage = signature(); state.lastChange = Date.now();
     $('.rl-start').disabled = true; $('.rl-stop').disabled = false; $('#rl-limit').disabled = true;
+    $('#rl-autostart').disabled = true; $('#rl-retry').disabled = true;
+    // A fresh attempt gets the full waiting window again; the duplicate guard
+    // stays, so an unchanged answer still cannot trigger a second send.
+    if (state.awaiting) state.lastSubmit = Date.now();
+    if (manual) { state.autoBlocked = false; state.retries = 0; }
+    state.retryAt = 0;
     persist(); status((state.endless ? 'Endlos aktiv · ' : state.background ? 'Hintergrund aktiv · ' : 'Aktiv · ') + ratio());
-  });
+  };
+  $('.rl-start').addEventListener('click', () => begin(true));
   $('.rl-work').addEventListener('click', () => {
     if (state.running) return;
     state.prompt = WORK_PROMPT; $('#rl-prompt').value = WORK_PROMPT; persist();
@@ -252,6 +309,19 @@
   $('#rl-prompt').addEventListener('input', () => {
     if (state.running) return;
     state.prompt = $('#rl-prompt').value; persist();
+  });
+  $('#rl-autostart').addEventListener('change', () => {
+    if (state.running) return;
+    state.autoStart = $('#rl-autostart').checked;
+    // Ticking the box is a fresh decision, so a previous stop stops blocking.
+    if (state.autoStart) state.autoBlocked = false;
+    persist();
+    status(state.autoStart ? 'Startet selbst, sobald eine Antwort fertig ist' : 'Bereit · ' + ratio());
+  });
+  $('#rl-retry').addEventListener('change', () => {
+    if (state.running) return;
+    state.autoRetry = $('#rl-retry').checked; state.retries = 0; persist();
+    status(state.autoRetry ? 'Überbrückt Fehler bis zu dreimal' : 'Bereit · ' + ratio());
   });
   $('#rl-endless').addEventListener('change', () => {
     if (state.running) return;
@@ -268,8 +338,13 @@
     showCounter();
     status('Bereit · ' + ratio());
   });
-  $('.rl-stop').addEventListener('click', () => stop('Pausiert · Start setzt fort'));
+  $('.rl-stop').addEventListener('click', () => {
+    // A pause the user asked for stays a pause; nothing restarts it by itself.
+    state.autoBlocked = true; state.retries = 0; state.retryAt = 0;
+    stop('Pausiert · Start setzt fort');
+  });
   $('.rl-reset').addEventListener('click', () => {
+    state.autoBlocked = true; state.retries = 0; state.retryAt = 0;
     stop('Zurückgesetzt'); state.count = 0; state.awaiting = false; state.submittedSignature = ''; state.lastSubmit = 0;
     persist(); showCounter();
   });

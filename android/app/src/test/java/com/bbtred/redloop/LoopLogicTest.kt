@@ -137,9 +137,11 @@ class ScriptSourceTest {
     @Test
     fun `the host prologue announces android and clamps the inset`() {
         assertEquals(
-            "window.__RED_LOOP_HOST__ = {app: 'android-webview', bottomInset: 12};\n",
+            "window.__RED_LOOP_HOST__ = {app: 'android-webview', bottomInset: 12, autoStart: false, autoRetry: false};\n",
             ScriptSource.hostPrologue(12)
         )
+        assertTrue(ScriptSource.hostPrologue(12, autoStart = true).contains("autoStart: true"))
+        assertTrue(ScriptSource.hostPrologue(12, autoRetry = true).contains("autoRetry: true"))
         assertTrue(ScriptSource.hostPrologue(-5).contains("bottomInset: 0"))
         assertTrue(ScriptSource.hostPrologue(9000).contains("bottomInset: 240"))
     }
@@ -209,14 +211,18 @@ class SessionStoreTest {
     @Test
     fun `chats survive a restart with their address and their name`() {
         val chats = listOf(
-            SavedChat("https://chatgpt.com/c/one", "Projektplan"),
+            SavedChat("https://chatgpt.com/c/one", "Projektplan", autoStart = true, autoRetry = true),
             SavedChat("https://chatgpt.com/c/two", null)
         )
         val restored = SessionStore.decode(SessionStore.encode(chats))
         assertEquals(2, restored.size)
         assertEquals("https://chatgpt.com/c/one", restored[0].url)
         assertEquals("Projektplan", restored[0].name)
+        assertTrue("the automatic start comes back", restored[0].autoStart)
+        assertTrue("bridging errors comes back", restored[0].autoRetry)
         assertNull(restored[1].name)
+        assertFalse("a chat without automation stays manual", restored[1].autoStart)
+        assertFalse(restored[1].autoRetry)
     }
 
     @Test
@@ -224,6 +230,11 @@ class SessionStoreTest {
         assertTrue(SessionStore.decode(null).isEmpty())
         assertTrue(SessionStore.decode("").isEmpty())
         assertTrue(SessionStore.decode("not json").isEmpty())
+        // A stored entry with no automation flags must not switch itself on.
+        val legacy = SessionStore.decode("""[{"url":"https://chatgpt.com/c/old"}]""")
+        assertEquals(1, legacy.size)
+        assertFalse(legacy[0].autoStart)
+        assertFalse(legacy[0].autoRetry)
         assertTrue(SessionStore.decode("""[{"url":"https://evil.test/c/x"}]""").isEmpty())
         assertEquals(1, SessionStore.decode("""[{"url":"https://evil.test/x"},{"url":"https://chatgpt.com/c/ok"}]""").size)
     }

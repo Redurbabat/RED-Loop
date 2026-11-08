@@ -367,3 +367,87 @@ test('a click on the header buttons still works and is not treated as a drag',()
   assert.equal(root.style.left,'','a button press never moves the panel');
   f.dom.window.close();
 });
+
+test('the automatic start begins by itself once an answer is finished and stable',()=>{
+  const f=setup(null,{modern:true});
+  const auto=f.w.document.querySelector('#rl-autostart');
+  auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,true,'nothing runs yet');
+  f.advance(1500);assert.equal(f.sends,0,'an answer that just appeared is not acted on');
+  f.advance(7000);
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,false,'started without a click');
+  f.advance(7000);assert.deepEqual(f.sent.length,1);
+  f.dom.window.close();
+});
+
+test('a pause the user asked for is never undone by the automatic start',()=>{
+  const f=setup(null,{modern:true});
+  const auto=f.w.document.querySelector('#rl-autostart');
+  auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));
+  f.advance(1500);f.advance(7000);f.advance(7000);assert.equal(f.sends,1);
+  f.click('.rl-stop');
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Eine neue fertige Antwort';
+  for(let i=0;i<6;i++) f.advance(20000);
+  assert.equal(f.sends,1,'stays paused');
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);
+  f.dom.window.close();
+});
+
+test('a completion marker is not undone by the automatic start either',()=>{
+  const f=setup();f.click('.rl-work');
+  const auto=f.w.document.querySelector('#rl-autostart');
+  auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));
+  f.advance(1500);f.advance(7000);f.advance(7000);assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-message-author-role]').textContent='Ergebnis\n[RED_LOOP_FERTIG]';
+  f.advance(1500);f.advance(13000);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Auftrag abgeschlossen/);
+  for(let i=0;i<6;i++) f.advance(20000);
+  assert.equal(f.sends,1,'a finished assignment stays finished');
+  f.dom.window.close();
+});
+
+test('a recoverable error is bridged up to three times, then the loop gives up',()=>{
+  const f=setup(null,{modern:true});
+  const retry=f.w.document.querySelector('#rl-retry');
+  retry.checked=true;retry.dispatchEvent(new f.w.Event('change'));
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  for(let attempt=1;attempt<=3;attempt++){
+    f.advance(95000);
+    assert.match(f.w.document.querySelector('.rl-status').textContent,new RegExp('Versuch '+attempt+'/3'),'attempt '+attempt+' announced');
+    f.advance(21000);
+    assert.equal(f.w.document.querySelector('.rl-stop').disabled,false,'running again on attempt '+attempt);
+  }
+  f.advance(95000);
+  const status=f.w.document.querySelector('.rl-status').textContent;
+  assert.match(status,/Keine neue Antwort/);
+  assert.doesNotMatch(status,/Versuch/,'the budget is spent');
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);
+  assert.equal(f.sends,1,'bridging never sends twice for one answer');
+  f.dom.window.close();
+});
+
+test('a draft is never bridged, however often the retry option is on',()=>{
+  const f=setup(null,{modern:true});
+  const retry=f.w.document.querySelector('#rl-retry');
+  retry.checked=true;retry.dispatchEvent(new f.w.Event('change'));
+  const button=f.w.document.querySelector('button[aria-label="Senden"]');button.disabled=true;
+  f.click('.rl-start');f.advance(7000);
+  f.w.document.querySelector('[data-composer-markdown]').textContent='Mein eigener Text';
+  button.disabled=false;f.advance(1500);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Entwurf geändert/);
+  assert.doesNotMatch(f.w.document.querySelector('.rl-status').textContent,/Versuch/);
+  for(let i=0;i<4;i++) f.advance(21000);
+  assert.equal(f.sends,0);
+  assert.equal(f.w.document.querySelector('[data-composer-markdown]').textContent,'Mein eigener Text');
+  f.dom.window.close();
+});
+
+test('the native host can preselect both automatic options',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview',autoStart:true,autoRetry:true},android:true});
+  assert.equal(f.w.document.querySelector('#rl-autostart').checked,true);
+  assert.equal(f.w.document.querySelector('#rl-retry').checked,true);
+  const plain=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  assert.equal(plain.w.document.querySelector('#rl-autostart').checked,false,'off unless the host asks');
+  assert.equal(plain.w.document.querySelector('#rl-retry').checked,false);
+  f.dom.window.close();plain.dom.window.close();
+});

@@ -188,6 +188,7 @@ class MainActivity : AppCompatActivity() {
     private fun chatMenu(session: ChatSession) {
         val actions = listOf<Pair<String, () -> Unit>>(
             getString(R.string.rename) to { renameDialog(session) },
+            getString(R.string.automatic) to { automaticDialog(session) },
             getString(R.string.reveal_panel) to { session.revealPanel() },
             getString(R.string.reload_page) to { session.reload() },
             getString(R.string.chat_list) to { session.goHome() },
@@ -196,6 +197,21 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(session.title)
             .setItems(actions.map { it.first }.toTypedArray()) { _, index -> actions[index].second() }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    /** Both automatic options for one chat, in one place. */
+    private fun automaticDialog(session: ChatSession) {
+        val labels = arrayOf(getString(R.string.auto_start), getString(R.string.auto_retry))
+        val chosen = booleanArrayOf(session.autoStart, session.autoRetry)
+        AlertDialog.Builder(this)
+            .setTitle("${session.title}: ${getString(R.string.automatic)}")
+            .setMultiChoiceItems(labels, chosen) { _, index, value -> chosen[index] = value }
+            .setPositiveButton(R.string.save) { _, _ ->
+                session.setAutomatic(chosen[0], chosen[1])
+                render()
+            }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
@@ -306,7 +322,12 @@ class MainActivity : AppCompatActivity() {
                 textSize = 15f
             })
             addView(TextView(context).apply {
-                text = "${session.state.progress} · ${session.state.status}"
+                val marks = listOfNotNull(
+                    "A".takeIf { session.autoStart },
+                    "F".takeIf { session.autoRetry }
+                ).joinToString("")
+                text = "${session.state.progress} · ${session.state.status}" +
+                    if (marks.isEmpty()) "" else "  [$marks]"
                 textSize = 12f
                 alpha = 0.75f
             })
@@ -370,6 +391,12 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener { action() }
             })
         }
+        overviewList.addView(Button(this).apply {
+            text = if (active.startAtBoot) getString(R.string.boot_on) else getString(R.string.boot_off)
+            isAllCaps = false
+            minimumHeight = dp(48)
+            setOnClickListener { active.startAtBoot = !active.startAtBoot }
+        })
         overviewList.addView(Button(this).apply {
             text = if (active.useCloudScript) getString(R.string.script_cloud_on) else getString(R.string.script_cloud_off)
             isAllCaps = false

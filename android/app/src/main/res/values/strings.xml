@@ -25,4 +25,10 @@
     <string name="script_cloud_on">Skript von Cloudflare: an</string>
     <string name="script_cloud_off">Skript von Cloudflare: aus</string>
     <string name="script_reload">Skript neu laden</string>
+    <string name="automatic">Automatik</string>
+    <string name="auto_start">Automatisch starten (A)</string>
+    <string name="auto_retry">Fehler selbst überbrücken (F)</string>
+    <string name="save">Speichern</string>
+    <string name="boot_on">Beim Einschalten starten: an</string>
+    <string name="boot_off">Beim Einschalten starten: aus</string>
 </resources>

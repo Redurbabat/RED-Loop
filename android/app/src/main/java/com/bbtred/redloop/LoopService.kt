@@ -86,7 +86,7 @@ class LoopService : Service(), SessionListener {
                     // Every tab comes back on the conversation it had open.
                     if (_sessions.isEmpty()) {
                         if (restored.isEmpty()) addSession()
-                        else restored.forEach { addSession(it.url, it.name) }
+                        else restored.forEach { addSession(it.url, it.name, it.autoStart, it.autoRetry) }
                     }
                 }
                 if (killedWith > 0) announceKilled(killedWith)
@@ -117,10 +117,15 @@ class LoopService : Service(), SessionListener {
         listener = callback
     }
 
-    fun addSession(startUrl: String = ChatHosts.START, savedName: String? = null): ChatSession? {
+    fun addSession(
+        startUrl: String = ChatHosts.START,
+        savedName: String? = null,
+        autoStart: Boolean = false,
+        autoRetry: Boolean = false
+    ): ChatSession? {
         val loaded = script ?: return null
         if (_sessions.size >= MAX_SESSIONS) return null
-        val session = ChatSession(nextId++, applicationContext, loaded, startUrl, savedName, this)
+        val session = ChatSession(nextId++, applicationContext, loaded, startUrl, savedName, autoStart, autoRetry, this)
         session.parkingLot = overlay.ensure()
         _sessions.add(session)
         persistSessions()
@@ -168,6 +173,13 @@ class LoopService : Service(), SessionListener {
     }
 
     private fun preferences() = getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    var startAtBoot: Boolean
+        get() = preferences().getBoolean("startAtBoot", false)
+        set(value) {
+            preferences().edit().putBoolean("startAtBoot", value).apply()
+            notifyListener()
+        }
 
     var useCloudScript: Boolean
         get() = preferences().getBoolean("cloudScript", true)

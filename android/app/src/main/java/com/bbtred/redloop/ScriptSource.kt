@@ -58,9 +58,14 @@ object ScriptSource {
         return "unbekannt"
     }
 
-    /** Settings the script reads before it builds its panel. No credentials. */
-    fun hostPrologue(bottomInset: Int): String =
-        "window.__RED_LOOP_HOST__ = {app: 'android-webview', bottomInset: ${bottomInset.coerceIn(0, 240)}};\n"
+    /**
+     * Settings the script reads before it builds its panel. No credentials.
+     * The automatic options are seeded from here because the page's own
+     * session storage does not survive the view being recreated.
+     */
+    fun hostPrologue(bottomInset: Int, autoStart: Boolean = false, autoRetry: Boolean = false): String =
+        "window.__RED_LOOP_HOST__ = {app: 'android-webview', bottomInset: ${bottomInset.coerceIn(0, 240)}, " +
+            "autoStart: $autoStart, autoRetry: $autoRetry};\n"
 
     /** Cloud copy, else the last good download, else the bundled asset. */
     fun load(context: Context, server: String?, allowCloud: Boolean): LoopScript? {

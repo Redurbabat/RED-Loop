@@ -34,6 +34,8 @@ class ChatSession(
     script: LoopScript,
     startUrl: String = ChatHosts.START,
     savedName: String? = null,
+    autoStart: Boolean = false,
+    autoRetry: Boolean = false,
     private val listener: SessionListener
 ) {
     companion object {
@@ -64,6 +66,12 @@ class ChatSession(
 
     /** Replaced when a newer script is fetched; used on the next injection. */
     var script: LoopScript = script
+
+    /** Starts by itself once an answer is finished, and bridges errors. */
+    var autoStart: Boolean = autoStart
+        private set
+    var autoRetry: Boolean = autoRetry
+        private set
 
     private val main = Handler(Looper.getMainLooper())
 
@@ -105,7 +113,7 @@ class ChatSession(
                 if (!ChatHosts.isChat(Uri.parse(url ?: "").host)) return
                 // Document-end injection. The script itself refuses a second
                 // panel and every origin other than ChatGPT.
-                view.evaluateJavascript(ScriptSource.hostPrologue(12) + script.body, null)
+                view.evaluateJavascript(ScriptSource.hostPrologue(12, autoStart, autoRetry) + script.body, null)
             }
 
             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -116,6 +124,24 @@ class ChatSession(
         detachAndLayout()
         webView.loadUrl(startUrl)
     }
+
+    /**
+     * Flips the option in the panel itself, so the page stays the one place
+     * that owns the run. A running loop locks its options, as it always has.
+     */
+    fun setAutomatic(start: Boolean, retry: Boolean) {
+        autoStart = start
+        autoRetry = retry
+        applyOption("rl-autostart", start)
+        applyOption("rl-retry", retry)
+        listener.onDetails(this)
+    }
+
+    private fun applyOption(id: String, value: Boolean) = webView.evaluateJavascript(
+        "(()=>{const b=document.getElementById('$id');if(!b||b.disabled)return false;" +
+            "if(b.checked!==$value)b.click();return true})()",
+        null
+    )
 
     fun rename(name: String?) {
         customName = name?.trim()?.take(ChatTitles.MAX_LENGTH)?.takeIf { it.isNotEmpty() }
@@ -168,7 +194,7 @@ class ChatSession(
         return true
     }
 
-    fun saved(): SavedChat? = restorableUrl?.let { SavedChat(it, customName) }
+    fun saved(): SavedChat? = restorableUrl?.let { SavedChat(it, customName, autoStart, autoRetry) }
 
     fun destroy() {
         (webView.parent as? ViewGroup)?.removeView(webView)
