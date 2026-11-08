@@ -147,3 +147,15 @@ Regression tests exercise the real entrypoint in jsdom (bookmark count, exact fi
 While exercising the favorites filter, the catalog's **existing** filter-button update was found to call `$('#ui-loop-filters button').forEach(...)`. This uses the one-element `querySelector` helper and throws a `TypeError`, including during initial module setup. It now uses the iterable `$$` (`querySelectorAll`) helper. A separate unit-source regression explicitly rejects this class of erroneous singleton-selector loop, and the real-entrypoint jsdom smoke test now exercises filter initialization and favorites state. This is distinct from the earlier swatch-selector repair.
 
 Validation for this change: production catalog source executed in a controlled JavaScript DOM stub with **15 passing assertions** covering initialization, bookmarked filtering, search combination, empty states, count updates, accessible star labels and no scene reselection; JavaScript syntax of the studio, DOM startup test and browser spec checked. Complete Node/Playwright CI execution remains unverified under issue #9.
+
+## Keyboard-accessible Canvas focus (November 2026)
+
+Previously, the light field responded to mouse/touch pointer movement only. The preview Canvas is now keyboard-focusable (`tabindex="0"`) and references short visible and screen-reader-accessible instructions. Users can:
+
+- Tab to the Canvas, then use **arrow keys** to move the optical focus. Holding **Shift** uses a larger increment. **Home / Pos1** resets the field to its neutral position.
+- Keep focus in the preview without the page scrolling when using those specific keys; modified shortcuts (Ctrl/Alt/Meta + arrow) and other keys remain available to the browser.
+- Use the same interaction across MacBook/Windows keyboard use, iPad hardware keyboards and Android/iPhone hardware keyboard setups where supported. It does not require pointer input or a native app.
+
+Keyboard focus is shown with a controlled contrast-visible outline, also under forced-colors mode. The canvas retains `role="img"` for its descriptive output and `aria-keyshortcuts` / `aria-describedby` to advertise the interaction. Keyboard movement redraws the *current static frame* and **never starts playback**; `prefers-reduced-motion` remains respected. Blur resets the active pointer influence, and `destroy()` removes the new keyboard and blur listeners.
+
+Validation: deterministic execution of the **branch's actual Canvas engine** in a fake drawing context showed that ArrowRight changes thousands of dot positions, Home restores the original drawing, modifier shortcuts are ignored, no playback starts, and all event listeners/RAF handles are cleaned up. A separate unit test exercises keyboard redraw, Home, modifiers and teardown, and Playwright checks the rendered image and keyboard focus. Full hosted CI and production-device confirmation remain blocked by [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9).
