@@ -225,7 +225,7 @@ window.addEventListener('storage',event=>{
   updateCatalog();
   // Rebuilt buttons are new DOM nodes; avoid dropping keyboard focus.
   if(focusedScene){
-    const replacement=$('#ui-loop-scene-list button[data-scene]').find(button=>button.dataset.scene===focusedScene);
+    const replacement=$$('#ui-loop-scene-list button[data-scene]').find(button=>button.dataset.scene===focusedScene);
     (replacement||searchInput).focus();
   }
 });
