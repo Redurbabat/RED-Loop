@@ -131,7 +131,7 @@ At browser widths **850px and below**, the catalog behaves as an explicit modal 
 
 Regression coverage includes HTML/control assertions and Playwright scenarios for focus wrap, inert background, closing, outside taps and focus restoration on compact viewports. Since GitHub Actions is currently blocked (issue #9), the new browser tests are committed but their successful hosted execution must still be confirmed.
 
-## Session favorites and quick catalog filter (November 2026)
+## Favorites and quick catalog filter (November 2026)
 
 A dedicated **★ Gemerkte (N)** filter now appears alongside the existing categories. It shows only scenes bookmarked with the existing **Merken** control, including a small star marker and accessible `gemerkt` announcement for each bookmarked catalog entry. The count updates immediately, even if a different category or search filter is currently selected.
 
