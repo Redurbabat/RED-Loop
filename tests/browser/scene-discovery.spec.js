@@ -278,3 +278,61 @@ test('side-by-side comparisons remain inside narrow mobile and desktop viewports
     expect(geometry.clipped).toBe(false);
   }
 });
+
+test('homepage opens the canonical source example directly from an effect card',async({page})=>{
+  const codeButton=page.locator('#scene-discovery-results button[data-usage="mercury-droplets"]');
+  const panel=page.locator('#scene-discovery-usage');
+  const content=page.locator('#scene-discovery-usage-text');
+  const first=page.locator('#scene-discovery-results a[data-scene="spectral-fold"]');
+  await expect(panel).toBeHidden();
+  await codeButton.click();
+  await expect(panel).toBeVisible();
+  await expect(codeButton).toHaveAttribute('aria-expanded','true');
+  await expect(page.locator('#scene-discovery-usage-source')).toBeFocused();
+  await expect(content).toContainText("scene: 'mercury-droplets'");
+  await expect(content).toContainText('density: 58, depth: 58, speed: 42, hue: 340');
+  await expect(first).toHaveAttribute('href','/motion-studio.html?scene=spectral-fold');
+  await expect(page).toHaveURL(/\/$/);
+  await page.locator('#scene-discovery-usage-close').click();
+  await expect(panel).toBeHidden();
+  await expect(codeButton).toBeFocused();
+});
+
+test('copying the homepage code reports success or offers the readable fallback',async({page})=>{
+  await page.locator('#scene-discovery-results button[data-usage="aurora-threads"]').click();
+  await page.evaluate(()=>{
+    window.__copiedUsage=null;
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
+      writeText:async value=>{window.__copiedUsage=value},
+    }});
+  });
+  await page.locator('#scene-discovery-usage-copy').click();
+  await expect(page.locator('#scene-discovery-feedback')).toContainText('Aurora Threads kopiert');
+  const copied=await page.evaluate(()=>window.__copiedUsage);
+  expect(copied).toContain("scene: 'aurora-threads'");
+  await page.evaluate(()=>{
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
+      writeText:async()=>{throw new Error('Permission denied')},
+    }});
+  });
+  await page.locator('#scene-discovery-usage-copy').click();
+  await expect(page.locator('#scene-discovery-feedback')).toContainText('Kopieren nicht verfügbar');
+  await expect(page.locator('#scene-discovery-usage-source')).toBeFocused();
+  await expect(page.locator('#scene-discovery-usage')).toBeVisible();
+});
+
+test('code inspector stays inside phone and desktop viewports',async({page})=>{
+  await page.locator('#scene-discovery-results button[data-usage="glass-filament"]').click();
+  for(const width of [320,390,768,1440]){
+    await page.setViewportSize({width,height:850});
+    const panel=page.locator('#scene-discovery-usage');
+    await expect(panel).toBeVisible();
+    const fits=await panel.evaluate(element=>{
+      const rect=element.getBoundingClientRect();
+      const code=element.querySelector('pre').getBoundingClientRect();
+      return rect.left>=-1&&rect.right<=innerWidth+1&&code.left>=rect.left-1&&code.right<=rect.right+1;
+    });
+    expect(fits).toBe(true);
+    await expect(page.locator('#scene-discovery-usage-text')).toContainText("scene: 'glass-filament'");
+  }
+});
