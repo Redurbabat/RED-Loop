@@ -9,7 +9,7 @@ test('dashboard finds original motion components by text and category and opens 
   const material=page.locator('#scene-discovery-filters button[data-category="Material"]');
   await material.click();
   await expect(material).toHaveAttribute('aria-pressed','true');
-  await expect(grid.locator('a[data-scene]')).toHaveCount(3);
+  await expect(grid.locator('a[data-scene]')).toHaveCount(4);
   await page.locator('#scene-discovery-search').fill('Prism');
   await expect(grid.locator('a[data-scene]')).toHaveCount(1);
   const result=grid.locator('a[data-scene="prism-veil"]');
