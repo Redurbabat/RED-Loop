@@ -53,7 +53,16 @@ function createButton(scene){
   favoriteMarker.textContent='★';
   favoriteMarker.hidden=!isFavorite;
   button.append(icon,body,favoriteMarker,arrow);
-  button.addEventListener('click',()=>selectScene(scene.id,true));
+  button.addEventListener('click',()=>{
+    const hadFocus=document.activeElement===button;
+    // Closing before the catalog list is rebuilt preserves focus restoration on mobile.
+    if(compactViewport.matches)setCatalogOpen(false);
+    selectScene(scene.id,true);
+    // Rebuilding the catalog replaces the old button; restore keyboard focus on desktop.
+    if(hadFocus&&!compactViewport.matches){
+      $('#ui-loop-scene-list button[data-scene]').find(item=>item.dataset.scene===scene.id)?.focus();
+    }
+  });
   return button;
 }
 function updateCatalog(){
@@ -73,6 +82,7 @@ function updateCatalog(){
     root.append(empty);
   }
   $('#ui-loop-result-count').textContent=String(filtered.length).padStart(2,'0');
+  $('#ui-loop-result-status').textContent=filtered.length+' Komponenten gefunden';
   $$('#ui-loop-filters button').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.category===category));
     if(button.dataset.category==='Gemerkte'){
@@ -140,7 +150,33 @@ function initializeFilters(){
   updateCatalog();
 }
 searchInput.addEventListener('input',()=>{search=searchInput.value.trim();updateCatalog();});
-searchInput.addEventListener('keydown',event=>{if(event.key==='Escape'){searchInput.value='';search='';updateCatalog();if(!compactViewport.matches)searchInput.blur();}});
+searchInput.addEventListener('keydown',event=>{
+  const results=$('#ui-loop-scene-list button[data-scene]');
+  if((event.key==='ArrowDown'||event.key==='ArrowUp')&&results.length){
+    event.preventDefault();
+    (event.key==='ArrowDown'?results[0]:results.at(-1)).focus();
+  }else if(event.key==='Enter'&&search&&results.length){
+    event.preventDefault();
+    results[0].click();
+  }else if(event.key==='Escape'){
+    searchInput.value='';
+    search='';
+    updateCatalog();
+    if(!compactViewport.matches)searchInput.blur();
+  }
+});
+$('#ui-loop-scene-list').addEventListener('keydown',event=>{
+  if(!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+  const results=$('#ui-loop-scene-list button[data-scene]');
+  const index=results.indexOf(event.target);
+  if(index===-1)return;
+  event.preventDefault();
+  const destination=event.key==='Home'?results[0]
+    :event.key==='End'?results.at(-1)
+    :event.key==='ArrowUp'?(results[index-1]||searchInput)
+    :(results[index+1]||searchInput);
+  destination.focus();
+});
 window.addEventListener('keydown',event=>{
   const typing=event.target instanceof Element&&Boolean(event.target.closest('input,textarea,select,[contenteditable="true"]'));
   if((event.key==='/'&&!typing&&!event.ctrlKey&&!event.metaKey)||(event.key.toLowerCase()==='k'&&(event.metaKey||event.ctrlKey))){event.preventDefault();setCatalogOpen(true);searchInput.focus();searchInput.select();}
