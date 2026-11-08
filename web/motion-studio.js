@@ -82,7 +82,7 @@ function updateCatalog(){
     root.append(empty);
   }
   $('#ui-loop-result-count').textContent=String(filtered.length).padStart(2,'0');
-  $('#ui-loop-result-status').textContent=filtered.length+' Komponenten gefunden';
+  $('#ui-loop-result-status').textContent=filtered.length===1?'1 Komponente gefunden':filtered.length+' Komponenten gefunden';
   $$('#ui-loop-filters button').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.category===category));
     if(button.dataset.category==='Gemerkte'){
