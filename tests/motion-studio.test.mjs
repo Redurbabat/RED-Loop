@@ -19,6 +19,8 @@ test('studio HTML has core landmarks, accessible controls and no inline scripts'
   assert.match(html,/<canvas\b[^>]*role="img"/);
   assert.match(html,/id="ui-loop-play"/);
   assert.match(html,/id="ui-loop-search"/);
+  assert.match(html,/id="ui-loop-backdrop"[^>]+tabindex="-1" hidden/);
+  assert.match(html,/id="ui-loop-sidebar-close"/);
   assert.match(html,/id="ui-loop-code-panel"/);
   assert.match(html,/id="ui-loop-save-image"/);
   assert.match(html,/id="ui-loop-result-count">10/);
@@ -112,6 +114,11 @@ test('compact catalog uses inert state and returns focus after closing',()=>{
   assert.match(script,/catalogSidebar\.inert=compactViewport\.matches&&!next/);
   assert.match(script,/catalogSidebar\.contains\(document\.activeElement\)/);
   assert.match(script,/compactViewport\.addEventListener\('change'/);
+  assert.match(script,/catalogSidebar\.setAttribute\('role','dialog'\)/);
+  assert.match(script,/catalogSidebar\.setAttribute\('aria-modal','true'\)/);
+  assert.match(script,/catalogBackdrop\.hidden=!next/);
+  assert.match(script,/sibling\.inert=next/);
+  assert.match(script,/event\.key!=='Tab'/);
 });
 
 test('cross-platform preview modes and new material variants are independently named',()=>{
