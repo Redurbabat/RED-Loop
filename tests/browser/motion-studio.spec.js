@@ -457,3 +457,60 @@ test('blocked browser storage preserves in-memory favorites and catalog startup'
   await filter.click()
   await expect(page.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(1)
 })
+
+test('favorites synchronize between open tabs without reloading',async({page,context})=>{
+  const other=await context.newPage();
+  try{
+    await other.goto(studio);
+    const remoteFavorite=other.locator('#ui-loop-favorite');
+    const remoteFilter=other.locator('#ui-loop-filters button[data-category="Gemerkte"]');
+    await expect(remoteFavorite).toHaveAttribute('aria-pressed','false');
+    await page.locator('#ui-loop-favorite').click();
+    await expect(remoteFavorite).toHaveAttribute('aria-pressed','true');
+    await expect(remoteFilter).toContainText('(1)');
+    await expect(other.locator('#ui-loop-title')).toContainText('Spectral');
+
+    const compact=await other.evaluate(()=>matchMedia('(max-width:850px)').matches);
+    if(compact)await other.locator('#ui-loop-mobile-catalog').click();
+    await remoteFilter.click();
+    const saved=other.locator('#ui-loop-scene-list button[data-scene="spectral-fold"]');
+    await expect(saved).toBeVisible();
+    await saved.focus();
+    await expect(saved).toBeFocused();
+
+    await page.evaluate(()=>localStorage.removeItem('red-loop.motion-studio.favorites.v1'));
+    await expect(remoteFavorite).toHaveAttribute('aria-pressed','false');
+    await expect(other.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(0);
+    await expect(other.locator('#ui-loop-search')).toBeFocused();
+
+    await page.evaluate(()=>localStorage.setItem('red-loop.motion-studio.favorites.v1',
+      JSON.stringify(['spectral-fold','not-a-real-scene'])));
+    await expect(remoteFavorite).toHaveAttribute('aria-pressed','true');
+    await expect(other.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(1);
+    await expect(saved).toHaveAttribute('aria-label',/gemerkt/);
+
+    await page.evaluate(()=>localStorage.clear());
+    await expect(remoteFavorite).toHaveAttribute('aria-pressed','false');
+    await expect(remoteFilter).toContainText('(0)');
+    await expect(other.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(0);
+  }finally{
+    await other.close();
+  }
+});
+
+test('unrelated storage changes leave the open catalog and keyboard focus alone',async({page,context})=>{
+  const other=await context.newPage();
+  try{
+    await other.goto(studio);
+    const compact=await other.evaluate(()=>matchMedia('(max-width:850px)').matches);
+    if(compact)await other.locator('#ui-loop-mobile-catalog').click();
+    const scene=other.locator('#ui-loop-scene-list button[data-scene="spectral-fold"]');
+    await scene.focus();
+    await page.evaluate(()=>localStorage.setItem('unrelated.settings','example'));
+    await expect(scene).toBeFocused();
+    await expect(other.locator('#ui-loop-scene-list button[data-scene]')).toHaveCount(10);
+    await expect(other.locator('#ui-loop-favorite')).toHaveAttribute('aria-pressed','false');
+  }finally{
+    await other.close();
+  }
+});
