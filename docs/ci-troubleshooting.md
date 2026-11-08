@@ -56,3 +56,11 @@ Interpretation:
 - **Probe step runs but fails**: read that job's exact shell/runner error before making any workflow changes.
 
 This probe deliberately does **not** validate application behavior, iOS compilation or deployment. Do not close [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) based solely on a successful probe.
+
+### Independent probe result — 8 November 2026
+
+The standalone [runner probe run **42435762093**](https://github.com/Redurbabat/RED-Loop/actions/runs/42435762093) **failed**. Job `128594130349` (`Ubuntu runner allocation (no checkout)`) reported `status=completed`, `conclusion=failure`, but **`steps=null` and `logs_url=null`**. Its job-log request returned **HTTP 404 `BlobNotFound`**.
+
+The same pull request also triggered [normal validation run **42435762053**](https://github.com/Redurbabat/RED-Loop/actions/runs/42435762053); **both web and iOS jobs failed with null step/log metadata**.
+
+**Interpretation:** Since the minimal probe contains no checkout, npm, native compile, third-party actions, secrets or project code, these activities cannot explain why *that independent job* failed before visible steps. This is stronger evidence for investigating GitHub Actions account/repository policy, workflow processing or runner provisioning, **not proof of a specific billing or runner failure**. Maintainer access to the GitHub UI/organization billing is required to identify and repair the cause. Full RED Loop CI remains blocked; no deployment is verified.
