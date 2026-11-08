@@ -263,3 +263,45 @@ test('PNG captures the latest scene and chosen responsive device size', async ({
   }
   await expect(page.locator('#ui-loop-play')).toHaveAttribute('aria-pressed','false')
 })
+
+test('PNG filename remains tied to the scene clicked before asynchronous encoding finishes', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Download event handling differs in Safari contexts')
+  const exportButton = page.locator('#ui-loop-save-image')
+  await page.locator('#ui-loop-canvas').evaluate(canvas => {
+    const originalToBlob = canvas.toBlob.bind(canvas)
+    canvas.toBlob = (callback,format) => {
+      originalToBlob(blob => {
+        window.__releasePngDownload = () => callback(blob)
+      },format)
+    }
+  })
+  const downloadPromise = page.waitForEvent('download')
+  await exportButton.click()
+  await expect(exportButton).toBeDisabled()
+  await expect(exportButton).toHaveAttribute('aria-busy','true')
+  await expect(exportButton).toContainText('PNG wird erstellt')
+  await expect.poll(() => page.evaluate(() => typeof window.__releasePngDownload)).toBe('function')
+
+  const compact = await page.evaluate(() => matchMedia('(max-width:850px)').matches)
+  if(compact)await page.locator('#ui-loop-mobile-catalog').click()
+  await page.locator('#ui-loop-scene-list button[data-scene="vector-bloom"]').click()
+  await expect(page.locator('#ui-loop-title')).toContainText('Vector')
+  await page.evaluate(() => window.__releasePngDownload())
+
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toBe('red-loop-spectral-fold.png')
+  await expect(exportButton).toBeEnabled()
+  await expect(exportButton).not.toHaveAttribute('aria-busy','true')
+  await expect(exportButton).toContainText('PNG exportieren')
+  await expect(page.locator('#ui-loop-toast')).toContainText('PNG zum Herunterladen vorbereitet')
+})
+
+test('invalid PNG data shows an error and restores the export button', async ({ page }) => {
+  await page.locator('#ui-loop-canvas').evaluate(canvas => {
+    canvas.toBlob = callback => callback(null)
+  })
+  await page.locator('#ui-loop-save-image').click()
+  await expect(page.locator('#ui-loop-toast')).toContainText('PNG-Export fehlgeschlagen')
+  await expect(page.locator('#ui-loop-save-image')).toBeEnabled()
+  await expect(page.locator('#ui-loop-save-image')).not.toHaveAttribute('aria-busy','true')
+})

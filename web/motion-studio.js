@@ -1,5 +1,6 @@
 import {scenes,createMotionEngine} from './motion-engine.js';
 import {defaultMotionSettings,readMotionPreset,serializeMotionPreset,formatMotionUsage} from './motion-presets.js';
+import {encodeCanvasPng} from './motion-export.js';
 
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
@@ -184,21 +185,34 @@ $('#ui-loop-favorite').addEventListener('click',()=>{
 $('#ui-loop-copy-link').addEventListener('click',()=>copy(presetUrl().toString(),'Voreinstellungslink'));
 $('#ui-loop-save-image').addEventListener('click',async()=>{
   const button=$('#ui-loop-save-image');
+  const originalLabel=button.textContent;
   button.disabled=true;
+  button.setAttribute('aria-busy','true');
+  button.textContent='PNG wird erstellt …';
+  // The scene may change while the asynchronous browser PNG encoder is working.
+  // Associate the output with the scene captured at the instant of the click.
+  const snapshotScene=active.id;
   engine.setPlaying(false);
   try {
     if(!engine.renderForExport())throw new Error('Canvas is not ready for export');
-    const blob=await new Promise(resolve=>$('#ui-loop-canvas').toBlob(resolve,'image/png'));
-    if(!blob)throw new Error('PNG not available');
+    const blob=await encodeCanvasPng($('#ui-loop-canvas'));
     const objectUrl=URL.createObjectURL(blob);
     const link=document.createElement('a');
     link.href=objectUrl;
-    link.download='red-loop-'+active.id+'.png';
-    document.body.append(link);link.click();link.remove();
-    setTimeout(()=>URL.revokeObjectURL(objectUrl),30000);
+    link.download='red-loop-'+snapshotScene+'.png';
+    document.body.append(link);
+    try{link.click();}
+    finally{
+      link.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),30000);
+    }
     notify('PNG zum Herunterladen vorbereitet');
   } catch {notify('PNG-Export fehlgeschlagen. Bitte später erneut versuchen.');}
-  finally {button.disabled=false;}
+  finally {
+    button.disabled=false;
+    button.removeAttribute('aria-busy');
+    button.textContent=originalLabel;
+  }
 });
 
 $$('.ui-loop-device-buttons button').forEach(button=>button.addEventListener('click',()=>{
