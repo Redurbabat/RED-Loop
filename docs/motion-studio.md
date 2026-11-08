@@ -185,3 +185,17 @@ PNG snapshots now have two distinct, explicit stages: synchronous `engine.render
 Regression coverage: `tests/motion-export.test.mjs` tests valid PNG encoding, unsupported/null/wrong-format results, exceptions, bounded wait, late and duplicate callbacks. Playwright checks that delayed encoding followed by navigation still downloads the **original** scene's filename, and verifies that a failed export unlocks the button.
 
 Validation: the actual feature-branch encoding helper and actual click handler were executed with controlled asynchronous callbacks, producing **13 passing assertions**, including a forced timeout, delayed scene switch and both error/success cleanup paths. The hosted CI/real-device checks remain unverified while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is open.
+
+## Keyboard-first catalog discovery (November 2026)
+
+The sidebar search now supports rapid keyboard navigation across the ten motion studies on **desktop and compact mobile/tablet dialogs** without creating a separate command palette:
+
+- Use `/` or `Ctrl/Cmd+K` to focus the catalog search (existing shortcut). The new visible search hint explains that **↓** focuses the first matching scene, **↑** the last, and **Enter** opens the first match when a query is present.
+- Once a scene button is focused, **↑/↓** move through adjacent results. **Home/End** jump to the first/last entry. Moving up from the first entry or down from the last returns to the search input.
+- Selecting a scene rebuilds the filtered catalog. The new event handling restores focus to the **newly rendered selected button on desktop** rather than dropping focus to the document body. On compact screens it closes the dialog *before* rebuilding, restoring focus to the **Katalog** trigger.
+- Modified cursor shortcuts (Ctrl, Alt, Meta) are left to the browser. When no scene matches, arrow keys do not steal input focus.
+- A polite, atomic, screen-reader status announces `0 Komponenten gefunden`, `1 Komponente gefunden`, etc. The input is associated with the keyboard hint via `aria-describedby`. Existing focus outlines, reduced motion and accessible mobile dialog behavior remain unchanged.
+
+This is an incremental, dependency-free enhancement of the existing catalog. It does not call a cloud service, save search history or introduce user tracking. The existing URL preset and session-only favorites filters continue to work.
+
+Validation: the **actual catalog event handlers** extracted from the feature branch passed **27 deterministic runtime checks**, covering first/last navigation, Home/End, matching and empty search, Enter activation, desktop and mobile focus restoration and modified shortcuts. The actual entrypoint jsdom smoke test, source-regression checks and Playwright viewport tests were extended. Full hosted CI and physical device verification remain blocked by [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9).

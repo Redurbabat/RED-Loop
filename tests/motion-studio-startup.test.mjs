@@ -97,6 +97,41 @@ test('Motion Studio initializes controls, presets and swatches without an except
 
     document.querySelector('#ui-loop-filters button[data-category="Alle"]').click()
     assert.equal(document.querySelectorAll('#ui-loop-scene-list button').length, 10)
+
+    // Search results must be reachable and selectable without touching a pointer.
+    const searchInput = document.querySelector('#ui-loop-search')
+    searchInput.value = 'Vector Bloom'
+    searchInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+    assert.equal(document.querySelector('#ui-loop-result-status').textContent, '1 Komponente gefunden')
+    assert.equal(document.querySelectorAll('#ui-loop-scene-list button[data-scene]').length, 1)
+
+    searchInput.focus()
+    searchInput.dispatchEvent(new dom.window.KeyboardEvent('keydown', {
+      key: 'ArrowDown', bubbles: true, cancelable: true,
+    }))
+    assert.equal(document.activeElement.dataset.scene, 'vector-bloom')
+    document.activeElement.click()
+    assert.match(document.querySelector('#ui-loop-title').textContent, /Vector Bloom/)
+    assert.equal(new URL(dom.window.location.href).searchParams.get('scene'), 'vector-bloom')
+    assert.equal(document.activeElement.dataset.scene, 'vector-bloom',
+      'selection restores focus to the newly rendered desktop catalog button')
+
+    searchInput.value = 'nothing-matches-this-scene'
+    searchInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+    assert.equal(document.querySelector('#ui-loop-result-status').textContent, '0 Komponenten gefunden')
+    searchInput.focus()
+    searchInput.dispatchEvent(new dom.window.KeyboardEvent('keydown', {
+      key: 'ArrowDown', bubbles: true, cancelable: true,
+    }))
+    assert.equal(document.activeElement, searchInput, 'no results should not steal focus')
+
+    searchInput.value = 'Glass Filament'
+    searchInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+    searchInput.dispatchEvent(new dom.window.KeyboardEvent('keydown', {
+      key: 'Enter', bubbles: true, cancelable: true,
+    }))
+    assert.match(document.querySelector('#ui-loop-title').textContent, /Glass Filament/)
+    assert.equal(document.querySelector('#ui-loop-result-status').textContent, '1 Komponente gefunden')
   } finally {
     dom.window.close()
     for (const [key, original] of originals) {

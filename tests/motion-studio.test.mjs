@@ -163,3 +163,20 @@ test('catalog collection selectors stay iterable and bookmarks never reselect th
   assert.doesNotMatch(script.slice(start,end),/selectScene\(/,
     'toggling a bookmark must not interrupt playback');
 });
+
+test('catalog search shortcut controls expose accessible feedback and iterable results',()=>{
+  const html=readFileSync(new URL('../web/motion-studio.html',import.meta.url),'utf8');
+  const script=readFileSync(new URL('../web/motion-studio.js',import.meta.url),'utf8');
+  assert.match(html,/id="ui-loop-search"[^>]*aria-describedby="ui-loop-search-help"/);
+  assert.match(html,/id="ui-loop-result-status"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html,/id="ui-loop-search-help"/);
+  assert.match(script,/searchInput\.addEventListener\('keydown'/);
+  assert.match(script,/results\[0\]\.click\(\)/);
+  assert.match(script,/if\(hadFocus&&!compactViewport\.matches\)/);
+  assert.equal(
+    [...script.matchAll(/\$\$\('#ui-loop-scene-list button\[data-scene\]'\)/g)].length,
+    3,
+    'result navigation must use querySelectorAll, not a single HTMLElement'
+  );
+  assert.doesNotMatch(script,/(?<!\$)\$\('#ui-loop-scene-list button\[data-scene\]'\)/);
+});
