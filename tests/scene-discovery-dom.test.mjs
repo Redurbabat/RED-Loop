@@ -118,3 +118,51 @@ test('private-mode storage failures cannot block homepage discoverability',()=>{
     assert.equal(dom.window.document.querySelectorAll('#scene-discovery-results a').length,0);
   }finally{dom.window.close();}
 });
+
+test('homepage bookmark control saves a scene without navigating or nesting buttons in links',()=>{
+  const {dom,doc}=createPage();
+  try{
+    const root=doc.getElementById('scene-discovery-results');
+    let button=doc.querySelector('#scene-discovery-results button[data-bookmark="vector-bloom"]');
+    assert.equal(button.getAttribute('aria-pressed'),'false');
+    assert.equal(button.closest('a'),null,'bookmark must be outside the scene link');
+    assert.equal(button.getBoundingClientRect().width>=0,true);
+    button.focus();
+    button.click();
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(motionFavoritesStorageKey)),['vector-bloom']);
+    button=doc.querySelector('#scene-discovery-results button[data-bookmark="vector-bloom"]');
+    assert.equal(doc.activeElement,button,'bookmark stays keyboard-focused after sorting');
+    assert.equal(button.getAttribute('aria-pressed'),'true');
+    assert.match(button.getAttribute('aria-label'),/aus Favoriten entfernen/);
+    assert.equal(root.querySelector('a[data-scene]').dataset.scene,'vector-bloom');
+    assert.equal(root.querySelector('a[data-scene="vector-bloom"]').getAttribute('href'),
+      '/motion-studio.html?scene=vector-bloom');
+    assert.match(doc.getElementById('scene-discovery-feedback').textContent,/lokal gemerkt/);
+
+    doc.querySelector('#scene-discovery-filters button[data-category="Gemerkte"]').click();
+    assert.equal(root.querySelectorAll('a[data-scene]').length,1);
+    button=doc.querySelector('#scene-discovery-results button[data-bookmark="vector-bloom"]');
+    button.focus();
+    button.click();
+    assert.equal(dom.window.localStorage.getItem(motionFavoritesStorageKey),null);
+    assert.equal(root.querySelectorAll('a[data-scene]').length,0);
+    assert.equal(doc.activeElement,doc.getElementById('scene-discovery-search'),
+      'removing the focused last favorite returns focus to search');
+    assert.match(doc.getElementById('scene-discovery-feedback').textContent,/aus Favoriten entfernt/);
+  }finally{dom.window.close();}
+});
+
+test('homepage bookmark controls remain usable if the storage getter is blocked',()=>{
+  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(html,{url:'https://red-loop.example/'});
+  try{
+    Object.defineProperty(dom.window,'localStorage',{configurable:true,get(){throw Error('denied')}});
+    const app=initMotionDiscovery(dom.window.document);
+    const button=dom.window.document.querySelector('#scene-discovery-results button[data-bookmark="iris-caustics"]');
+    button.click();
+    assert.equal(app.favorites.has('iris-caustics'),true);
+    assert.match(dom.window.document.getElementById('scene-discovery-feedback').textContent,/in dieser Sitzung gemerkt/);
+    dom.window.document.querySelector('#scene-discovery-filters button[data-category="Gemerkte"]').click();
+    assert.equal(dom.window.document.querySelectorAll('#scene-discovery-results a[data-scene]').length,1);
+  }finally{dom.window.close();}
+});

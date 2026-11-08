@@ -127,3 +127,60 @@ test('filtering cleans up thumbnail observers and creates previews for newly vis
   await iris.scrollIntoViewIfNeeded();
   await expect(iris).toHaveAttribute('data-preview-ready','true');
 });
+
+test('homepage can bookmark an effect directly without leaving the dashboard',async({page})=>{
+  const scene='vector-bloom';
+  const bookmark=page.locator('#scene-discovery-results button[data-bookmark="'+scene+'"]');
+  const finder=page.locator('#scene-discovery-results');
+  const start=page.url();
+  await expect(bookmark).toHaveAttribute('aria-pressed','false');
+  await bookmark.click();
+  expect(page.url()).toBe(start);
+  await expect(bookmark).toHaveAttribute('aria-pressed','true');
+  await expect(bookmark).toHaveAttribute('aria-label',/aus Favoriten entfernen/);
+  await expect(page.locator('#scene-discovery-feedback')).toContainText('lokal gemerkt');
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('red-loop.motion-studio.favorites.v1'))))
+    .toEqual([scene]);
+  await expect(finder.locator('a[data-scene]').first()).toHaveAttribute('data-scene',scene);
+  await expect(bookmark).toBeFocused();
+  await expect(finder.locator('a[data-scene="'+scene+'"]')).toHaveAttribute('href',
+    '/motion-studio.html?scene=vector-bloom');
+
+  const saved=page.locator('#scene-discovery-filters button[data-category="Gemerkte"]');
+  await saved.click();
+  await expect(finder.locator('a[data-scene]')).toHaveCount(1);
+  await bookmark.click();
+  await expect(finder.locator('a[data-scene]')).toHaveCount(0);
+  await expect(page.locator('#scene-discovery-search')).toBeFocused();
+  expect(await page.evaluate(()=>localStorage.getItem('red-loop.motion-studio.favorites.v1'))).toBeNull();
+  expect(page.url()).toBe(start);
+});
+
+test('a homepage bookmark immediately synchronizes to the open Motion Studio tab',async({page,context})=>{
+  const other=await context.newPage();
+  try{
+    await other.goto('/motion-studio.html?scene=iris-caustics');
+    const studioFavorite=other.locator('#ui-loop-favorite');
+    await expect(studioFavorite).toHaveAttribute('aria-pressed','false');
+    const homepageFavorite=page.locator('#scene-discovery-results button[data-bookmark="iris-caustics"]');
+    await homepageFavorite.click();
+    await expect(studioFavorite).toHaveAttribute('aria-pressed','true');
+    await expect(page.locator('#scene-discovery-filters button[data-category="Gemerkte"]')).toContainText('(1)');
+    await studioFavorite.click();
+    await expect(homepageFavorite).toHaveAttribute('aria-pressed','false');
+    await expect(page.locator('#scene-discovery-feedback')).toContainText('lokal gemerkt');
+  }finally{await other.close();}
+});
+
+test('homepage bookmarking works in a browser that denies localStorage access',async({page})=>{
+  await page.addInitScript(()=>{
+    Object.defineProperty(window,'localStorage',{configurable:true,get(){throw Error('Storage denied')}});
+  });
+  await page.reload();
+  const bookmark=page.locator('#scene-discovery-results button[data-bookmark="spectral-fold"]');
+  await bookmark.click();
+  await expect(bookmark).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#scene-discovery-feedback')).toContainText('in dieser Sitzung gemerkt');
+  await page.locator('#scene-discovery-filters button[data-category="Gemerkte"]').click();
+  await expect(page.locator('#scene-discovery-results a[data-scene]')).toHaveCount(1);
+});
