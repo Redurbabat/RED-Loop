@@ -199,3 +199,15 @@ The sidebar search now supports rapid keyboard navigation across the ten motion 
 This is an incremental, dependency-free enhancement of the existing catalog. It does not call a cloud service, save search history or introduce user tracking. The existing URL preset and session-only favorites filters continue to work.
 
 Validation: the **actual catalog event handlers** extracted from the feature branch passed **27 deterministic runtime checks**, covering first/last navigation, Home/End, matching and empty search, Enter activation, desktop and mobile focus restoration and modified shortcuts. The actual entrypoint jsdom smoke test, source-regression checks and Playwright viewport tests were extended. Full hosted CI and physical device verification remain blocked by [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9).
+
+## Accessible Preview / Code / Einbau tabs (November 2026)
+
+The three view controls now follow the **WAI-ARIA tab / tablist / tabpanel** interaction pattern instead of being unrelated pressed buttons.
+
+- `Preview`, `Code`, and `Einbau` each expose `role="tab"`, `aria-selected` and `aria-controls` linked to a corresponding labelled `role="tabpanel"`. Only the active panel is visible.
+- The active tab is the **only** view button in the normal Tab sequence (`tabindex="0"`); the other two receive `tabindex="-1"`.
+- With keyboard focus on a tab: **Left/Right Arrow** switches to the adjacent tab (wrapping at either end), and **Home/End** jumps to the first/last. Ctrl/Alt/Meta modifiers are not intercepted. Click/touch selection still works on mobile and desktop.
+- Switching away from Preview pauses animation; returning to Preview does **not** automatically restart motion. Selecting Code loads and displays the locally served engine as before.
+- The existing accessible focus outline and reduced-motion rules remain in effect. No external UI framework or React Bits Pro code is required.
+
+Regression tests cover semantic HTML/CSS, actual entrypoint initialization and keyboard switching, active/inactive panel visibility, a single tab stop, and paused playback. The full browser/iOS test suites remain separately blocked by GitHub Actions infrastructure [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9).

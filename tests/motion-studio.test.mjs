@@ -180,3 +180,19 @@ test('catalog search shortcut controls expose accessible feedback and iterable r
   );
   assert.doesNotMatch(script,/(?<!\$)\$\('#ui-loop-scene-list button\[data-scene\]'\)/);
 });
+
+test('view switcher uses accessible tabs rather than unrelated toggle buttons',()=>{
+  const html=readFileSync(new URL('../web/motion-studio.html',import.meta.url),'utf8');
+  const script=readFileSync(new URL('../web/motion-studio.js',import.meta.url),'utf8');
+  const css=readFileSync(new URL('../web/motion-studio.css',import.meta.url),'utf8');
+  assert.match(html,/class="ui-loop-tabs" role="tablist"/);
+  for(const name of ['preview','code','usage']){
+    assert.match(html,new RegExp('role="tab" id="ui-loop-tab-'+name+'" aria-controls="ui-loop-'+name+'-panel"'));
+    assert.match(html,new RegExp('id="ui-loop-'+name+'-panel"[^>]*role="tabpanel" aria-labelledby="ui-loop-tab-'+name+'"'));
+  }
+  assert.doesNotMatch(html,/id="ui-loop-tab-(?:preview|code|usage)" aria-pressed=/);
+  assert.match(script,/tab\.setAttribute\('aria-selected',String\(selected\)\)/);
+  assert.match(script,/tab\.tabIndex=selected\?0:-1/);
+  assert.match(script,/\['ArrowLeft','ArrowRight','Home','End'\]/);
+  assert.match(css,/\.ui-loop-tabs button\[aria-selected=true\]/);
+});
