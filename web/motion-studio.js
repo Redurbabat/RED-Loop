@@ -187,6 +187,7 @@ $('#ui-loop-save-image').addEventListener('click',async()=>{
   button.disabled=true;
   engine.setPlaying(false);
   try {
+    if(!engine.renderForExport())throw new Error('Canvas is not ready for export');
     const blob=await new Promise(resolve=>$('#ui-loop-canvas').toBlob(resolve,'image/png'));
     if(!blob)throw new Error('PNG not available');
     const objectUrl=URL.createObjectURL(blob);
