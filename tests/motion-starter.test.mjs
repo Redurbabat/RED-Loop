@@ -138,3 +138,29 @@ test('ZIP CRC32 matches the independent published 123456789 checksum',()=>{
   const central=view.getUint32(zip.length-22+16,true);
   assert.equal(view.getUint32(central+16,true),0xcbf43926);
 });
+
+test('customized starter preserves four studio slider values in source and README',()=>{
+  const values={density:83,depth:11,speed:7,hue:275};
+  const files=createMotionStarterFiles('aurora-threads',originalEngine,values);
+  const html=files.find(file=>file.name==='index.html').content;
+  const readme=files.find(file=>file.name==='README.md').content;
+  assert.match(html,/scene: 'aurora-threads', density: 83, depth: 11, speed: 7, hue: 275/);
+  assert.match(readme,/density=83, depth=11,/);
+  assert.match(readme,/speed=7, hue=275/);
+  assert.equal(files.find(file=>file.name==='motion-engine.js').content,originalEngine);
+  const zipped=unpackStoredZip(buildStoredZip(files));
+  assert.equal(zipped.get('index.html'),html);
+  assert.equal(zipped.get('motion-engine.js'),originalEngine);
+  assert.equal(zipped.get('README.md'),readme);
+});
+
+test('custom starter rejects unsafe and out-of-range slider values through shared normalization',()=>{
+  const values={density:500,depth:-9,speed:'not-a-number',hue:900};
+  const files=createMotionStarterFiles('mercury-droplets',originalEngine,values);
+  const html=files[0].content;
+  assert.match(html,/scene: 'mercury-droplets', density: 90, depth: 0, speed: 42, hue: 360/);
+  assert.doesNotMatch(html,/not-a-number|density: 500|depth: -9|hue: 900/);
+  const defaults=createMotionStarterFiles('mercury-droplets',originalEngine);
+  assert.match(defaults[0].content,/scene: 'mercury-droplets', density: 58, depth: 58, speed: 42, hue: 340/);
+  assert.equal(defaults[1].content,originalEngine,'homepage default kits remain unchanged');
+});

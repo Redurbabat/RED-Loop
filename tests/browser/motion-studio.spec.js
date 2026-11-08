@@ -549,3 +549,90 @@ test('new original material opens from responsive catalog on phone and desktop',
   await expect(page).toHaveURL(/scene=mercury-droplets/);
   if(compact)await expect(page.locator('#ui-loop-mobile-catalog')).toHaveAttribute('aria-expanded','false');
 });
+
+test('Motion Studio exports current scene and slider settings in runnable starter ZIP',async({page})=>{
+  await page.goto('/motion-studio.html?scene=mercury-droplets');
+  const values={density:83,depth:11,speed:7,hue:275};
+  for(const [key,value] of Object.entries(values)){
+    await page.locator('#ui-loop-'+key).evaluate((input,next)=>{
+      input.value=String(next);
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+    },value);
+  }
+  await page.locator('#ui-loop-tab-usage').click();
+  await expect(page.locator('#ui-loop-usage-source'))
+    .toContainText("scene: 'mercury-droplets', density: 83, depth: 11, speed: 7, hue: 275");
+  const button=page.locator('#ui-loop-save-starter');
+  await expect(button).toBeVisible();
+  const downloadReady=page.waitForEvent('download');
+  await button.click();
+  const download=await downloadReady;
+  expect(download.suggestedFilename()).toBe('red-morph-mercury-droplets-custom-starter.zip');
+  const buffer=await readFile(await download.path());
+  expect(buffer.readUInt32LE(0)).toBe(0x04034b50);
+  expect(buffer.readUInt32LE(buffer.length-22)).toBe(0x06054b50);
+  expect(buffer.includes(Buffer.from('motion-engine.js'))).toBe(true);
+  expect(buffer.includes(Buffer.from('README.md'))).toBe(true);
+  expect(buffer.includes(Buffer.from("scene: 'mercury-droplets', density: 83, depth: 11, speed: 7, hue: 275"))).toBe(true);
+  expect(buffer.includes(Buffer.from('density=83, depth=11,'))).toBe(true);
+  await expect(button).toBeEnabled();
+  await expect(button).not.toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#ui-loop-toast')).toContainText('Starter-ZIP mit gewählten Einstellungen');
+});
+
+test('custom starter export reports network failure and preserves editable sliders',async({page})=>{
+  await page.locator('#ui-loop-tab-usage').click();
+  await page.route('**/motion-engine.js',route=>route.fulfill({
+    status:503,contentType:'text/plain',body:'Unavailable',
+  }));
+  const button=page.locator('#ui-loop-save-starter');
+  await button.click();
+  await expect(page.locator('#ui-loop-toast')).toContainText('Starter-ZIP fehlgeschlagen');
+  await expect(button).toBeEnabled();
+  await expect(button).not.toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#ui-loop-usage-source')).toContainText("scene: 'spectral-fold'");
+  await expect(page.locator('#ui-loop-density')).toHaveValue('58');
+});
+
+test('configured ZIP preserves click-time preset if sliders change during download',async({page})=>{
+  await page.goto('/motion-studio.html?scene=aurora-threads');
+  await page.locator('#ui-loop-density').evaluate(input=>{
+    input.value='78';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  await page.locator('#ui-loop-hue').evaluate(input=>{
+    input.value='201';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  await page.locator('#ui-loop-tab-usage').click();
+  let releaseEngine;
+  let requests=0;
+  await page.route('**/motion-engine.js',async route=>{
+    requests++;
+    await new Promise(resolve=>{releaseEngine=resolve});
+    await route.continue();
+  });
+  const button=page.locator('#ui-loop-save-starter');
+  const ready=page.waitForEvent('download');
+  await button.click();
+  await expect(button).toBeDisabled();
+  await expect(button).toHaveAttribute('aria-busy','true');
+  await expect.poll(()=>typeof releaseEngine).toBe('function');
+  await page.locator('#ui-loop-density').evaluate(input=>{
+    input.value='22';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  await page.locator('#ui-loop-hue').evaluate(input=>{
+    input.value='19';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  releaseEngine();
+  const download=await ready;
+  const bytes=await readFile(await download.path());
+  expect(download.suggestedFilename()).toBe('red-morph-aurora-threads-custom-starter.zip');
+  expect(bytes.includes(Buffer.from("scene: 'aurora-threads', density: 78, depth: 58, speed: 42, hue: 201"))).toBe(true);
+  expect(bytes.includes(Buffer.from("scene: 'aurora-threads', density: 22"))).toBe(false);
+  expect(requests).toBe(1);
+  await expect(button).toBeEnabled();
+});

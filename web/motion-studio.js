@@ -1,6 +1,7 @@
 import {scenes,createMotionEngine} from './motion-engine.js';
 import {defaultMotionSettings,readMotionPreset,serializeMotionPreset,formatMotionUsage} from './motion-presets.js';
 import {encodeCanvasPng} from './motion-export.js';
+import {createMotionStarterFiles,buildStoredZip} from './motion-starter.js';
 import {readMotionFavorites,saveMotionFavorites,syncMotionFavoritesFromStorageEvent} from './motion-favorites.js';
 
 const $=selector=>document.querySelector(selector);
@@ -321,6 +322,50 @@ $('.ui-loop-tabs').addEventListener('keydown',event=>{
 });
 $('#ui-loop-copy-source').addEventListener('click',()=>sourceText?copy(sourceText,'Quellcode'):notify('Quellcode ist noch nicht verfügbar'));
 $('#ui-loop-copy-usage').addEventListener('click',()=>copy(refreshUsage(),'Einbaubeispiel'));
+
+let starterDownloadActive=false;
+$('#ui-loop-save-starter').addEventListener('click',async()=>{
+  if(starterDownloadActive)return;
+  // Freeze selected scene AND all four slider settings before any await.
+  const snapshot=currentPreset();
+  const button=$('#ui-loop-save-starter');
+  const originalLabel=button.textContent;
+  starterDownloadActive=true;
+  button.disabled=true;
+  button.setAttribute('aria-busy','true');
+  button.textContent='Starter-ZIP wird erstellt …';
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),12000);
+  let objectUrl=null;
+  try{
+    const response=await fetch('/motion-engine.js',{
+      credentials:'same-origin',cache:'no-store',signal:controller.signal,
+    });
+    if(!response.ok)throw new Error('Motion engine unavailable');
+    const engineSource=await response.text();
+    const files=createMotionStarterFiles(snapshot.scene,engineSource,snapshot);
+    const zip=buildStoredZip(files);
+    objectUrl=URL.createObjectURL(new Blob([zip],{type:'application/zip'}));
+    const link=document.createElement('a');
+    link.href=objectUrl;
+    link.download='red-morph-'+snapshot.scene+'-custom-starter.zip';
+    document.body.append(link);
+    try{link.click()}
+    finally{link.remove()}
+    setTimeout(()=>URL.revokeObjectURL(objectUrl),30000);
+    notify('Starter-ZIP mit gewählten Einstellungen zum Herunterladen vorbereitet');
+  }catch{
+    if(objectUrl)URL.revokeObjectURL(objectUrl);
+    notify('Starter-ZIP fehlgeschlagen. Bitte erneut versuchen.');
+  }finally{
+    clearTimeout(timeout);
+    starterDownloadActive=false;
+    button.disabled=false;
+    button.removeAttribute('aria-busy');
+    button.textContent=originalLabel;
+  }
+});
+
 
 function updateMotionPreference(){
   $('#ui-loop-motion-pref').textContent=mql.matches?'Reduziert':'Standard';

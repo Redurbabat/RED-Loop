@@ -3,7 +3,7 @@
  * ZIP uses the "stored" method; no third-party compression or CDN needed.
  */
 import {scenes} from './motion-engine.js';
-import {defaultMotionSettings,formatMotionUsage} from './motion-presets.js';
+import {defaultMotionSettings,normalizeMotionSettings,formatMotionUsage} from './motion-presets.js';
 
 const knownScenes=new Set(scenes.map(scene=>scene.id));
 const encoder=new TextEncoder();
@@ -16,7 +16,7 @@ function escapeMarkup(value){
   }[char]));
 }
 
-export function createMotionStarterFiles(sceneId,engineSource){
+export function createMotionStarterFiles(sceneId,engineSource,settings=defaultMotionSettings){
   if(!knownScenes.has(sceneId))throw new Error('Unknown motion scene');
   if(typeof engineSource!=='string'
     ||engineSource.length>MAX_FILE_BYTES
@@ -28,7 +28,8 @@ export function createMotionStarterFiles(sceneId,engineSource){
   const title=escapeMarkup(scene.name);
   const detail=escapeMarkup(scene.description);
   // The same canonical snippet is used by the Motion Studio and homepage.
-  const usage=formatMotionUsage({scene:sceneId,...defaultMotionSettings})
+  const normalized=normalizeMotionSettings(settings);
+  const usage=formatMotionUsage({scene:sceneId,...normalized})
     .replace(/<\/script/gi,'<\\/script');
   const html=`<!doctype html>
 <html lang="de">
@@ -80,6 +81,9 @@ ${usage}
 
 This package contains the original RED Morph Canvas engine and one responsive,
 keyboard-accessible example using ${scene.id}.
+
+Selected scene settings: density=${normalized.density}, depth=${normalized.depth},
+speed=${normalized.speed}, hue=${normalized.hue}.
 
 Files
 - index.html — original example, paused until the Play button is clicked.
