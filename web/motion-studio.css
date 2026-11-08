@@ -183,3 +183,9 @@ button,input,a{font:inherit}button{cursor:pointer}button:disabled{cursor:not-all
 @media(prefers-reduced-transparency:reduce){
   .ui-loop-backdrop:not([hidden]){background:rgba(5,9,19,.8)}
 }
+
+.ui-loop-sidebar-mobile-head{display:none}
+@media(max-width:850px){
+  .ui-loop-sidebar-mobile-head{display:flex;align-items:center;justify-content:space-between;gap:14px;color:var(--ui-loop-text);font-size:11px;font-weight:600;letter-spacing:.05em;margin:-12px 0 24px}
+  .ui-loop-sidebar-mobile-head button{width:44px;height:44px;display:grid;place-items:center;color:var(--ui-loop-text);background:var(--ui-loop-surface);border:1px solid var(--ui-loop-line);border-radius:10px;font-size:16px}
+}
