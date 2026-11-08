@@ -2,8 +2,9 @@ import { test, expect } from '@playwright/test'
 
 const studio = '/motion-studio.html'
 
+test.beforeEach(async ({ page }) => { await page.goto(studio) })
+
 test.describe('RED Loop Motion Studio', () => {
-  test.beforeEach(async ({ page }) => { await page.goto(studio) })
 
   test('catalog search, scene switching and settings remain functional', async ({ page }) => {
     const compact = await page.evaluate(() => matchMedia('(max-width: 850px)').matches)
