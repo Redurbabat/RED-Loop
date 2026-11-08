@@ -16,7 +16,10 @@ test('studio HTML has core landmarks, accessible controls and no inline scripts'
   const html=readFileSync(new URL('../web/motion-studio.html',import.meta.url),'utf8');
   assert.match(html,/<main\b[^>]*id="ui-loop-content"/);
   assert.match(html,/<nav\b[^>]*aria-label="Motion-Komponenten"/);
-  assert.match(html,/<canvas\b[^>]*role="img"/);
+  assert.match(html,/<canvas\b[^>]*role="img"[^>]*tabindex="0"/);
+  assert.match(html,/aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home"/);
+  assert.match(html,/aria-describedby="ui-loop-canvas-help"/);
+  assert.match(html,/id="ui-loop-canvas-help"/);
   assert.match(html,/id="ui-loop-play"/);
   assert.match(html,/id="ui-loop-search"/);
   assert.match(html,/id="ui-loop-backdrop"[^>]+tabindex="-1" hidden/);
@@ -99,11 +102,28 @@ test('all studies draw at idle, observe safe memory cap and release queued frame
     listeners.get('pointermove')({clientX:180,clientY:100});next();
     listeners.get('pointerleave')();next();
     listeners.get('pointercancel')();next();
+    let prevented=0;
+    const keyboard=(key,extra={})=>{
+      listeners.get('keydown')({key,preventDefault(){prevented++},...extra});
+      next();
+    };
+    const before=drawCalls;
+    keyboard('ArrowRight');
+    assert.ok(drawCalls>before,'an arrow key updates the static scene');
+    assert.equal(prevented,1,'scene navigation prevents page scrolling only when focused');
+    assert.equal(engine.running,false,'keyboard input does not auto-start animation');
+    keyboard('ArrowDown',{shiftKey:true});
+    keyboard('Home');
+    assert.equal(prevented,3,'Home and Shift+Arrow are recognized');
+    keyboard('Escape');
+    keyboard('ArrowLeft',{ctrlKey:true});
+    assert.equal(prevented,3,'unrelated and modified keys retain native behavior');
+    listeners.get('blur')();next();
     width=2600;height=1600;engine.resize();
     assert.ok(canvas.width*canvas.height<=1605000,'large canvases stay near 1.6MP budget');
     engine.destroy();
     assert.equal(raf.size,0,'no pending animation frame survives destroy');
-    assert.equal(listeners.size,0,'pointer event listeners are removed');
+    assert.equal(listeners.size,0,'pointer and keyboard event listeners are removed');
   } finally {
     for(const [name,value] of Object.entries(old)){if(value===undefined)delete globalThis[name];else globalThis[name]=value}
   }
