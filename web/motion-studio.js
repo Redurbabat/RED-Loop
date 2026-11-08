@@ -185,7 +185,10 @@ $('#ui-loop-favorite').addEventListener('click',()=>{
 $('#ui-loop-copy-link').addEventListener('click',()=>copy(presetUrl().toString(),'Voreinstellungslink'));
 $('#ui-loop-save-image').addEventListener('click',async()=>{
   const button=$('#ui-loop-save-image');
+  const originalLabel=button.textContent;
   button.disabled=true;
+  button.setAttribute('aria-busy','true');
+  button.textContent='PNG wird erstellt …';
   // The scene may change while the asynchronous browser PNG encoder is working.
   // Associate the output with the scene captured at the instant of the click.
   const snapshotScene=active.id;
@@ -205,7 +208,11 @@ $('#ui-loop-save-image').addEventListener('click',async()=>{
     }
     notify('PNG zum Herunterladen vorbereitet');
   } catch {notify('PNG-Export fehlgeschlagen. Bitte später erneut versuchen.');}
-  finally {button.disabled=false;}
+  finally {
+    button.disabled=false;
+    button.removeAttribute('aria-busy');
+    button.textContent=originalLabel;
+  }
 });
 
 $$('.ui-loop-device-buttons button').forEach(button=>button.addEventListener('click',()=>{
