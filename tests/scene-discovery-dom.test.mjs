@@ -166,3 +166,71 @@ test('homepage bookmark controls remain usable if the storage getter is blocked'
     assert.equal(dom.window.document.querySelectorAll('#scene-discovery-results a[data-scene]').length,1);
   }finally{dom.window.close();}
 });
+
+test('homepage compares two original scenes without navigating, saving data or rebuilding gallery',()=>{
+  const {dom,doc,discovery}=createPage();
+  try{
+    const panel=doc.getElementById('scene-discovery-comparison');
+    const comparisonItems=doc.getElementById('scene-discovery-comparison-items');
+    const results=doc.getElementById('scene-discovery-results');
+    const first=doc.querySelector('button[data-compare="aurora-threads"]');
+    const second=doc.querySelector('button[data-compare="mercury-droplets"]');
+    const originalCard=doc.querySelector('a[data-scene="spectral-fold"]');
+    assert.equal(panel.hidden,true);
+    assert.equal(first.closest('a'),null,'compare action must not be nested inside link');
+    first.focus();
+    first.click();
+    assert.deepEqual(discovery.comparison,['aurora-threads']);
+    assert.equal(doc.activeElement,first,'selection keeps compare button focus');
+    assert.equal(first.getAttribute('aria-pressed'),'true');
+    assert.equal(panel.hidden,false);
+    assert.equal(comparisonItems.querySelectorAll('canvas[data-scene]').length,1);
+    assert.equal(doc.querySelector('.scene-comparison-placeholder')!==null,true);
+    assert.equal(doc.querySelector('a[data-scene="spectral-fold"]'),originalCard,
+      'comparison should not rebuild gallery thumbnails');
+    assert.equal(dom.window.localStorage.length,0,'compare does not store anything');
+
+    second.click();
+    assert.deepEqual(discovery.comparison,['aurora-threads','mercury-droplets']);
+    assert.equal(doc.getElementById('scene-discovery-comparison-count').textContent,'2 / 2');
+    const previews=comparisonItems.querySelectorAll('canvas[data-scene]');
+    assert.deepEqual([...previews].map(canvas=>canvas.dataset.scene),
+      ['aurora-threads','mercury-droplets']);
+    assert.equal([...previews].every(canvas=>canvas.getAttribute('aria-hidden')==='true'),true);
+    assert.deepEqual([...comparisonItems.querySelectorAll('a[href]')].map(link=>link.getAttribute('href')),
+      ['/motion-studio.html?scene=aurora-threads','/motion-studio.html?scene=mercury-droplets']);
+    assert.equal(doc.querySelector('.scene-comparison-placeholder'),null);
+    assert.equal(results.querySelectorAll('button[data-compare]').length,12);
+    assert.equal(dom.window.localStorage.length,0);
+  }finally{dom.window.close();}
+});
+
+test('comparison replaces oldest selection and restores focus after removal and clearing',()=>{
+  const {dom,doc,discovery}=createPage();
+  try{
+    const choose=id=>doc.querySelector('button[data-compare="'+id+'"]');
+    choose('aurora-threads').click();
+    choose('mercury-droplets').click();
+    choose('prism-veil').focus();
+    choose('prism-veil').click();
+    assert.deepEqual(discovery.comparison,['mercury-droplets','prism-veil']);
+    assert.equal(doc.activeElement,choose('prism-veil'),'third selection keeps focus');
+    assert.equal(choose('aurora-threads').getAttribute('aria-pressed'),'false');
+    assert.equal(choose('prism-veil').getAttribute('aria-pressed'),'true');
+    assert.match(doc.getElementById('scene-discovery-feedback').textContent,/ersetzt.*im Vergleich/);
+    // Filtering cannot discard a comparison already selected.
+    doc.querySelector('button[data-category="Partikel"]').click();
+    assert.deepEqual(discovery.comparison,['mercury-droplets','prism-veil']);
+
+    doc.querySelector('button[data-remove-compare="mercury-droplets"]').click();
+    assert.deepEqual(discovery.comparison,['prism-veil']);
+    assert.equal(doc.activeElement,doc.getElementById('scene-discovery-search'),
+      'filtered-out comparison control returns focus to search');
+    doc.getElementById('scene-discovery-comparison-clear').click();
+    assert.deepEqual(discovery.comparison,[]);
+    assert.equal(doc.getElementById('scene-discovery-comparison').hidden,true);
+    assert.equal(doc.activeElement,doc.getElementById('scene-discovery-search'));
+    assert.match(doc.getElementById('scene-discovery-feedback').textContent,/gelöscht/);
+    assert.equal(dom.window.localStorage.length,0);
+  }finally{dom.window.close();}
+});
