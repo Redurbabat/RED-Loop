@@ -45,3 +45,22 @@ bash scripts/ios-ci.sh
 The workflow now exposes each web phase separately, emits a job summary when the runner executes, preserves test artifacts and triggers on pull requests, manual dispatch and pushes to `main`. If runners never start, no step-level summary can be generated; the maintainer must first resolve the upstream Actions issue.
 
 Do not confuse a successful Node unit test run with a physical device check, a GitHub merge with successful CI, or a Wrangler `--dry-run` with a Cloudflare deployment. Deployment and native signing remain separate.
+
+## Minimal independent runner probe
+
+File: [`.github/workflows/runner-probe.yml`](../.github/workflows/runner-probe.yml). Triggered when that workflow file changes in a pull request, or manually through **Actions → Runner allocation probe → Run workflow** on the default branch. It runs a single Ubuntu job with two simple shell steps: **no checkout, no npm dependencies, no Xcode, no third-party actions, and no secrets**. The first step prints `RED_LOOP_RUNNER_PROBE_STARTED`.
+
+Interpretation:
+- **Probe never reaches its first step (no steps or logs)**: the issue cannot be attributed to the RED Loop build/test commands, because the probe does not execute them. Investigate workflow validation, repository/account Actions permissions, billing and runner allocation in the GitHub UI.
+- **Probe passes, full workflow fails**: runner allocation works at least for Ubuntu; inspect the named stages of the full web job. This does not validate the macOS runner.
+- **Probe step runs but fails**: read that job's exact shell/runner error before making any workflow changes.
+
+This probe deliberately does **not** validate application behavior, iOS compilation or deployment. Do not close [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) based solely on a successful probe.
+
+### Independent probe result — 8 November 2026
+
+The standalone [runner probe run **42435762093**](https://github.com/Redurbabat/RED-Loop/actions/runs/42435762093) **failed**. Job `128594130349` (`Ubuntu runner allocation (no checkout)`) reported `status=completed`, `conclusion=failure`, but **`steps=null` and `logs_url=null`**. Its job-log request returned **HTTP 404 `BlobNotFound`**.
+
+The same pull request also triggered [normal validation run **42435762053**](https://github.com/Redurbabat/RED-Loop/actions/runs/42435762053); **both web and iOS jobs failed with null step/log metadata**.
+
+**Interpretation:** Since the minimal probe contains no checkout, npm, native compile, third-party actions, secrets or project code, these activities cannot explain why *that independent job* failed before visible steps. This is stronger evidence for investigating GitHub Actions account/repository policy, workflow processing or runner provisioning, **not proof of a specific billing or runner failure**. Maintainer access to the GitHub UI/organization billing is required to identify and repair the cause. Full RED Loop CI remains blocked; no deployment is verified.
