@@ -15,7 +15,7 @@ The component finder is a frontend-only convenience. Cloud jobs, demo state, int
 - See locally saved favorite scenes first under **Alle**, or use **★ Gemerkte (N)** to show only bookmarked scenes. Existing Motion Studio bookmarks synchronize between same-origin tabs without transferring anything to a server.
 - Recover from an empty search with **Suche zurücksetzen**. If JavaScript is disabled, a regular link to Motion Studio remains available.
 
-The gallery automatically adopts the existing light/dark/system theme. It shows four cards per row on wide screens, three or two on intermediate viewports and a single-column touch-friendly layout on narrow phones. Card navigation uses links with visible focus indicators; animations do not auto-play, so the homepage gallery adds no continuous motion.
+The gallery automatically adopts the existing light/dark/system theme. It shows four cards per row on wide screens, three or two on intermediate viewports and a single-column touch-friendly layout on narrow phones. **Each card now contains an original Canvas thumbnail drawn from the canonical scene engine**; the image is decorative and the full card remains an accessible, keyboard-focusable link. Animations do not auto-play, so the homepage gallery adds no continuous motion.
 
 ## Data boundaries and architecture
 
@@ -41,3 +41,15 @@ npm run test:browser
 ```
 
 **Current limitation:** GitHub Actions runner/job infrastructure remains blocked under [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9), and a merged PR does not establish a green hosted build, production release or physical-device test. The component finder is a responsive *web* feature, not a native iOS/Android UI implementation.
+
+## Lazy, single-frame Canvas thumbnails (November 2026)
+
+The homepage cards now contain actual renderings of their respective **original RED Morph Canvas scenes**. There are no downloaded images, screenshots, licensed design assets or duplicate drawing implementations. `web/motion-thumbnails.js` uses the existing `createMotionEngine` only to draw **one static frame** with the selected scene ID, then immediately calls `destroy()`. No engine is left playing, and no RAF, pointer listener, ResizeObserver or reduced-motion listener remains attached to the thumbnail.
+
+The renderer uses **one shared IntersectionObserver per active search-result set** with a small visibility margin. Offscreen thumbnails do not allocate a Canvas engine until visible; completed thumbnails are unobserved. A search or category change disconnects observation of removed cards before showing replacements. The rendered bitmap remains in the canvas while its card is visible. In browsers without IntersectionObserver, thumbnails render once without visibility-based lazy loading; zero-size canvases are skipped. Zero-size or unavailable canvases skip rendering and retain a still optical-gradient CSS fallback instead of disrupting navigation. This also keeps jsdom test environments safe.
+
+Each preview is marked `aria-hidden="true"`; the scene name, category and description remain the accessible link content. The image itself is not a button, does not intercept touch or keyboard events, and never starts motion. Reduced-motion users receive the same stable static image. The existing responsive four/three/two/one-column layout remains, with a compact thumbnail above the text.
+
+Coverage: `tests/motion-thumbnails.test.mjs` checks lifecycle cleanup, failure fallback, observation, unobserving, older browsers and retries. The existing homepage DOM regression now requires 10 matched, decorative canvases; Playwright checks that visible thumbnails paint, differ between scenes, stay pixel-identical over time, survive filtering and respect reduced motion.
+
+**Release gate:** full hosted CI and visual production/device tests remain unverified until [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is resolved.

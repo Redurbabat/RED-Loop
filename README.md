@@ -23,7 +23,7 @@ Open **http://127.0.0.1:8787**. Choose a limit (1–50), press **Demo starten**,
 
 The responsive RED Morph interface includes light/dark/system appearance, keyboard controls, accessible status/error announcements, progress, bounded activity history, and Reduced Motion support. Demo content stays in tab memory; only the chosen appearance is saved locally.
 
-The **homepage now includes a RED Morph component finder**: search and filter all ten original Canvas studies directly from the dashboard, use the existing browser-local ★ saved scenes for faster access, or open a specific study in Motion Studio with one click. The finder works at phone, tablet, MacBook and Windows web viewport sizes and never sends search terms to the cloud. See [homepage discovery behavior](docs/scene-discovery.md).
+The **homepage includes a RED Morph component finder with lazy static Canvas previews**: see what all ten original studies look like directly on the dashboard, search and filter by scene metadata, use the existing browser-local ★ saved scenes, or open a specific study in Motion Studio with one click. Each visible preview is drawn once from the original engine and immediately released; thumbnails never autoplay. The finder works at phone, tablet, MacBook and Windows web viewport sizes and never sends search terms to the cloud. See [homepage discovery behavior](docs/scene-discovery.md).
 
 ## Real browser integration
 
