@@ -69,6 +69,34 @@ test('Motion Studio initializes controls, presets and swatches without an except
 
     assert.equal(document.querySelector('#ui-loop-play').getAttribute('aria-pressed'), 'false')
     assert.ok(document.querySelector('#ui-loop-canvas').width > 0)
+
+    const playButton = document.querySelector('#ui-loop-play')
+    const favoriteButton = document.querySelector('#ui-loop-favorite')
+    const favoritesFilter = document.querySelector('#ui-loop-filters button[data-category="Gemerkte"]')
+    assert.ok(favoritesFilter, 'favorites category exists from startup')
+    assert.match(favoritesFilter.textContent, /Gemerkte \(0\)/)
+
+    playButton.click()
+    assert.equal(playButton.getAttribute('aria-pressed'), 'true')
+    favoriteButton.click()
+    assert.equal(playButton.getAttribute('aria-pressed'), 'true', 'bookmarking never pauses playback')
+    assert.equal(favoriteButton.getAttribute('aria-pressed'), 'true')
+    assert.match(favoritesFilter.textContent, /Gemerkte \(1\)/)
+
+    favoritesFilter.click()
+    const saved = document.querySelectorAll('#ui-loop-scene-list button')
+    assert.equal(saved.length, 1, 'favorites category shows only bookmarked scenes')
+    assert.equal(saved[0].dataset.scene, 'iris-caustics')
+    assert.equal(saved[0].querySelector('.ui-loop-scene-favorite-marker').hidden, false)
+
+    favoriteButton.click()
+    assert.equal(playButton.getAttribute('aria-pressed'), 'true')
+    assert.equal(document.querySelectorAll('#ui-loop-scene-list button').length, 0)
+    assert.match(document.querySelector('.ui-loop-no-results').textContent, /Noch nichts gemerkt/)
+    assert.match(favoritesFilter.textContent, /Gemerkte \(0\)/)
+
+    document.querySelector('#ui-loop-filters button[data-category="Alle"]').click()
+    assert.equal(document.querySelectorAll('#ui-loop-scene-list button').length, 10)
   } finally {
     dom.window.close()
     for (const [key, original] of originals) {
