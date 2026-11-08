@@ -187,7 +187,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
       key:storageKey,newValue:remoteValue,storageArea:dom.window.localStorage,
     }))
     assert.equal(favoriteButton.getAttribute('aria-pressed'), 'true', 'remote bookmark updates active scene')
-    assert.match(favoritesFilter.textContent,/Gemerkte \\(2\\)/)
+    assert.match(favoritesFilter.textContent,/Gemerkte \(2\)/)
     assert.equal(document.activeElement.dataset.scene,'glass-filament',
       'remote redraw restores focus to the replacement scene entry')
     assert.equal(playButton.getAttribute('aria-pressed'), 'false', 'sync never starts playback')
@@ -197,7 +197,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
       key:null,newValue:null,storageArea:dom.window.localStorage,
     }))
     assert.equal(favoriteButton.getAttribute('aria-pressed'), 'false', 'remote site-data clearing updates favorites')
-    assert.match(favoritesFilter.textContent,/Gemerkte \\(0\\)/)
+    assert.match(favoritesFilter.textContent,/Gemerkte \(0\)/)
   } finally {
     dom.window.close()
     for (const [key, original] of originals) {
