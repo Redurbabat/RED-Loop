@@ -113,3 +113,25 @@ test('new Prism Veil and Vector Bloom scenes are selectable and render',async({p
     expect(width).toBeGreaterThan(0)
   }
 })
+
+test('copied preset URLs exclude unrelated query values and fragments', async ({ page }) => {
+  await page.goto('/motion-studio.html?scene=iris-caustics&density=70&token=private-value&state=opaque#sensitive-fragment')
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async text => { window.__copiedMotionLink = text } },
+    })
+  })
+  await page.locator('#ui-loop-copy-link').click()
+  const copied = await page.evaluate(() => window.__copiedMotionLink)
+  const parsed = new URL(copied)
+  expect(parsed.origin).toBe(new URL(page.url()).origin)
+  expect(parsed.pathname).toBe('/motion-studio.html')
+  expect(parsed.hash).toBe('')
+  expect([...parsed.searchParams.keys()]).toEqual(['scene', 'density', 'depth', 'speed', 'hue'])
+  expect(parsed.searchParams.get('scene')).toBe('iris-caustics')
+  expect(parsed.searchParams.get('density')).toBe('70')
+  expect(copied).not.toContain('private-value')
+  expect(copied).not.toContain('sensitive-fragment')
+  expect(copied).not.toContain('state=')
+})
