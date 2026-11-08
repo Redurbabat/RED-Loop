@@ -34,3 +34,26 @@ export function saveMotionFavorites(storage,ids,availableSceneIds){
     return false;
   }
 }
+
+/**
+ * Apply same-origin changes received from another tab. The browser's storage
+ * event is not dispatched on the tab that made the change, so local clicks
+ * continue to update their own in-memory Set as before.
+ *
+ * Returns true only when the visible bookmark membership changed.
+ */
+export function syncMotionFavoritesFromStorageEvent(event,storage,availableSceneIds,favoriteIds){
+  if(!storage||!event||!favoriteIds||event.storageArea!==storage)return false;
+  if(event.key!==motionFavoritesStorageKey&&event.key!==null)return false;
+  let parsed=[];
+  try{
+    if(event.key!==null&&event.newValue!==null)parsed=JSON.parse(event.newValue);
+  }catch{
+    // Invalid values behave like an empty bookmark list at startup.
+  }
+  const incoming=normalizeFavoriteIds(parsed,availableSceneIds);
+  if(incoming.length===favoriteIds.size&&incoming.every(id=>favoriteIds.has(id)))return false;
+  favoriteIds.clear();
+  for(const id of incoming)favoriteIds.add(id);
+  return true;
+}
