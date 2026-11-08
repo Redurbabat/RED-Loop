@@ -17,6 +17,10 @@ test('multiword queries search names, categories, descriptions and tags',()=>{
     ['iris-caustics']);
   assert.deepEqual(findMotionScenes(scenes,{query:'partikel 3D'}).map(scene=>scene.id),
     ['spectral-fold']);
+  assert.deepEqual(findMotionScenes(scenes,{query:'Aurora Threads'}).map(scene=>scene.id),
+    ['aurora-threads']);
+  assert.deepEqual(findMotionScenes(scenes,{query:'Metal'}).map(scene=>scene.id),
+    ['mercury-droplets']);
   assert.deepEqual(findMotionScenes(scenes,{query:'no-such-effect'}),[]);
   assert.deepEqual(findMotionScenes(scenes,{query:'  '}),scenes);
 });
@@ -39,6 +43,8 @@ test('favorites appear first without changing source metadata',()=>{
 test('direct links allow only known scene IDs and never copy unrelated query data',()=>{
   assert.equal(motionSceneHref('vector-bloom'),'/motion-studio.html?scene=vector-bloom');
   assert.equal(motionSceneHref('iris-caustics'),'/motion-studio.html?scene=iris-caustics');
+  assert.equal(motionSceneHref('aurora-threads'),'/motion-studio.html?scene=aurora-threads');
+  assert.equal(motionSceneHref('mercury-droplets'),'/motion-studio.html?scene=mercury-droplets');
   for(const invalid of ['unknown-scene',null,'vector-bloom&token=SECRET','javascript:alert(1)','../private']){
     assert.equal(motionSceneHref(invalid),null);
   }
