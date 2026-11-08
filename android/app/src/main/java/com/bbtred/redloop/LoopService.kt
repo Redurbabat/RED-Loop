@@ -50,8 +50,12 @@ class LoopService : Service(), SessionListener {
         private set
 
     private var nextId = 1
+    private val overlay by lazy { OverlayHost(this) }
     private var wakeLock: PowerManager.WakeLock? = null
     private var listener: (() -> Unit)? = null
+
+    /** False while chats that nobody looks at cannot be parked in a window. */
+    val backgroundLayoutReady: Boolean get() = overlay.permitted
 
     val runningCount: Int get() = _sessions.count { it.state.running }
     val totalContinuations: Int get() = _sessions.sumOf { it.state.count }
@@ -95,6 +99,7 @@ class LoopService : Service(), SessionListener {
         releaseWakeLock()
         _sessions.forEach { it.destroy() }
         _sessions.clear()
+        overlay.release()
         super.onDestroy()
     }
 
@@ -106,6 +111,7 @@ class LoopService : Service(), SessionListener {
         val loaded = script ?: return null
         if (_sessions.size >= MAX_SESSIONS) return null
         val session = ChatSession(nextId++, applicationContext, loaded, startUrl, savedName, this)
+        session.parkingLot = overlay.ensure()
         _sessions.add(session)
         persistSessions()
         notifyListener()
@@ -123,6 +129,20 @@ class LoopService : Service(), SessionListener {
     }
 
     fun pauseAll() = _sessions.forEach { it.pause() }
+
+    /** Called after the user grants the overlay permission. */
+    fun refreshParking() {
+        // Cheap and self-terminating, so the UI may call it on every render.
+        if (_sessions.none { it.parkingLot == null }) return
+        val lot = overlay.ensure() ?: return
+        _sessions.forEach { session ->
+            if (session.parkingLot == null) {
+                session.parkingLot = lot
+                if (session.webView.parent == null) session.detachAndLayout()
+            }
+        }
+        notifyListener()
+    }
 
     override fun onState(session: ChatSession, previous: LoopState, current: LoopState) {
         refreshWakeLock()

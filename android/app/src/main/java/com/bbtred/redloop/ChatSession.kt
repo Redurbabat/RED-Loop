@@ -37,8 +37,8 @@ class ChatSession(
     private val listener: SessionListener
 ) {
     companion object {
-        private const val OFFSCREEN_WIDTH = 1080
-        private const val OFFSCREEN_HEIGHT = 1920
+        private const val OFFSCREEN_WIDTH = OverlayHost.VIEWPORT_WIDTH
+        private const val OFFSCREEN_HEIGHT = OverlayHost.VIEWPORT_HEIGHT
         private const val PAUSE_JS =
             "(()=>{const b=document.querySelector('#red-loop-root .rl-stop');if(b&&!b.disabled){b.click();return true}return false})()"
         private const val REVEAL_JS =
@@ -58,6 +58,9 @@ class ChatSession(
     /** The address worth restoring after a restart. */
     var restorableUrl: String? = startUrl.takeIf { SessionStore.isRestorable(it) }
         private set
+
+    /** Where the view lives while no activity shows it. */
+    var parkingLot: ViewGroup? = null
 
     private val main = Handler(Looper.getMainLooper())
 
@@ -125,8 +128,19 @@ class ChatSession(
         )
     }
 
-    /** Takes the view back out and restores a layout so the page keeps a viewport. */
+    /**
+     * Takes the view out of the activity. A parking window gives the page a
+     * real viewport; without one, manual layout is the best that can be done
+     * and background chats may stall.
+     */
     fun detachAndLayout() {
+        val lot = parkingLot
+        if (lot != null) {
+            if (webView.parent === lot) return
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            lot.addView(webView, ViewGroup.LayoutParams(OFFSCREEN_WIDTH, OFFSCREEN_HEIGHT))
+            return
+        }
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.measure(
             View.MeasureSpec.makeMeasureSpec(OFFSCREEN_WIDTH, View.MeasureSpec.EXACTLY),

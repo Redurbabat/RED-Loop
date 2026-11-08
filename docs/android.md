@@ -22,6 +22,16 @@ Die Android-App ist der einzige RED-Loop-Weg, auf dem Fortsetzungen weiterlaufen
 
 Ein Debug-APK ist mit dem Standard-Debug-Schlüssel signiert und installiert sich direkt. Kein Entwicklerkonto, kein Store, keine Profile.
 
+## Warum ein unsichtbares Fenster nötig ist
+
+Ein WebView ohne Fenster bekommt von Android kein verlässliches Layout. Die Seite hat dann keine sichtbare Eingabezeile, und das Panel meldet „Eingabefeld nicht gefunden" oder wartet ewig auf eine Antwort — genau das passierte in der ersten Fassung mit Chats, die man nicht ansah.
+
+Deshalb parkt der Dienst die nicht angezeigten WebViews in einem eigenen Fenster: vollständig durchsichtig, nicht berührbar, ohne Fokus. Dafür braucht die App die Berechtigung **„Über anderen Apps anzeigen"**. Ohne sie fällt die App auf manuelles Auslegen zurück — dann arbeitet nur der Chat zuverlässig weiter, den du gerade ansiehst. Die Übersicht sagt dir, welcher Zustand gerade gilt.
+
+## Hintergrundbetrieb einrichten
+
+Die **Übersicht** in der App prüft selbst, was Android noch erlauben muss, und bietet für jeden Punkt einen Knopf, der direkt die passende Systemseite öffnet: Mitteilungen, „Über anderen Apps anzeigen", Akku-Optimierung und die Herstellereinstellungen. Das ersetzt das Abarbeiten der folgenden Liste von Hand — die bleibt als Nachschlagewerk.
+
 ## Xiaomi: ohne diese vier Schritte läuft nichts
 
 MIUI und HyperOS beenden Hintergrund-Apps aggressiver als jedes andere Android. Das trifft jede App gleichermaßen, unabhängig davon, wie sauber sie gebaut ist:

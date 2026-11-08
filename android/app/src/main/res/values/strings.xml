@@ -14,4 +14,9 @@
     <string name="rename">Umbenennen</string>
     <string name="close_chat">Schließen</string>
     <string name="cancel">Abbrechen</string>
+    <string name="readiness_title">Hintergrundbetrieb</string>
+    <string name="fix_notifications">Mitteilungen erlauben</string>
+    <string name="fix_overlay">Über anderen Apps anzeigen</string>
+    <string name="fix_battery">Akku-Optimierung aus</string>
+    <string name="fix_autostart">Autostart und Sperren (Hersteller)</string>
 </resources>

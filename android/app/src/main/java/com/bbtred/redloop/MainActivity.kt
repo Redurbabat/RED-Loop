@@ -6,7 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import android.os.Bundle
 import android.os.IBinder
 import android.text.InputType
@@ -130,6 +133,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun render() {
         val active = service ?: return
+        // Picks up a permission the user just granted; returns at once once
+        // every chat has its parking window.
+        active.refreshParking()
         val sessions = active.sessions
         val current = selected
         if (current == null || !sessions.contains(current)) selected = sessions.firstOrNull()
@@ -263,6 +269,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 15f
             setPadding(0, 0, 0, dp(12))
         })
+        renderReadiness(active)
 
         if (sessions.isEmpty()) {
             overviewList.addView(TextView(this).apply { text = "Noch kein Chat geöffnet." })
@@ -306,6 +313,76 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { session.pause() }
         })
         return row
+    }
+
+    /**
+     * What Android still has to allow before chats nobody looks at keep
+     * working. Each line turns into a button that opens the right settings
+     * page, because the system never grants these from inside the app.
+     */
+    private fun renderReadiness(active: LoopService) {
+        val missing = mutableListOf<Pair<String, () -> Unit>>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            missing.add(getString(R.string.fix_notifications) to { requestNotificationPermission() })
+        }
+        if (!active.backgroundLayoutReady) {
+            missing.add(getString(R.string.fix_overlay) to {
+                openSettings(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+            })
+        }
+        if (!ignoresBatteryOptimizations()) {
+            missing.add(getString(R.string.fix_battery) to {
+                openSettings(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            })
+        }
+        missing.add(getString(R.string.fix_autostart) to {
+            openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        })
+
+        overviewList.addView(TextView(this).apply {
+            setText(R.string.readiness_title)
+            textSize = 14f
+            setPadding(0, dp(4), 0, dp(4))
+        })
+        overviewList.addView(TextView(this).apply {
+            text = if (active.backgroundLayoutReady) {
+                "Chats, die du nicht ansiehst, laufen weiter."
+            } else {
+                "Ohne „Über anderen Apps anzeigen\" arbeitet nur der sichtbare Chat zuverlässig weiter."
+            }
+            textSize = 12f
+            alpha = 0.75f
+            setPadding(0, 0, 0, dp(6))
+        })
+        missing.forEach { (label, action) ->
+            overviewList.addView(Button(this).apply {
+                text = label
+                isAllCaps = false
+                minimumHeight = dp(48)
+                setOnClickListener { action() }
+            })
+        }
+        overviewList.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(12))
+        })
+    }
+
+    private fun ignoresBatteryOptimizations(): Boolean {
+        val power = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return true
+        return power.isIgnoringBatteryOptimizations(packageName)
+    }
+
+    private fun openSettings(action: String) {
+        val intent = Intent(action, Uri.parse("package:$packageName"))
+        if (runCatching { startActivity(intent); true }.getOrDefault(false)) return
+        runCatching {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        }.onFailure {
+            Toast.makeText(this, "Einstellungsseite nicht gefunden.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun renderStatus(active: LoopService) {

@@ -27,10 +27,10 @@ for (const file of (await walk('android/app/src/main/res')).filter(f=>f.endsWith
   assert.equal(parsed.status,0,`${file}: ${parsed.stderr}`);
 }
 const manifestXml=await readFile('android/app/src/main/AndroidManifest.xml','utf8');
-for (const required of ['android.permission.FOREGROUND_SERVICE','android.permission.WAKE_LOCK','android:foregroundServiceType="specialUse"','.LoopService','.MainActivity'])
+for (const required of ['android.permission.FOREGROUND_SERVICE','android.permission.WAKE_LOCK','android.permission.SYSTEM_ALERT_WINDOW','android:foregroundServiceType="specialUse"','.LoopService','.MainActivity'])
   assert.ok(manifestXml.includes(required),`AndroidManifest.xml is missing ${required}`);
 assert.ok(!manifestXml.includes('android:usesCleartextTraffic="true"'),'The Android app must stay HTTPS only');
-for (const source of ['LoopState.kt','ScriptSource.kt','ChatSession.kt','LoopService.kt','MainActivity.kt'])
+for (const source of ['LoopState.kt','ScriptSource.kt','ChatSession.kt','LoopService.kt','MainActivity.kt','OverlayHost.kt'])
   await readFile(`android/app/src/main/java/com/bbtred/redloop/${source}`,'utf8');
 await readFile('android/gradle/wrapper/gradle-wrapper.jar');
 console.log('Android manifest, resources, sources and Gradle wrapper checked. This is not an Android build.');
