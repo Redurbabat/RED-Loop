@@ -141,3 +141,9 @@ A dedicated **★ Gemerkte (N)** filter now appears alongside the existing categ
 - Both desktop and compact-screen catalogs use the same category and count state. The mobile dialog/accessibility behavior from PR #13 is unchanged.
 
 Regression tests exercise the real entrypoint in jsdom (bookmark count, exact filtered entries, empty state and uninterrupted playback) and Playwright at the configured viewport profiles. The GitHub-hosted CI runner remains blocked under [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9); a merged test is not evidence that CI or production deployment passed.
+
+### Additional catalog startup regression repaired
+
+While exercising the favorites filter, the catalog's **existing** filter-button update was found to call `$('#ui-loop-filters button').forEach(...)`. This uses the one-element `querySelector` helper and throws a `TypeError`, including during initial module setup. It now uses the iterable `$$` (`querySelectorAll`) helper. A separate unit-source regression explicitly rejects this class of erroneous singleton-selector loop, and the real-entrypoint jsdom smoke test now exercises filter initialization and favorites state. This is distinct from the earlier swatch-selector repair.
+
+Validation for this change: production catalog source executed in a controlled JavaScript DOM stub with **15 passing assertions** covering initialization, bookmarked filtering, search combination, empty states, count updates, accessible star labels and no scene reselection; JavaScript syntax of the studio, DOM startup test and browser spec checked. Complete Node/Playwright CI execution remains unverified under issue #9.
