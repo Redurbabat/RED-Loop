@@ -66,7 +66,7 @@ npm run test:browser
 npm run dry-run
 ```
 
-`check` verifies JS syntax, JSON/YAML, Xcode project structure and extension-source parity. It is **not an iOS compilation**. Browser tests include four platform viewport profiles, light/dark accessibility scans, keyboard and Reduced Motion, navigation and safety scenarios. Userscript browser tests run against intercepted local fixtures, never a live conversation.
+GitHub Actions validates pull requests **and pushes to `main`** using separately reported build, check, unit, dry-run and browser steps. The web and iOS runner failures currently require account-side diagnosis: [CI troubleshooting and recovery](docs/ci-troubleshooting.md) ([tracking issue #9](https://github.com/Redurbabat/RED-Loop/issues/9)). A merge does not establish passing CI or deployment.\n\n`check` verifies JS syntax, JSON/YAML, Xcode project structure and extension-source parity. It is **not an iOS compilation**. Browser tests include four platform viewport profiles, light/dark accessibility scans, keyboard and Reduced Motion, navigation and safety scenarios. Userscript browser tests run against intercepted local fixtures, never a live conversation.
 
 On macOS, `bash scripts/ios-ci.sh` executes XCTest on an available iPhone simulator and creates an unsigned device archive. Codemagic workflows use the same scripts. [Test evidence](docs/test-report.md) distinguishes each validation level and lists untested items.
 
