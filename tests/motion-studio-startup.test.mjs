@@ -10,7 +10,7 @@ import { JSDOM } from 'jsdom'
 test('Motion Studio initializes controls, presets and swatches without an exception', async () => {
   const html = readFileSync(new URL('../web/motion-studio.html', import.meta.url), 'utf8')
   const dom = new JSDOM(html, {
-    url: 'https://red-loop.example/motion-studio.html?scene=iris-caustics&density=72&hue=255',
+    url: 'https://red-loop.example/motion-studio.html?scene=iris-caustics&density=72&hue=255&token=private-value#session-state',
   })
   const keys = ['window', 'document', 'location', 'history', 'Element', 'Event',
     'ResizeObserver', 'requestAnimationFrame', 'cancelAnimationFrame']
@@ -63,6 +63,9 @@ test('Motion Studio initializes controls, presets and swatches without an except
     assert.equal(document.querySelector('.ui-loop-swatches button[data-hue="195"]').getAttribute('aria-pressed'), 'true')
     assert.match(document.querySelector('#ui-loop-usage-source').textContent, /hue: 195/)
     assert.equal(new URL(dom.window.location.href).searchParams.get('hue'), '195')
+    assert.equal(new URL(dom.window.location.href).searchParams.has('token'), false)
+    assert.equal(new URL(dom.window.location.href).hash, '')
+    assert.deepEqual([...new URL(dom.window.location.href).searchParams.keys()], ['scene','density','depth','speed','hue'])
 
     assert.equal(document.querySelector('#ui-loop-play').getAttribute('aria-pressed'), 'false')
     assert.ok(document.querySelector('#ui-loop-canvas').width > 0)
