@@ -59,8 +59,9 @@ function updateCatalog(){
 }
 function currentPreset(){return {scene:active.id,...engine.settings};}
 function presetUrl(){
-  const url=new URL(location.href);
-  url.search=serializeMotionPreset(currentPreset(),url.search);
+  // Rebuild the public link from origin + path, never from arbitrary query/fragment data.
+  const url=new URL(location.pathname,location.origin);
+  url.search=serializeMotionPreset(currentPreset());
   return url;
 }
 function updateAddress(mode='replaceState'){
