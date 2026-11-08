@@ -184,3 +184,25 @@ test('homepage bookmarking works in a browser that denies localStorage access',a
   await page.locator('#scene-discovery-filters button[data-category="Gemerkte"]').click();
   await expect(page.locator('#scene-discovery-results a[data-scene]')).toHaveCount(1);
 });
+
+test('new original Aurora and Mercury studies appear as responsive homepage thumbnails',async({page})=>{
+  const grid=page.locator('#scene-discovery-results');
+  await expect(grid.locator('a[data-scene]')).toHaveCount(12);
+  for(const id of ['aurora-threads','mercury-droplets']){
+    const link=grid.locator('a[data-scene="'+id+'"]');
+    await expect(link).toHaveAttribute('href','/motion-studio.html?scene='+id);
+    const thumb=link.locator('canvas[data-scene="'+id+'"]');
+    await link.scrollIntoViewIfNeeded();
+    await expect(thumb).toHaveAttribute('data-preview-ready','true');
+    const pixels=await thumb.evaluate(canvas=>[canvas.width,canvas.height]);
+    expect(pixels[0]).toBeGreaterThan(1);
+    expect(pixels[1]).toBeGreaterThan(1);
+  }
+  await page.locator('#scene-discovery-search').fill('Aurora Threads');
+  await expect(grid.locator('a[data-scene]')).toHaveCount(1);
+  await expect(grid.locator('a[data-scene="aurora-threads"]')).toBeVisible();
+  await page.locator('#scene-discovery-search').fill('');
+  await page.locator('#scene-discovery-filters button[data-category="Material"]').click();
+  await expect(grid.locator('a[data-scene]')).toHaveCount(4);
+  await expect(grid.locator('a[data-scene="mercury-droplets"]')).toBeVisible();
+});
