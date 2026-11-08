@@ -594,3 +594,45 @@ test('custom starter export reports network failure and preserves editable slide
   await expect(page.locator('#ui-loop-usage-source')).toContainText("scene: 'spectral-fold'");
   await expect(page.locator('#ui-loop-density')).toHaveValue('58');
 });
+
+test('configured ZIP preserves click-time preset if sliders change during download',async({page})=>{
+  await page.goto('/motion-studio.html?scene=aurora-threads');
+  await page.locator('#ui-loop-density').evaluate(input=>{
+    input.value='78';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  await page.locator('#ui-loop-hue').evaluate(input=>{
+    input.value='201';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  await page.locator('#ui-loop-tab-usage').click();
+  let releaseEngine;
+  let requests=0;
+  await page.route('**/motion-engine.js',async route=>{
+    requests++;
+    await new Promise(resolve=>{releaseEngine=resolve});
+    await route.continue();
+  });
+  const button=page.locator('#ui-loop-save-starter');
+  const ready=page.waitForEvent('download');
+  await button.click();
+  await expect(button).toBeDisabled();
+  await expect(button).toHaveAttribute('aria-busy','true');
+  await expect.poll(()=>typeof releaseEngine).toBe('function');
+  await page.locator('#ui-loop-density').evaluate(input=>{
+    input.value='22';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  await page.locator('#ui-loop-hue').evaluate(input=>{
+    input.value='19';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  releaseEngine();
+  const download=await ready;
+  const bytes=await readFile(await download.path());
+  expect(download.suggestedFilename()).toBe('red-morph-aurora-threads-custom-starter.zip');
+  expect(bytes.includes(Buffer.from("scene: 'aurora-threads', density: 78, depth: 58, speed: 42, hue: 201"))).toBe(true);
+  expect(bytes.includes(Buffer.from("scene: 'aurora-threads', density: 22"))).toBe(false);
+  expect(requests).toBe(1);
+  await expect(button).toBeEnabled();
+});
