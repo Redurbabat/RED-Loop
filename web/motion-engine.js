@@ -337,7 +337,7 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
     if(event.key==='Home'){
       targetPointer={x:0,y:0,inside:false};
     }else{
-      const step=event.shiftKey?.3:.15;
+      const step=event.shiftKey ? 0.30 : 0.15;
       const base=targetPointer.inside?targetPointer:{x:0,y:0};
       targetPointer={
         x:clamp(base.x+direction[0]*step,-1,1),
