@@ -118,3 +118,15 @@ This is a regression repair, not a new animation or native-client feature. Compl
 The copied preset URL is built from the current origin and pathname, not the full incoming URL. The serializer has an explicit five-field allowlist: `scene`, `density`, `depth`, `speed`, `hue`. Extra query values, authentication-looking fields and hash fragments are **not included** in copied links or in URL updates after user changes. This avoids accidentally copying unknown URL parameters that might contain private data. Malformed scene identifiers are replaced with the default scene. Existing visual settings are still restored when opening a valid deep link.
 
 Regression coverage: pure Node preset tests (including extra parameter rejection and scene sanitization), entrypoint startup DOM test (URL cleanup after editing a slider), and a real browser test that intercepts clipboard text and verifies the shared URL has no unrelated query values or fragment. The fixes do not alter cloud tokens or job state; they apply only to the public Motion Studio sharing feature.
+
+## Accessible compact catalog dialog (November 2026)
+
+At browser widths **850px and below**, the catalog behaves as an explicit modal dialog:
+
+- Opening the catalog places focus in search, assigns `role="dialog"` / `aria-modal="true"`, shows a dark click-away backdrop and prevents scrolling of the underlying page.
+- The main workspace, top navigation and inspector become `inert` while the dialog is open. Keyboard Tab and Shift+Tab wrap between the first and last catalog controls, with no focus escaping to the blocked page.
+- The dialog has a visible **Schließen** control with a 44px touch target. It also closes through Escape, choosing a component, or tapping the backdrop; focus returns to the catalog trigger on compact screens.
+- When the responsive breakpoint changes to desktop, modal state, inertness and backdrop are cleaned up. On desktop the catalog remains a standard, always-visible complementary sidebar; no modal role is applied.
+- Reduced-transparency users receive a more opaque backdrop, and the existing reduced-motion preference disables drawer transitions.
+
+Regression coverage includes HTML/control assertions and Playwright scenarios for focus wrap, inert background, closing, outside taps and focus restoration on compact viewports. Since GitHub Actions is currently blocked (issue #9), the new browser tests are committed but their successful hosted execution must still be confirmed.
