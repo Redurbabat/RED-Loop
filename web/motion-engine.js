@@ -311,15 +311,35 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
     renderOnce();
   }
   function resize(){
-    if(destroyed)return;
+    if(destroyed)return false;
     const rect=canvas.getBoundingClientRect();
-    if(rect.width<=0||rect.height<=0)return;
+    if(rect.width<=0||rect.height<=0)return false;
     // Prevent oversize backing buffers on high-DPI desktop and mobile devices.
     const maxDpr=Math.sqrt(1600000/(rect.width*rect.height));
     const dpr=Math.min(clamp(window.devicePixelRatio||1,1,2),maxDpr);
     width=rect.width;height=rect.height;
-    canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);renderOnce();
+    const nextWidth=Math.max(1,Math.round(width*dpr));
+    const nextHeight=Math.max(1,Math.round(height*dpr));
+    // Assigning width/height clears the bitmap, even when unchanged.
+    if(canvas.width!==nextWidth||canvas.height!==nextHeight){
+      canvas.width=nextWidth;canvas.height=nextHeight;
+    }
+    // DPR can change without a pixel-size change; always keep the transform current.
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    renderOnce();
+    return true;
+  }
+  function renderForExport(){
+    // Canvas.toBlob() may snapshot before a queued animation frame executes.
+    // Flush the latest scene and responsive size synchronously for that export.
+    if(destroyed||running||!resize())return false;
+    if(redrawFrame){
+      cancelAnimationFrame(redrawFrame);
+      redrawFrame=0;
+      queued=false;
+    }
+    draw();
+    return true;
   }
   function move(event){
     const rect=canvas.getBoundingClientRect();
@@ -358,7 +378,7 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
   document.addEventListener('visibilitychange',onVisibility);
   media.addEventListener('change',onReduced);
   resize();
-  return { configure,setPlaying,resize,
+  return { configure,setPlaying,resize,renderForExport,
     get running(){return running},get settings(){return {...config}},
     destroy(){if(destroyed)return;setPlaying(false);destroyed=true;cancelAnimationFrame(frame);cancelAnimationFrame(redrawFrame);observer.disconnect();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);canvas.removeEventListener('pointercancel',leave);canvas.removeEventListener('keydown',onKeyDown);canvas.removeEventListener('blur',leave);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);},
   };

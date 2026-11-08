@@ -159,3 +159,16 @@ Previously, the light field responded to mouse/touch pointer movement only. The 
 Keyboard focus is shown with a controlled contrast-visible outline, also under forced-colors mode. The canvas retains `role="img"` for its descriptive output and `aria-keyshortcuts` / `aria-describedby` to advertise the interaction. Keyboard movement redraws the *current static frame* and **never starts playback**; `prefers-reduced-motion` remains respected. Blur resets the active pointer influence, and `destroy()` removes the new keyboard and blur listeners.
 
 Validation: deterministic execution of the **branch's actual Canvas engine** in a fake drawing context showed that ArrowRight changes thousands of dot positions, Home restores the original drawing, modifier shortcuts are ignored, no playback starts, and all event listeners/RAF handles are cleaned up. A separate unit test exercises keyboard redraw, Home, modifiers and teardown, and Playwright checks the rendered image and keyboard focus. Full hosted CI and production-device confirmation remain blocked by [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9).
+
+## Current-frame PNG export reliability (November 2026)
+
+The **PNG exportieren** action now explicitly pauses playback, refreshes the current canvas backing size from its actual preview element, cancels any deferred stale redraw, and **renders the latest scene synchronously** before the browser calls `canvas.toBlob('image/png')`.
+
+Previously, changing a scene or device queued its canvas redraw for the next animation frame. Clicking export immediately after such a change could capture the *previous* scene or previous-sized buffer instead of the current selection. The export-specific `engine.renderForExport()` method returns `false` when the canvas is hidden, destroyed or still playing, so the UI reports a failure instead of silently exporting an invalid capture.
+
+The renderer retains its ~1.6-megapixel canvas backing-buffer limit. Exporting does not restart motion and is still a PNG of the Canvas content **only**, not the surrounding HTML overlay, labels or controls. Normal idle rendering remains animation-frame scheduled for responsiveness.
+
+Regression coverage:
+- `tests/motion-snapshot.test.mjs`: exercise the actual engine without completing any scheduled animation frame; verify synchronous painting, current scene, updated iPhone-style dimensions, frame cancellation, paused state and cleanup.
+- `tests/browser/motion-studio.spec.js`: download PNG after choosing Vector Bloom and iPhone/Android preview sizes, inspect actual PNG dimensions and check that distinct previews produce distinct image bytes on Chromium.
+- Full hosted CI and physical-device export verification remain separate release gates while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is open.

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 
 const studio = '/motion-studio.html'
 
@@ -232,4 +233,33 @@ test('focusable canvas supports arrow keys and Home without starting animation',
   const reset = await canvas.evaluate(element => element.toDataURL('image/png'))
   expect(reset).toBe(initial)
   await expect(page.locator('#ui-loop-play')).toHaveAttribute('aria-pressed', 'false')
+})
+
+test('PNG captures the latest scene and chosen responsive device size', async ({page,browserName}) => {
+  test.skip(browserName==='webkit','Safari download behavior varies across contexts')
+  const compact=await page.evaluate(()=>matchMedia('(max-width:850px)').matches)
+  if(compact)await page.locator('#ui-loop-mobile-catalog').click()
+  await page.locator('#ui-loop-scene-list button[data-scene="vector-bloom"]').click()
+  await expect(page.locator('#ui-loop-title')).toContainText('Vector')
+
+  let lastImage=null
+  for(const device of ['iphone','android']){
+    await page.locator('.ui-loop-device-buttons button[data-device="'+device+'"]').click()
+    const downloadPromise=page.waitForEvent('download')
+    await page.locator('#ui-loop-save-image').click()
+    const download=await downloadPromise
+    expect(download.suggestedFilename()).toBe('red-loop-vector-bloom.png')
+    const image=await readFile(await download.path())
+    expect(image.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))).toBe(true)
+    const pngWidth=image.readUInt32BE(16)
+    const pngHeight=image.readUInt32BE(20)
+    const canvasDimensions=await page.locator('#ui-loop-canvas').evaluate(canvas=>[canvas.width,canvas.height])
+    expect([pngWidth,pngHeight]).toEqual(canvasDimensions)
+    expect(pngWidth*pngHeight).toBeGreaterThan(0)
+    expect(pngWidth*pngHeight).toBeLessThanOrEqual(1605000)
+    expect(image.length).toBeGreaterThan(1000)
+    if(lastImage)expect(image.equals(lastImage)).toBe(false)
+    lastImage=image
+  }
+  await expect(page.locator('#ui-loop-play')).toHaveAttribute('aria-pressed','false')
 })
