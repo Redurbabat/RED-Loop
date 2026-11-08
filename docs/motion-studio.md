@@ -130,3 +130,14 @@ At browser widths **850px and below**, the catalog behaves as an explicit modal 
 - Reduced-transparency users receive a more opaque backdrop, and the existing reduced-motion preference disables drawer transitions.
 
 Regression coverage includes HTML/control assertions and Playwright scenarios for focus wrap, inert background, closing, outside taps and focus restoration on compact viewports. Since GitHub Actions is currently blocked (issue #9), the new browser tests are committed but their successful hosted execution must still be confirmed.
+
+## Session favorites and quick catalog filter (November 2026)
+
+A dedicated **★ Gemerkte (N)** filter now appears alongside the existing categories. It shows only scenes bookmarked with the existing **Merken** control, including a small star marker and accessible `gemerkt` announcement for each bookmarked catalog entry. The count updates immediately, even if a different category or search filter is currently selected.
+
+- Bookmarks and catalog filters remain **session-only in memory**, with no `localStorage` or server persistence.
+- Favoriting/unfavoriting does **not** reselect the scene, reset its parameters, change its URL or stop a running animation. Switching to a different scene still pauses playback as before.
+- The favorites filter combines with the existing text search. When no scenes are saved, it displays a specific explanation with the `Merken` action; an ordinary unmatched search retains the original no-results message.
+- Both desktop and compact-screen catalogs use the same category and count state. The mobile dialog/accessibility behavior from PR #13 is unchanged.
+
+Regression tests exercise the real entrypoint in jsdom (bookmark count, exact filtered entries, empty state and uninterrupted playback) and Playwright at the configured viewport profiles. The GitHub-hosted CI runner remains blocked under [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9); a merged test is not evidence that CI or production deployment passed.
