@@ -13,6 +13,8 @@ export const scenes = Object.freeze([
   {id:'glass-filament',name:'Glass Filament',category:'Material',description:'Transparente Lichtfilamente spannen ein optisches Gewebe mit sanfter Tiefenreaktion.',tags:['Filament','Glass','Waves']},
   {id:'iris-caustics',name:'Iris Caustics',category:'Lichtfelder',description:'Gebrochene Lichtkonturen formen eine präzise Iris und verschieben sich mit dem Zeiger.',tags:['Caustics','Refraction','Iris']},
   {id:'prism-veil',name:'Prism Veil',category:'Material',description:'Geschichtete Glasflächen falten sich zu einem dezenten, räumlichen Prisma mit irisierenden Reflexionskanten.',tags:['Glass','Refraction','Panels']},
+  {id:'aurora-threads',name:'Aurora Threads',category:'Lichtfelder',description:'Schwebende Lichtfäden legen sich in sanften Bögen über mehrere Tiefenebenen und folgen deinem Fokus.',tags:['Aurora','Light','Ribbons']},
+  {id:'mercury-droplets',name:'Mercury Droplets',category:'Material',description:'Metallisch reflektierende Flüssigkeitstropfen reagieren mit subtiler räumlicher Verschiebung auf deinen Zeiger.',tags:['Liquid','Metal','Reflections']},
   {id:'vector-bloom',name:'Vector Bloom',category:'Lichtfelder',description:'Ein präzises Feld fein gekrümmter Lichtvektoren öffnet sich um einen interaktiven Fokuspunkt.',tags:['Vectors','Focus','Radial']},
 ]);
 
@@ -233,6 +235,77 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
       ctx.stroke();
     }
   }
+
+  // Independent optical studies; deterministic geometry also renders as a still.
+  function auroraThreads(t){
+    const strands=Math.round(16+config.density*.29);
+    const depth=config.depth/100;
+    const focus=pointer.inside?(pointer.x+1)*.5:.5;
+    const focusY=pointer.inside?pointer.y:0;
+    ctx.lineCap='round';
+    for(let n=0;n<strands;n++){
+      const v=n/(strands-1);
+      const layer=Math.sin(v*Math.PI);
+      ctx.beginPath();
+      const points=72;
+      for(let i=0;i<=points;i++){
+        const u=i/points;
+        const envelope=Math.sin(u*Math.PI);
+        const ripple=Math.sin(u*8.8+t*.46+v*5.4)*.067;
+        const whisper=Math.sin(u*21.3-t*.24-v*7.2)*.018;
+        const field=Math.exp(-Math.pow(u-focus,2)*14)*focusY*.10;
+        const x=width*(.06+u*.88);
+        const y=height*(.28+v*.44+(ripple+whisper)*depth*envelope+field*envelope);
+        if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle=color(-67+v*118,62+layer*25,.17+layer*.63);
+      ctx.lineWidth=.55+layer*.88;
+      ctx.stroke();
+      if(n%4===0){
+        // Faint second reflection offsets create optical depth without glow loops.
+        ctx.strokeStyle=color(43+v*42,86,.09+layer*.12);
+        ctx.lineWidth=2.0+depth*.8;
+        ctx.stroke();
+      }
+    }
+  }
+  function mercuryDroplets(t){
+    const count=Math.round(17+config.density*.36);
+    const depth=config.depth/100;
+    const unit=Math.min(width,height);
+    const offsetX=pointer.inside?pointer.x*width*.052:0;
+    const offsetY=pointer.inside?pointer.y*height*.047:0;
+    ctx.lineWidth=.85;
+    for(let i=0;i<count;i++){
+      const u=(Math.sin(i*127.1+3.3)*43758.5453)%1;
+      const v=(Math.sin(i*73.7+19.1)*24634.6345)%1;
+      const fx=Math.abs(u),fy=Math.abs(v);
+      const depthPlane=.4+.6*Math.abs(Math.sin(i*2.13));
+      const radius=unit*(.010+depthPlane*.025+Math.abs(Math.sin(i*.93))*.011);
+      const spin=t*(.11+(i%5)*.012);
+      const x=width*(.12+fx*.76)+offsetX*depthPlane+Math.cos(i*.7+spin)*unit*.025*depth;
+      const y=height*(.14+fy*.70)+offsetY*depthPlane+Math.sin(i*.9-spin)*unit*.028*depth;
+      const rotation=Math.sin(i*.77+spin)*.35;
+      const glass=ctx.createRadialGradient(x-radius*.32,y-radius*.34,radius*.045,x,y,radius*1.08);
+      glass.addColorStop(0,color(-26+i*2.8,93,.89));
+      glass.addColorStop(.36,color(18+i*3.1,64,.55));
+      glass.addColorStop(.84,color(-54+i*1.7,35,.35));
+      glass.addColorStop(1,color(40,31,.04));
+      ctx.beginPath();
+      ctx.ellipse(x,y,radius,radius*(.73+depthPlane*.21),rotation,0,TAU);
+      ctx.fillStyle=glass;
+      ctx.fill();
+      ctx.strokeStyle=color(-30+i*2,84,.15+depthPlane*.35);
+      ctx.stroke();
+      // A small separate edge highlight reinforces the liquid-metal surface.
+      ctx.beginPath();
+      ctx.ellipse(x-radius*.26,y-radius*.29,radius*.32,radius*.18,rotation,-2.8,-.35);
+      ctx.strokeStyle=color(14,93,.46+depthPlane*.38);
+      ctx.lineWidth=Math.max(.45,radius*.045);
+      ctx.stroke();
+    }
+  }
+
   function vectorBloom(t){
     const rays=Math.round(54+config.density*1.2),depth=config.depth/100;
     const cx=width*(.5+(pointer.inside?pointer.x*.12:0));
@@ -276,6 +349,8 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
       case 'glass-filament':filament(t);break;
       case 'iris-caustics':caustics(t);break;
       case 'prism-veil':prismVeil(t);break;
+      case 'aurora-threads':auroraThreads(t);break;
+      case 'mercury-droplets':mercuryDroplets(t);break;
       case 'vector-bloom':vectorBloom(t);break;
       default:fold(t);
     }
