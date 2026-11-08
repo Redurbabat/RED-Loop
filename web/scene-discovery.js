@@ -3,7 +3,7 @@
  * Uses local metadata only, never requests cloud jobs or sends search terms.
  */
 import {scenes} from './motion-engine.js';
-import {motionFavoritesStorageKey,readMotionFavorites} from './motion-favorites.js';
+import {motionFavoritesStorageKey,readMotionFavorites,saveMotionFavorites} from './motion-favorites.js';
 import {observeStaticMotionThumbnails} from './motion-thumbnails.js';
 
 const categories=['Alle','Gemerkte',...new Set(scenes.map(scene=>scene.category))];
@@ -39,6 +39,7 @@ export function initMotionDiscovery(doc=document){
   const count=doc.getElementById('scene-discovery-count');
   const empty=doc.getElementById('scene-discovery-empty');
   const reset=doc.getElementById('scene-discovery-reset');
+  const feedback=doc.getElementById('scene-discovery-feedback');
   const stored=(()=>{try{return win.localStorage}catch{return null}})();
   let savedIds=new Set(readMotionFavorites(stored,sceneIds));
   let category='Alle';
@@ -46,9 +47,13 @@ export function initMotionDiscovery(doc=document){
 
   function render(){
     const focusedScene=doc.activeElement?.closest?.('#scene-discovery-results a[data-scene]')?.dataset.scene;
+    const focusedBookmark=doc.activeElement?.closest?.('#scene-discovery-results button[data-bookmark]')?.dataset.bookmark;
     const matches=findMotionScenes(scenes,{query:search.value,category,favorites:savedIds});
     const cards=matches.map(scene=>{
       const index=scenes.findIndex(item=>item.id===scene.id)+1;
+      const entry=doc.createElement('div');
+      entry.className='scene-discovery-entry';
+      entry.dataset.scene=scene.id;
       const link=doc.createElement('a');
       link.className='scene-discovery-card';
       link.href=motionSceneHref(scene.id);
@@ -78,13 +83,35 @@ export function initMotionDiscovery(doc=document){
       const end=doc.createElement('span');
       end.className='scene-discovery-card-end';
       end.setAttribute('aria-hidden','true');
-      end.textContent=savedIds.has(scene.id)?'★':'↗';
+      end.textContent='↗';
       if(savedIds.has(scene.id))link.setAttribute('aria-label',scene.name+', gemerkt, '+scene.category);
       const content=doc.createElement('span');
       content.className='scene-discovery-card-content';
       content.append(ordinal,details,end);
       link.append(preview,content);
-      return link;
+      const bookmarked=savedIds.has(scene.id);
+      const bookmark=doc.createElement('button');
+      bookmark.type='button';
+      bookmark.className='scene-discovery-bookmark';
+      bookmark.dataset.bookmark=scene.id;
+      bookmark.setAttribute('aria-pressed',String(bookmarked));
+      bookmark.setAttribute('aria-label',bookmarked
+        ?scene.name+' aus Favoriten entfernen'
+        :scene.name+' zu Favoriten hinzufügen');
+      bookmark.textContent=bookmarked?'★':'☆';
+      bookmark.addEventListener('click',()=>{
+        if(savedIds.has(scene.id))savedIds.delete(scene.id);
+        else savedIds.add(scene.id);
+        const persisted=saveMotionFavorites(stored,savedIds,sceneIds);
+        const isSaved=savedIds.has(scene.id);
+        feedback.textContent=isSaved
+          ?(persisted?scene.name+' lokal gemerkt':scene.name+' in dieser Sitzung gemerkt')
+          :scene.name+' aus Favoriten entfernt';
+        render();
+      });
+      // Never nest an interactive favorite button inside the scene link.
+      entry.append(link,bookmark);
+      return entry;
     });
     // Disconnect observation of detached canvases before replacing results.
     stopObservingThumbnails();
@@ -99,7 +126,12 @@ export function initMotionDiscovery(doc=document){
       }
     }
     if(focusedScene){
-      const replacement=cards.find(card=>card.dataset.scene===focusedScene);
+      const replacement=cards.find(card=>card.dataset.scene===focusedScene)
+        ?.querySelector('a[data-scene]');
+      (replacement||search).focus();
+    }else if(focusedBookmark){
+      const replacement=cards.find(card=>card.dataset.scene===focusedBookmark)
+        ?.querySelector('button[data-bookmark]');
       (replacement||search).focus();
     }
     return cards;
