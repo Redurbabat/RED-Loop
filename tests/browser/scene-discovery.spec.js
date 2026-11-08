@@ -117,7 +117,9 @@ test('filtering cleans up thumbnail observers and creates previews for newly vis
   await match.scrollIntoViewIfNeeded();
   await expect(match.locator('canvas')).toHaveAttribute('data-preview-ready','true');
   await expect(match.locator('canvas')).toHaveAttribute('aria-hidden','true');
-  await expect(match.locator('canvas')).toHaveJSProperty('width',await match.locator('canvas').evaluate(el=>el.width));
+  const [pixelWidth,pixelHeight]=await match.locator('canvas').evaluate(canvas=>[canvas.width,canvas.height]);
+  expect(pixelWidth).toBeGreaterThan(1);
+  expect(pixelHeight).toBeGreaterThan(1);
 
   await page.emulateMedia({reducedMotion:'reduce'});
   await search.fill('Iris Caustics');
