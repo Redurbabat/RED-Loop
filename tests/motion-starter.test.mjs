@@ -130,3 +130,11 @@ test('generated HTML module initializes, toggles playback and cleans up on pageh
   cleanup();
   assert.equal(destroyed,true);
 });
+
+test('ZIP CRC32 matches the independent published 123456789 checksum',()=>{
+  const zip=buildStoredZip([{name:'checksum.txt',content:'123456789'}]);
+  const view=new DataView(zip.buffer,zip.byteOffset,zip.byteLength);
+  assert.equal(view.getUint32(14,true),0xcbf43926);
+  const central=view.getUint32(zip.length-22+16,true);
+  assert.equal(view.getUint32(central+16,true),0xcbf43926);
+});
