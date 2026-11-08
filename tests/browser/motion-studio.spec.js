@@ -2,8 +2,23 @@ import { test, expect } from '@playwright/test'
 
 const studio = '/motion-studio.html'
 
+test.beforeEach(async ({ page }) => { await page.goto(studio) })
+
 test.describe('RED Loop Motion Studio', () => {
-  test.beforeEach(async ({ page }) => { await page.goto(studio) })
+
+  test('initializes all catalog controls and updates color profiles without runtime error', async ({ page }) => {
+    await expect(page.locator('#ui-loop-scene-list button')).toHaveCount(10)
+    await expect(page.locator('#ui-loop-usage-source')).toContainText('spectral-fold')
+    await expect(page.locator('.ui-loop-swatches button[data-hue="340"]')).toHaveAttribute('aria-pressed', 'true')
+    await page.locator('#ui-loop-hue').evaluate(input => {
+      input.value = '255'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await expect(page.locator('.ui-loop-swatches button[data-hue="255"]')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('#ui-loop-usage-source')).toContainText('hue: 255')
+    await expect(page).toHaveURL(/hue=255/)
+  })
 
   test('catalog search, scene switching and settings remain functional', async ({ page }) => {
     const compact = await page.evaluate(() => matchMedia('(max-width: 850px)').matches)

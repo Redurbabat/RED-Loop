@@ -104,3 +104,11 @@ The studio provides **five browser viewport presets**: MacBook (wide rounded sta
 **Prism Veil** and **Vector Bloom** use original Canvas 2D geometry with no external shaders, premium assets or additional dependencies. Both are static at rest and react to pointer/touch input or explicit playback. Pointer-cancel is handled to avoid stale touch focus during scroll cancellation. Motion remains disabled by the system's reduced-motion setting.
 
 Node tests now cover ten unique scenes, preview profile markup, drawing and pointer event disposal. New Playwright coverage selects each platform preview and both scenes and checks for horizontal overflow. Full CI and physical-device verification remain release gates; adding tests does not prove a successful remote run.
+
+## Initialization regression fix (November 2026)
+
+Two startup and slider handlers previously called `querySelector('.ui-loop-swatches button').forEach(...)`. The singular selector returns an element rather than a list and causes a `TypeError` during initial preset application. Both handlers now use `querySelectorAll` through the existing `$$` helper.
+
+The browser suite's common `beforeEach` now applies to **all** cases, including previously standalone PNG-export and device-switching cases, so tests cannot run against an empty page. In addition to browser assertions, `tests/motion-studio-startup.test.mjs` imports the **actual** browser entrypoint in a jsdom-backed HTML document with mocked Canvas and browser APIs; it checks preset hydration, all 10 catalog entries, both swatch paths, updated URL and generated usage code.
+
+This is a regression repair, not a new animation or native-client feature. Complete GitHub Actions, deployed-site and physical-device checks remain the independent quality gates. Do not treat a successful GitHub merge as a deployment.
