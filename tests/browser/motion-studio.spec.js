@@ -208,7 +208,7 @@ test('favorites can be filtered without stopping the current animation', async (
   await expect(page.locator('.ui-loop-no-results')).toContainText('Noch nichts gemerkt')
   await expect(filter).toContainText('0')
   await page.locator('#ui-loop-filters button[data-category="Alle"]').click()
-  await expect(items).toHaveCount(10)
+  await expect(items).toHaveCount(12)
 })
 
 test('focusable canvas supports arrow keys and Home without starting animation', async ({ page }) => {
