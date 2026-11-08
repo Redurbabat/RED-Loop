@@ -278,6 +278,8 @@ test('PNG filename remains tied to the scene clicked before asynchronous encodin
   const downloadPromise = page.waitForEvent('download')
   await exportButton.click()
   await expect(exportButton).toBeDisabled()
+  await expect(exportButton).toHaveAttribute('aria-busy','true')
+  await expect(exportButton).toContainText('PNG wird erstellt')
   await expect.poll(() => page.evaluate(() => typeof window.__releasePngDownload)).toBe('function')
 
   const compact = await page.evaluate(() => matchMedia('(max-width:850px)').matches)
@@ -289,6 +291,8 @@ test('PNG filename remains tied to the scene clicked before asynchronous encodin
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('red-loop-spectral-fold.png')
   await expect(exportButton).toBeEnabled()
+  await expect(exportButton).not.toHaveAttribute('aria-busy','true')
+  await expect(exportButton).toContainText('PNG exportieren')
   await expect(page.locator('#ui-loop-toast')).toContainText('PNG zum Herunterladen vorbereitet')
 })
 
@@ -299,4 +303,5 @@ test('invalid PNG data shows an error and restores the export button', async ({ 
   await page.locator('#ui-loop-save-image').click()
   await expect(page.locator('#ui-loop-toast')).toContainText('PNG-Export fehlgeschlagen')
   await expect(page.locator('#ui-loop-save-image')).toBeEnabled()
+  await expect(page.locator('#ui-loop-save-image')).not.toHaveAttribute('aria-busy','true')
 })
