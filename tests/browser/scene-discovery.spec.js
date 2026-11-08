@@ -86,3 +86,42 @@ test('discovery cards fit phone, tablet and desktop preview widths',async({page}
     expect(withinViewport).toBe(true);
   }
 });
+
+test('lazy static thumbnails reveal the original scene without auto-playing',async({page})=>{
+  const first=page.locator('#scene-discovery-results a[data-scene="spectral-fold"] canvas');
+  await first.scrollIntoViewIfNeeded();
+  await expect(first).toHaveAttribute('data-preview-ready','true');
+  const initial=await first.evaluate(canvas=>canvas.toDataURL('image/png'));
+  const dims=await first.evaluate(canvas=>[canvas.width,canvas.height]);
+  expect(dims[0]).toBeGreaterThan(1);
+  expect(dims[1]).toBeGreaterThan(1);
+  await page.waitForTimeout(350);
+  expect(await first.evaluate(canvas=>canvas.toDataURL('image/png'))).toBe(initial);
+
+  const second=page.locator('#scene-discovery-results a[data-scene="vector-bloom"] canvas');
+  await second.scrollIntoViewIfNeeded();
+  await expect(second).toHaveAttribute('data-preview-ready','true');
+  expect(await second.evaluate(canvas=>canvas.toDataURL('image/png'))).not.toBe(initial);
+  await expect(page.locator('#scene-discovery-results canvas[data-scene]')).toHaveCount(10);
+});
+
+test('filtering cleans up thumbnail observers and creates previews for newly visible matches',async({page})=>{
+  const search=page.locator('#scene-discovery-search');
+  const first=page.locator('#scene-discovery-results a[data-scene="spectral-fold"] canvas');
+  await first.scrollIntoViewIfNeeded();
+  await expect(first).toHaveAttribute('data-preview-ready','true');
+
+  await search.fill('Glass Filament');
+  const match=page.locator('#scene-discovery-results a[data-scene="glass-filament"]');
+  await expect(page.locator('#scene-discovery-results a[data-scene]')).toHaveCount(1);
+  await match.scrollIntoViewIfNeeded();
+  await expect(match.locator('canvas')).toHaveAttribute('data-preview-ready','true');
+  await expect(match.locator('canvas')).toHaveAttribute('aria-hidden','true');
+  await expect(match.locator('canvas')).toHaveJSProperty('width',await match.locator('canvas').evaluate(el=>el.width));
+
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await search.fill('Iris Caustics');
+  const iris=page.locator('#scene-discovery-results a[data-scene="iris-caustics"] canvas');
+  await iris.scrollIntoViewIfNeeded();
+  await expect(iris).toHaveAttribute('data-preview-ready','true');
+});
