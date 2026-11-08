@@ -12,7 +12,7 @@ The component finder is a frontend-only convenience. Cloud jobs, demo state, int
 - Choose **Alle**, **★ Gemerkte**, **Partikel**, **Lichtfelder** or **Material**, then combine that category with the search box. The number of matches is announced through a polite live status.
 - Use **↓** in the search box to focus the first scene; **Enter** with a nonempty query opens its first result. When focused on a card, **↑/↓**, **Home/End** navigate the results. Cards remain ordinary links and therefore support browser open-in-new-tab actions.
 - Click a result to open exactly that scene via a URL like `/motion-studio.html?scene=glass-filament`. The URL is built only from scene IDs in the known source catalog.
-- See locally saved favorite scenes first under **Alle**, or use **★ Gemerkte (N)** to show only bookmarked scenes. Existing Motion Studio bookmarks synchronize between same-origin tabs without transferring anything to a server.
+- **Bookmark or remove an effect directly on its homepage card** using the separate 44×44px star button. The card itself remains an ordinary navigable link; the star button is a sibling, never an interactive element nested inside the link. Saved scenes appear first under **Alle**, or use **★ Gemerkte (N)** to show only bookmarks. The same local bookmarks are visible in Motion Studio and synchronize between browser tabs.
 - Recover from an empty search with **Suche zurücksetzen**. If JavaScript is disabled, a regular link to Motion Studio remains available.
 
 The gallery automatically adopts the existing light/dark/system theme. It shows four cards per row on wide screens, three or two on intermediate viewports and a single-column touch-friendly layout on narrow phones. **Each card now contains an original Canvas thumbnail drawn from the canonical scene engine**; the image is decorative and the full card remains an accessible, keyboard-focusable link. Animations do not auto-play, so the homepage gallery adds no continuous motion.
@@ -53,3 +53,15 @@ Each preview is marked `aria-hidden="true"`; the scene name, category and descri
 Coverage: `tests/motion-thumbnails.test.mjs` checks lifecycle cleanup, failure fallback, observation, unobserving, older browsers and retries. The existing homepage DOM regression now requires 10 matched, decorative canvases; Playwright checks that visible thumbnails paint, differ between scenes, stay pixel-identical over time, survive filtering and respect reduced motion.
 
 **Release gate:** full hosted CI and visual production/device tests remain unverified until [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is resolved.
+
+## Direct homepage bookmark controls (November 2026)
+
+Each homepage gallery entry now has **two distinct actions**: clicking the card opens its original scene in Motion Studio, while pressing the star in its top-right corner immediately bookmarks or unbookmarks it without navigation. The star is a separate native `<button type="button">` **outside** the card's `<a>`, so pointer, keyboard and assistive-technology users are not trapped in invalid nested interactive controls.
+
+The button has a minimum **44 × 44 CSS-pixel touch target**, visible high-contrast focus styling, `aria-pressed`, and a full scene-specific accessible name. A polite status announces whether the bookmark was saved locally, held in memory only (when storage is disabled), or removed. The ★ Gemerkte filter and result ordering update immediately; when a result disappears from the favorites view, keyboard focus returns to search. Otherwise focus stays on the matching newly rendered star button.
+
+This reuses `saveMotionFavorites` and the same **`red-loop.motion-studio.favorites.v1`** key as Motion Studio. No new user data or requests are introduced. As previously, only valid scene IDs are stored and open same-origin tabs receive updates through the native storage event. Bookmarks are local to the same browser storage partition, not synchronized between devices.
+
+Regression coverage extends the real homepage DOM tests and Playwright specs for direct marking/removal, storage fallback, link-versus-button separation, focus preservation, and sync to an already-open Motion Studio tab. The dedicated observer for static thumbnails is disconnected and rebuilt when the card order changes, as with existing filters.
+
+**Current limitation:** hosted CI, Playwright rendering and physical-device verification remain unconfirmed while [issue #9](https://github.com/Redurbabat/RED-Loop/issues/9) is unresolved.
