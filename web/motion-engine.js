@@ -328,17 +328,38 @@ export function createMotionEngine(canvas,{onStateChange=()=>{}}={}) {
     if(!running){pointer={...targetPointer};renderOnce();}
   }
   function leave(){targetPointer.inside=false;if(!running){pointer.inside=false;renderOnce();}}
+  function onKeyDown(event){
+    if(event.altKey||event.ctrlKey||event.metaKey)return;
+    const increments={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+    const direction=increments[event.key];
+    if(!direction&&event.key!=='Home')return;
+    event.preventDefault();
+    if(event.key==='Home'){
+      targetPointer={x:0,y:0,inside:false};
+    }else{
+      const step=event.shiftKey?.3:.15;
+      const base=targetPointer.inside?targetPointer:{x:0,y:0};
+      targetPointer={
+        x:clamp(base.x+direction[0]*step,-1,1),
+        y:clamp(base.y+direction[1]*step,-1,1),
+        inside:true,
+      };
+    }
+    if(!running){pointer={...targetPointer};renderOnce();}
+  }
   function onVisibility(){if(document.hidden)setPlaying(false);}
   function onReduced(){if(media.matches)setPlaying(false);renderOnce();}
   const observer=new ResizeObserver(resize);observer.observe(canvas);
   canvas.addEventListener('pointermove',move,{passive:true});
   canvas.addEventListener('pointerleave',leave);
   canvas.addEventListener('pointercancel',leave);
+  canvas.addEventListener('keydown',onKeyDown);
+  canvas.addEventListener('blur',leave);
   document.addEventListener('visibilitychange',onVisibility);
   media.addEventListener('change',onReduced);
   resize();
   return { configure,setPlaying,resize,
     get running(){return running},get settings(){return {...config}},
-    destroy(){if(destroyed)return;setPlaying(false);destroyed=true;cancelAnimationFrame(frame);cancelAnimationFrame(redrawFrame);observer.disconnect();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);canvas.removeEventListener('pointercancel',leave);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);},
+    destroy(){if(destroyed)return;setPlaying(false);destroyed=true;cancelAnimationFrame(frame);cancelAnimationFrame(redrawFrame);observer.disconnect();canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerleave',leave);canvas.removeEventListener('pointercancel',leave);canvas.removeEventListener('keydown',onKeyDown);canvas.removeEventListener('blur',leave);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);},
   };
 }
