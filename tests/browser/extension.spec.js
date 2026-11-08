@@ -151,3 +151,31 @@ test.describe('natural background visibility',()=>{
     expect(await page.evaluate(()=>window.sends)).toBe(0);await other.close();
   });
 });
+
+test('two chats run their own loops side by side in one browser',async({page,context})=>{
+  test.setTimeout(150000);
+  const fixture=id=>`<!doctype html><html lang="de"><body><div data-message-author-role="assistant">Antwort in ${id}.</div><div id="prompt-textarea" contenteditable="true"></div><button data-testid="send-button">Senden</button><script>window.sends=0;document.querySelector('button').onclick=()=>{window.sends++;document.querySelector('#prompt-textarea').textContent='';document.querySelector('[data-message-author-role]').textContent='Antwort ${id} Nummer '+window.sends;};<\/script></body></html>`;
+  await context.route('https://chatgpt.com/c/chat-a*',route=>route.fulfill({contentType:'text/html',body:fixture('A')}));
+  await context.route('https://chatgpt.com/c/chat-b*',route=>route.fulfill({contentType:'text/html',body:fixture('B')}));
+  const second=await context.newPage();
+  await page.goto('https://chatgpt.com/c/chat-a');await second.goto('https://chatgpt.com/c/chat-b');
+  for (const [view,limit] of [[page,'2'],[second,'3']]) {
+    await expect(view.locator('#red-loop-root')).toBeVisible();
+    await view.locator('#rl-background').check();await view.locator('#rl-limit').fill(limit);
+    await view.locator('#rl-prompt').fill('Mach beim nächsten Schritt weiter.');
+  }
+  // Only one tab can be focused; the background option is what lets the other
+  // one keep working, which is the whole point of running several chats.
+  await page.bringToFront();await page.locator('.rl-start').click();
+  await second.locator('.rl-start').click();
+  await expect.poll(()=>page.evaluate(()=>window.sends),{timeout:60000}).toBeGreaterThanOrEqual(1);
+  await expect.poll(()=>second.evaluate(()=>window.sends),{timeout:60000}).toBeGreaterThanOrEqual(1);
+  // Playwright reports focus for every page, so genuine hidden/unfocused
+  // sending stays the natural-visibility test's job. What this one proves is
+  // that two chats keep separate state and reach their own limits.
+  await expect(page.locator('.rl-status')).toContainText('Limit erreicht',{timeout:60000});
+  await expect(page.locator('.rl-counter')).toContainText('2 / 2');
+  await expect(second.locator('.rl-status')).toContainText('Limit erreicht',{timeout:60000});
+  await expect(second.locator('.rl-counter')).toContainText('3 / 3');
+  await second.close();
+});
