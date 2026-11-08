@@ -13,7 +13,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
     url: 'https://red-loop.example/motion-studio.html?scene=iris-caustics&density=72&hue=255&token=private-value#session-state',
   })
   const keys = ['window', 'document', 'location', 'history', 'Element', 'Event',
-    'ResizeObserver', 'requestAnimationFrame', 'cancelAnimationFrame']
+    'ResizeObserver', 'requestAnimationFrame', 'cancelAnimationFrame', 'fetch']
   const originals = new Map(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]))
   const setGlobal = (key, value) => Object.defineProperty(globalThis, key, {
     configurable: true, writable: true, value,
@@ -46,6 +46,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
     setGlobal('requestAnimationFrame', () => ++nextFrame)
     setGlobal('cancelAnimationFrame', () => {})
     setGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    setGlobal('fetch', async () => ({ ok: true, text: async () => '// Motion engine test source' }))
 
     await import('../web/motion-studio.js?startup-smoke')
 
@@ -132,6 +133,47 @@ test('Motion Studio initializes controls, presets and swatches without an except
     }))
     assert.match(document.querySelector('#ui-loop-title').textContent, /Glass Filament/)
     assert.equal(document.querySelector('#ui-loop-result-status').textContent, '1 Komponente gefunden')
+
+    const tabNames = ['preview', 'code', 'usage']
+    const tabs = tabNames.map(name => document.querySelector('#ui-loop-tab-' + name))
+    const panels = tabNames.map(name => document.querySelector('#ui-loop-' + name + '-panel'))
+    assert.equal(document.querySelector('.ui-loop-tabs').getAttribute('role'), 'tablist')
+    for (let i = 0; i < tabs.length; i++) {
+      assert.equal(tabs[i].getAttribute('role'), 'tab')
+      assert.equal(tabs[i].getAttribute('aria-controls'), panels[i].id)
+      assert.equal(panels[i].getAttribute('role'), 'tabpanel')
+      assert.equal(panels[i].getAttribute('aria-labelledby'), tabs[i].id)
+      assert.equal(tabs[i].getAttribute('aria-selected'), String(i === 0))
+      assert.equal(tabs[i].tabIndex, i === 0 ? 0 : -1)
+      assert.equal(panels[i].hidden, i !== 0)
+    }
+    playButton.click()
+    assert.equal(playButton.getAttribute('aria-pressed'), 'true')
+    tabs[0].focus()
+    tabs[0].dispatchEvent(new dom.window.KeyboardEvent('keydown', {
+      key: 'ArrowRight', bubbles: true, cancelable: true,
+    }))
+    assert.equal(document.activeElement, tabs[1], 'ArrowRight moves to Code')
+    assert.equal(tabs[1].getAttribute('aria-selected'), 'true')
+    assert.equal(panels[1].hidden, false)
+    assert.equal(panels[0].hidden, true)
+    assert.equal(playButton.getAttribute('aria-pressed'), 'false', 'leaving preview pauses playback')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    assert.match(document.querySelector('#ui-loop-code-source').textContent, /Motion engine test source/)
+    tabs[1].dispatchEvent(new dom.window.KeyboardEvent('keydown', {
+      key: 'End', bubbles: true, cancelable: true,
+    }))
+    assert.equal(document.activeElement, tabs[2], 'End focuses Einbau')
+    assert.equal(tabs[2].getAttribute('aria-selected'), 'true')
+    assert.equal(panels[2].hidden, false)
+    tabs[2].dispatchEvent(new dom.window.KeyboardEvent('keydown', {
+      key: 'ArrowRight', bubbles: true, cancelable: true,
+    }))
+    assert.equal(document.activeElement, tabs[0], 'ArrowRight wraps to Preview')
+    assert.equal(panels[0].hidden, false)
+    assert.equal(tabs[0].tabIndex, 0)
+    assert.equal(tabs[2].tabIndex, -1)
+    assert.equal(playButton.getAttribute('aria-pressed'), 'false', 'returning does not auto-play')
   } finally {
     dom.window.close()
     for (const [key, original] of originals) {
