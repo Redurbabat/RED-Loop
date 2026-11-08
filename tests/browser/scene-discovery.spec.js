@@ -4,8 +4,8 @@ test.beforeEach(async({page})=>{await page.goto('/');});
 
 test('dashboard finds original motion components by text and category and opens the selected scene',async({page})=>{
   const grid=page.locator('#scene-discovery-results');
-  await expect(grid.locator('a[data-scene]')).toHaveCount(10);
-  await expect(page.locator('#scene-discovery-count')).toHaveText('10 Komponenten gefunden');
+  await expect(grid.locator('a[data-scene]')).toHaveCount(12);
+  await expect(page.locator('#scene-discovery-count')).toHaveText('12 Komponenten gefunden');
   const material=page.locator('#scene-discovery-filters button[data-category="Material"]');
   await material.click();
   await expect(material).toHaveAttribute('aria-pressed','true');
@@ -34,7 +34,7 @@ test('homepage discovery supports direct keyboard search and clear empty results
   await expect(page.locator('#scene-discovery-empty')).toBeVisible();
   await expect(page.locator('#scene-discovery-count')).toHaveText('0 Komponenten gefunden');
   await page.locator('#scene-discovery-reset').click();
-  await expect(grid.locator('a[data-scene]')).toHaveCount(10);
+  await expect(grid.locator('a[data-scene]')).toHaveCount(12);
   await expect(search).toBeFocused();
 
   await search.fill('Iris Caustics');
@@ -78,7 +78,7 @@ test('discovery cards fit phone, tablet and desktop preview widths',async({page}
     await page.setViewportSize({width,height:850});
     await expect(page.locator('#scene-discovery')).toBeVisible();
     const grid=page.locator('#scene-discovery-results');
-    await expect(grid.locator('a[data-scene]')).toHaveCount(10);
+    await expect(grid.locator('a[data-scene]')).toHaveCount(12);
     const withinViewport=await page.locator('#scene-discovery').evaluate(el=>{
       const rect=el.getBoundingClientRect();
       return rect.left>=-1&&rect.right<=window.innerWidth+1;
@@ -102,7 +102,7 @@ test('lazy static thumbnails reveal the original scene without auto-playing',asy
   await second.scrollIntoViewIfNeeded();
   await expect(second).toHaveAttribute('data-preview-ready','true');
   expect(await second.evaluate(canvas=>canvas.toDataURL('image/png'))).not.toBe(initial);
-  await expect(page.locator('#scene-discovery-results canvas[data-scene]')).toHaveCount(10);
+  await expect(page.locator('#scene-discovery-results canvas[data-scene]')).toHaveCount(12);
 });
 
 test('filtering cleans up thumbnail observers and creates previews for newly visible matches',async({page})=>{
