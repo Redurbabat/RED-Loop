@@ -33,6 +33,9 @@ export function observeStaticMotionThumbnails(root,{win=root?.ownerDocument?.def
   const previews=[...root.querySelectorAll('canvas[data-scene]')];
   const paintOnce=canvas=>{
     if(canvas.dataset.previewReady==='true')return;
+    // Invisible/zero-size canvases must not create engines or allocations.
+    const rect=canvas.getBoundingClientRect?.();
+    if(!rect||rect.width<=0||rect.height<=0)return;
     if(paint(canvas,canvas.dataset.scene))canvas.dataset.previewReady='true';
   };
   if(typeof win?.IntersectionObserver!=='function'){
