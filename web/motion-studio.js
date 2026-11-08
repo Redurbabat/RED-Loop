@@ -151,6 +151,7 @@ function initializeFilters(){
 }
 searchInput.addEventListener('input',()=>{search=searchInput.value.trim();updateCatalog();});
 searchInput.addEventListener('keydown',event=>{
+  if(event.altKey||event.ctrlKey||event.metaKey)return;
   const results=$('#ui-loop-scene-list button[data-scene]');
   if((event.key==='ArrowDown'||event.key==='ArrowUp')&&results.length){
     event.preventDefault();
@@ -166,6 +167,7 @@ searchInput.addEventListener('keydown',event=>{
   }
 });
 $('#ui-loop-scene-list').addEventListener('keydown',event=>{
+  if(event.altKey||event.ctrlKey||event.metaKey)return;
   if(!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
   const results=$('#ui-loop-scene-list button[data-scene]');
   const index=results.indexOf(event.target);
