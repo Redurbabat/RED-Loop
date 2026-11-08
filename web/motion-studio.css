@@ -190,3 +190,9 @@ button,input,a{font:inherit}button{cursor:pointer}button:disabled{cursor:not-all
   .ui-loop-sidebar-mobile-head{display:flex;align-items:center;justify-content:space-between;gap:14px;color:var(--ui-loop-text);font-size:11px;font-weight:600;letter-spacing:.05em;margin:-12px 0 24px}
   .ui-loop-sidebar-mobile-head button{width:44px;height:44px;display:grid;place-items:center;color:var(--ui-loop-text);background:var(--ui-loop-surface);border:1px solid var(--ui-loop-line);border-radius:10px;font-size:16px}
 }
+
+/* Keyboard interaction is opt-in and indicated only while the Canvas has focus. */
+.ui-loop-stage canvas:focus-visible{outline:2px solid #f4bad5;outline-offset:-4px}
+.ui-loop-canvas-help{margin:11px 18px 2px;color:var(--ui-loop-muted);font-size:11px;line-height:1.55}
+@media(max-width:550px){.ui-loop-canvas-help{margin-inline:12px;font-size:10px}}
+@media(forced-colors:active){.ui-loop-stage canvas:focus-visible{outline:3px solid Highlight}}

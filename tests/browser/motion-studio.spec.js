@@ -209,3 +209,27 @@ test('session favorites can be filtered without stopping the current animation',
   await page.locator('#ui-loop-filters button[data-category="Alle"]').click()
   await expect(items).toHaveCount(10)
 })
+
+test('focusable canvas supports arrow keys and Home without starting animation', async ({ page }) => {
+  const canvas = page.locator('#ui-loop-canvas')
+  await expect(canvas).toHaveAttribute('tabindex', '0')
+  await expect(canvas).toHaveAttribute('aria-describedby', 'ui-loop-canvas-help')
+  await canvas.focus()
+  await expect(canvas).toBeFocused()
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  const initial = await canvas.evaluate(element => element.toDataURL('image/png'))
+  const beforeScroll = await page.evaluate(() => window.scrollY)
+
+  await page.keyboard.press('ArrowRight')
+  await page.evaluate(() => new Promise(requestAnimationFrame))
+  const moved = await canvas.evaluate(element => element.toDataURL('image/png'))
+  expect(moved).not.toBe(initial)
+  await expect(page.locator('#ui-loop-play')).toHaveAttribute('aria-pressed', 'false')
+  expect(await page.evaluate(() => window.scrollY)).toBe(beforeScroll)
+
+  await page.keyboard.press('Home')
+  await page.evaluate(() => new Promise(requestAnimationFrame))
+  const reset = await canvas.evaluate(element => element.toDataURL('image/png'))
+  expect(reset).toBe(initial)
+  await expect(page.locator('#ui-loop-play')).toHaveAttribute('aria-pressed', 'false')
+})
