@@ -129,6 +129,16 @@ class ScriptSourceTest {
     }
 
     @Test
+    fun `sha256 pin rejects a modified script even with a newer version and valid markers`() {
+        val bundled = body(version = "1.0.0")
+        val modified = "// modified remote source\n" + bundled
+        assertNotNull(ScriptSource.validate(modified))
+        assertTrue(ScriptSource.trusted(bundled, bundled))
+        assertFalse(ScriptSource.trusted(modified, bundled))
+        assertFalse(ScriptSource.trusted(body(version = "9.9.9"), bundled))
+    }
+
+    @Test
     fun `the version comes from the user script header`() {
         assertEquals("1.2.3", ScriptSource.version(body(version = "1.2.3")))
         assertEquals("unbekannt", ScriptSource.version("(() => {})();"))

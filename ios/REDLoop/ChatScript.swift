@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Where the in-app continuation script came from.
 enum ChatScriptSource: String, Sendable {
@@ -41,11 +42,9 @@ struct ChatScriptTransfer: ChatScriptTransferring {
     }
 }
 
-/// Loads the continuation script for the in-app ChatGPT view. The published
-/// Worker copy wins, so a ChatGPT layout change can be fixed with a deploy
-/// instead of a new build; the cached and bundled copies keep the view usable
-/// offline. The script is injected into a page where the user is signed in to
-/// ChatGPT, so only HTTPS and only the configured private server are accepted.
+/// Loads scripts only when their SHA-256 matches the copy bundled inside the
+/// signed app. Changed remote versions require a trusted app update until a
+/// separate cryptographically signed release channel is available.
 struct ChatScriptLoader {
     static let path = "/red-loop-webview.js"
     static let resource = "red-loop-webview"
@@ -94,8 +93,7 @@ struct ChatScriptLoader {
         return parts.url
     }
 
-    /// A content check, not a trust check: it rejects error pages and truncated
-    /// downloads. Trust rests on HTTPS to the owner's own Worker.
+    /// A structural check, complemented by SHA-256 trust validation in script().
     static func validate(_ data: Data) throws -> String {
         guard data.count <= maxBytes else { throw ChatScriptError.tooLarge }
         guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { throw ChatScriptError.rejected }
@@ -103,6 +101,12 @@ struct ChatScriptLoader {
         guard required.allSatisfy(text.contains),
               text.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix(")();") else { throw ChatScriptError.rejected }
         return text
+    }
+
+    /// The signed app bundle is the independent trust anchor. Hash pinning
+    /// detects a modified script even if all markers and versions appear valid.
+    static func trusted(_ candidate: String, bundled: String) -> Bool {
+        Array(SHA256.hash(data: Data(candidate.utf8))) == Array(SHA256.hash(data: Data(bundled.utf8)))
     }
 
     static func version(in body: String) -> String {
@@ -143,11 +147,12 @@ struct ChatScriptLoader {
     /// not redeployed must not quietly take features away.
     func script(allowCloud: Bool = true) async throws -> ChatScript {
         var failure: Error?
-        let bundledBody = bundled()
-        let floor = bundledBody.map { ChatScriptLoader.version(in: $0) }
+        // With no bundled trust anchor, never execute downloaded or cached code.
+        guard let bundledBody = bundled() else { throw ChatScriptError.missing }
+        let floor = ChatScriptLoader.version(in: bundledBody)
         func acceptable(_ body: String) -> Bool {
-            guard let floor else { return true }
-            return ChatScriptLoader.atLeast(ChatScriptLoader.version(in: body), floor)
+            ChatScriptLoader.atLeast(ChatScriptLoader.version(in: body), floor)
+                && ChatScriptLoader.trusted(body, bundled: bundledBody)
         }
 
         if allowCloud, let url = ChatScriptLoader.scriptURL(server: server) {
@@ -162,13 +167,7 @@ struct ChatScriptLoader {
         if let cached = cached(), acceptable(cached) {
             return ChatScript(source: .cache, version: ChatScriptLoader.version(in: cached), body: cached)
         }
-        if let bundledBody {
-            return ChatScript(source: .bundle, version: ChatScriptLoader.version(in: bundledBody), body: bundledBody)
-        }
-        if let cached = cached() {
-            return ChatScript(source: .cache, version: ChatScriptLoader.version(in: cached), body: cached)
-        }
-        throw failure ?? ChatScriptError.missing
+        return ChatScript(source: .bundle, version: ChatScriptLoader.version(in: bundledBody), body: bundledBody)
     }
 
     /// Settings the script reads before it builds its panel. No credentials.

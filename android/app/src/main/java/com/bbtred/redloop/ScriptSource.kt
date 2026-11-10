@@ -4,6 +4,7 @@ import android.content.Context
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 enum class ScriptOrigin(val label: String) {
     CLOUD("Cloudflare"), CACHE("Zwischenspeicher"), BUNDLE("App")
@@ -13,10 +14,9 @@ data class LoopScript(val origin: ScriptOrigin, val version: String, val body: S
 
 /**
  * The continuation script for the in-app ChatGPT views. The copy published by
- * the private Worker wins, so a ChatGPT layout fix ships with a deploy instead
- * of a new APK; the last good download and the bundled asset are the
- * fallbacks. The script is injected into pages the user is signed in to, so
- * only HTTPS and only the configured private server are accepted.
+ * remote and cached copies are accepted only when SHA-256 matches the
+ * script bundled in the signed APK. A changed script requires a new trusted
+ * build until a separate cryptographically signed update channel exists.
  */
 object ScriptSource {
     const val PATH = "/red-loop-webview.js"
@@ -37,8 +37,7 @@ object ScriptSource {
     }
 
     /**
-     * A content check, not a trust check: it rejects error pages and truncated
-     * downloads. Trust rests on HTTPS to the owner's own Worker.
+     * Structural checks complement the SHA-256 trust pin in load().
      */
     fun validate(text: String?): String? {
         if (text.isNullOrEmpty()) return null
@@ -46,6 +45,14 @@ object ScriptSource {
         if (!REQUIRED.all { text.contains(it) }) return null
         if (!text.trim().endsWith(")();")) return null
         return text
+    }
+
+    /** Fail closed for untrusted remote/cache content despite matching markers. */
+    fun trusted(candidate: String, bundled: String): Boolean {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val expected = digest.digest(bundled.toByteArray(Charsets.UTF_8))
+        val actual = digest.digest(candidate.toByteArray(Charsets.UTF_8))
+        return MessageDigest.isEqual(actual, expected)
     }
 
     fun version(body: String): String {
@@ -96,9 +103,11 @@ object ScriptSource {
     fun load(context: Context, server: String?, allowCloud: Boolean): LoopScript? {
         val bundled = validate(
             runCatching { context.assets.open(ASSET).use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
-        )
-        val floor = bundled?.let { version(it) }
-        val acceptable = { body: String -> floor == null || atLeast(version(body), floor) }
+        ) ?: return null // no trust anchor: do not load unverified remote/cache code
+        val floor = version(bundled)
+        val acceptable = { body: String ->
+            atLeast(version(body), floor) && trusted(body, bundled)
+        }
 
         if (allowCloud) {
             val downloaded = validate(download(url(server)))
@@ -109,8 +118,7 @@ object ScriptSource {
         }
         val cached = validate(runCatching { cacheFile(context).takeIf { it.isFile }?.readText() }.getOrNull())
         if (cached != null && acceptable(cached)) return LoopScript(ScriptOrigin.CACHE, version(cached), cached)
-        if (bundled != null) return LoopScript(ScriptOrigin.BUNDLE, version(bundled), bundled)
-        return cached?.let { LoopScript(ScriptOrigin.CACHE, version(it), it) }
+        return LoopScript(ScriptOrigin.BUNDLE, version(bundled), bundled)
     }
 
     private fun cacheFile(context: Context) = File(context.filesDir, CACHE_NAME)
@@ -123,6 +131,7 @@ object ScriptSource {
                 connectTimeout = 12_000
                 readTimeout = 12_000
                 requestMethod = "GET"
+                instanceFollowRedirects = false
                 setRequestProperty("User-Agent", "REDLoop-App")
             }
             if (connection.responseCode != 200) return null

@@ -76,36 +76,61 @@ final class ChatScriptTests: XCTestCase {
         XCTAssertEqual(ChatScriptLoader.version(in: "(() => {})();"), "unbekannt")
     }
 
+    private func trustedBundledScript() throws -> String {
+        let url = try XCTUnwrap(Bundle.main.url(forResource: ChatScriptLoader.resource, withExtension: "js"))
+        return try ChatScriptLoader.validate(Data(contentsOf: url))
+    }
+
     func testCloudCopyIsPreferredAndCached() async throws {
-        let loader = ChatScriptLoader(transfer: StubTransfer(result: .success(Data(body(version: "9.9.9").utf8))),
+        let loader = ChatScriptLoader(transfer: StubTransfer(result: .success(Data(try trustedBundledScript().utf8))),
                                       bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
         let script = try await loader.script()
         XCTAssertEqual(script.source, .cloud)
-        XCTAssertEqual(script.version, "9.9.9")
+        XCTAssertEqual(script.version, try ChatScriptLoader.version(in: trustedBundledScript()))
         XCTAssertEqual(StubTransfer.requested.current.first?.absoluteString, "https://example.workers.dev/red-loop-webview.js")
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("red-loop-webview.js").path))
     }
 
     func testAnOfflineServerFallsBackToTheCachedCopy() async throws {
-        let good = ChatScriptLoader(transfer: StubTransfer(result: .success(Data(body(version: "2.0.0").utf8))),
+        let good = ChatScriptLoader(transfer: StubTransfer(result: .success(Data(try trustedBundledScript().utf8))),
                                     bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
         _ = try await good.script()
         let offline = ChatScriptLoader(transfer: StubTransfer(result: .failure(StubError.offline)),
                                        bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
         let script = try await offline.script()
         XCTAssertEqual(script.source, .cache)
-        XCTAssertEqual(script.version, "2.0.0")
+        XCTAssertEqual(script.version, try ChatScriptLoader.version(in: trustedBundledScript()))
     }
 
     func testRejectedDownloadNeverReplacesTheCachedCopy() async throws {
-        let good = ChatScriptLoader(transfer: StubTransfer(result: .success(Data(body(version: "3.0.0").utf8))),
+        let good = ChatScriptLoader(transfer: StubTransfer(result: .success(Data(try trustedBundledScript().utf8))),
                                     bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
         _ = try await good.script()
         let broken = ChatScriptLoader(transfer: StubTransfer(result: .success(Data("<html>login</html>".utf8))),
                                       bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
         let script = try await broken.script()
         XCTAssertEqual(script.source, .cache)
-        XCTAssertEqual(script.version, "3.0.0")
+        XCTAssertEqual(script.version, try ChatScriptLoader.version(in: trustedBundledScript()))
+    }
+
+    func testAlteredValidLookingCloudCopyFallsBackToTrustedBundle() async throws {
+        let trusted = try trustedBundledScript()
+        let altered = "// injected by a compromised publisher\n" + trusted
+        XCTAssertNoThrow(try ChatScriptLoader.validate(Data(altered.utf8)))
+        XCTAssertTrue(ChatScriptLoader.trusted(trusted, bundled: trusted))
+        XCTAssertFalse(ChatScriptLoader.trusted(altered, bundled: trusted))
+        let loader = ChatScriptLoader(transfer: StubTransfer(result: .success(Data(altered.utf8))),
+                                     bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
+        let script = try await loader.script()
+        XCTAssertEqual(script.source, .bundle)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("red-loop-webview.js").path))
+    }
+
+    func testOlderUntrustedCacheDoesNotBypassBundlePin() async throws {
+        try Data(body(version: "99.99.99").utf8).write(to: directory.appendingPathComponent("red-loop-webview.js"))
+        let loader = ChatScriptLoader(transfer: StubTransfer(result: .failure(StubError.offline)),
+                                     bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
+        XCTAssertEqual(try await loader.script().source, .bundle)
     }
 
     func testDisabledCloudLoadingUsesTheBundledCopyAndNeverCallsTheServer() async throws {

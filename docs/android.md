@@ -121,7 +121,7 @@ Die Quelle steht in der Statuszeile unten: *Cloudflare*, *Zwischenspeicher* oder
 
 ## Woher das Skript kommt
 
-Dasselbe wie bei iOS: `userscripts/red-loop.user.js`, geholt von deinem privaten Worker unter `/red-loop-webview.js`, mit der zuletzt geladenen und der mitgelieferten Fassung als Rückfall. `npm run check` erzwingt, dass die mitgelieferte Android-Fassung byteweise mit der Quelle übereinstimmt. Wer auf diesen Worker veröffentlichen kann, bestimmt damit Code, der in deiner angemeldeten ChatGPT-Seite läuft — siehe [In-App-Chat](iphone-chat.md).
+Dasselbe wie bei iOS: `userscripts/red-loop.user.js` wird vom Worker unter `/red-loop-webview.js` geholt. **Vor Ausführung** muss SHA-256 exakt zur Skriptdatei im signierten APK passen. Ein neueres, aber inhaltlich verändertes Cloud- oder Cache-Skript wird verworfen. Die mitgelieferte Version bleibt der sichere Rückfall; fehlt diese, wird kein Skript ausgeführt. Für eine veränderte Skriptversion ist bis zur Einführung signierter Fernupdates ein neuer App-Build nötig. `npm run check` prüft die gemeinsamen Quellen.
 
 ## Grenzen und was nicht geprüft ist
 
