@@ -13,7 +13,7 @@ npm ci
 npm run local:ollama -- --model qwen3:8b --prompt-file auftrag.txt --steps 8 --out .\red-loop-results
 ```
 
-Replace `qwen3:8b` with an actual model returned by `ollama list`. Output reports contain the **full private prompt and AI results**; keep the directory private and outside commits. Maximum 50 steps, bounded response size and an explicit stop after repeated identical results. There is no automatic retry of an uncertain request.
+Replace `qwen3:8b` with an actual model returned by `ollama list`. Output reports contain the **full private prompt and AI results**. The default `red-loop-results/`, `red-loop-local-results/`, and example `auftrag.txt` are ignored by Git; custom output paths must be excluded separately. Keep reports private and outside commits. Maximum 50 steps, bounded response size and an explicit stop after repeated identical results. There is no automatic retry of an uncertain request.
 
 The report records a **model-generated plan**, step outputs, Ollama's reported input/output token counters and the final status. A `completed` state is marked `model_reported`: this program does not compile projects, run scripts or independently verify the model's statements.
 

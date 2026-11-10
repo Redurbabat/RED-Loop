@@ -120,7 +120,7 @@ export class JobEngine {
         if(!['paused','needs_input'].includes(job.status))throw new ApiError(409,'Dieser Auftrag kann nicht fortgesetzt werden.');
         if(job.inflight)throw new ApiError(409,'Die vorherige Anfrage wird noch beendet. Bitte anschließend erneut fortsetzen.');
         if(!this.provider.info.configured)throw new ApiError(409,'Der KI-Zugang ist weiterhin nicht eingerichtet.');
-        if(this.now()>=job.deadlineAt||job.stepCount>=job.maxSteps||this.tokenBudgetReached(job)){job.status='limit_reached';job.summary='Schritt- oder Laufzeitlimit erreicht.';}
+        if(this.now()>=job.deadlineAt||job.stepCount>=job.maxSteps||this.tokenBudgetReached(job)){job.status='limit_reached';job.summary=this.tokenBudgetReached(job)?'Gemeldetes Tokenbudget erreicht.':'Schritt- oder Laufzeitlimit erreicht.';}
         else {job.status='queued';job.summary='Ausdrücklich zur Fortsetzung eingeplant.';delete job.error;}
         job.revision++;
       }else throw new ApiError(404,'Aktion nicht gefunden.');
@@ -149,7 +149,7 @@ export class JobEngine {
       if(this.store.get('meta:lease'))return null;
       for(const job of this.jobs()){
         if(!['queued','running'].includes(job.status)||job.inflight)continue;
-        if(this.now()>=job.deadlineAt||job.stepCount>=job.maxSteps||this.tokenBudgetReached(job)){job.status='limit_reached';job.summary='Schritt- oder Laufzeitlimit erreicht.';job.updatedAt=iso(this.now());this.store.put(jobKey(job.id),job);continue;}
+        if(this.now()>=job.deadlineAt||job.stepCount>=job.maxSteps||this.tokenBudgetReached(job)){job.status='limit_reached';job.summary=this.tokenBudgetReached(job)?'Gemeldetes Tokenbudget erreicht.':'Schritt- oder Laufzeitlimit erreicht.';job.updatedAt=iso(this.now());this.store.put(jobKey(job.id),job);continue;}
         const claim={id:this.uuid(),jobId:job.id,index:job.stepCount+1,revision:job.revision+1};
         job.status='running';job.stepCount=claim.index;job.revision=claim.revision;job.inflight=claim;job.updatedAt=iso(this.now());
         this.store.put(jobKey(job.id),job);this.store.put(stepKey(job.id,claim.index),{index:claim.index,createdAt:job.updatedAt,summary:'KI-Schritt gestartet; Ergebnis steht aus.',output:'',status:'running'});this.store.put('meta:lease',claim);

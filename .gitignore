@@ -20,3 +20,8 @@ extensions/chromium/
 local.properties
 *.apk
 *.aab
+
+# Local Ollama tasks may contain private prompts or model outputs.
+/red-loop-results/
+/red-loop-local-results/
+/auftrag.txt
