@@ -25,3 +25,8 @@ local.properties
 /red-loop-results/
 /red-loop-local-results/
 /auftrag.txt
+
+# Release secrets and unpublished signed bundles never belong in Git.
+/release-secrets/
+/red-loop-signed-release/
+*.release-private.pem
