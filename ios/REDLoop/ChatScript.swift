@@ -146,7 +146,6 @@ struct ChatScriptLoader {
     /// never a copy older than the one shipped with the app. A server that was
     /// not redeployed must not quietly take features away.
     func script(allowCloud: Bool = true) async throws -> ChatScript {
-        var failure: Error?
         // With no bundled trust anchor, never execute downloaded or cached code.
         guard let bundledBody = bundled() else { throw ChatScriptError.missing }
         let floor = ChatScriptLoader.version(in: bundledBody)
@@ -162,7 +161,7 @@ struct ChatScriptLoader {
                     store(body)
                     return ChatScript(source: .cloud, version: ChatScriptLoader.version(in: body), body: body)
                 }
-            } catch { failure = error }
+            } catch { /* Untrusted or unavailable cloud script: use the pinned fallback. */ }
         }
         if let cached = cached(), acceptable(cached) {
             return ChatScript(source: .cache, version: ChatScriptLoader.version(in: cached), body: cached)

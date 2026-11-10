@@ -130,7 +130,8 @@ final class ChatScriptTests: XCTestCase {
         try Data(body(version: "99.99.99").utf8).write(to: directory.appendingPathComponent("red-loop-webview.js"))
         let loader = ChatScriptLoader(transfer: StubTransfer(result: .failure(StubError.offline)),
                                      bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
-        XCTAssertEqual(try await loader.script().source, .bundle)
+        let script = try await loader.script()
+        XCTAssertEqual(script.source, .bundle)
     }
 
     func testDisabledCloudLoadingUsesTheBundledCopyAndNeverCallsTheServer() async throws {
