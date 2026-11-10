@@ -167,3 +167,35 @@ test('OpenAI optional provider uses Responses format and raw output content, nev
   const generated=await provider.run({assignment:input});assert.equal(payload.store,false);assert.equal(payload.text.format.type,'json_schema');assert.equal(payload.text.format.strict,true);assert.equal(generated.result.status,'completed');assert.equal(generated.usage.total_tokens,9);
   const incomplete=createProvider({AI_PROVIDER:'openai',OPENAI_API_KEY:'not-a-real-key'},{fetchImpl:async()=>Response.json({status:'incomplete',usage:{total_tokens:4},output_text:JSON.stringify(result('completed'))})});await assert.rejects(incomplete.run({}),error=>error instanceof ProviderError&&error.usage.total_tokens===4);
 });
+
+test('repeated pure continuations stop safely before a third paid model call',async()=>{
+  let turn=0;
+  const f=await fixture(async()=>({result:result(++turn===3?'completed':'continue',{output:turn===3?'New evidence':'The same answer again.'}),usage:{input_tokens:12,output_tokens:8,total_tokens:20}}));
+  const created=await f.engine.create({...input,maxSteps:6},key(1));
+  await f.engine.alarm();assert.equal((await f.engine.getJob(created.id)).job.status,'running');
+  await f.engine.alarm();
+  const paused=await f.engine.getJob(created.id);
+  assert.equal(paused.job.status,'needs_input');
+  assert.match(paused.job.summary,/Wiederholter KI-Schritt/);
+  assert.equal(paused.steps.length,2);
+  assert.equal(paused.usage.totalTokens,40);
+  assert.equal(paused.usage.inputTokens,24);
+  assert.equal(paused.usage.outputTokens,16);
+  assert.equal(paused.usage.reportedSteps,2);
+  assert.equal(paused.job.verification,null);
+  await f.engine.alarm();assert.equal(f.calls,2);
+  await f.engine.action(created.id,'resume');
+  await f.engine.alarm();
+  const finished=await f.engine.getJob(created.id);
+  assert.equal(finished.job.status,'completed');
+  assert.equal(finished.job.verification,'model_reported');
+  assert.equal(finished.steps.length,3);
+  assert.equal(finished.usage.totalTokens,60);
+});
+test('missing usage is unknown, while alternate provider token counters are counted once',async()=>{
+  const f=await fixture(async()=>({result:result('completed'),usage:{prompt_tokens:6,completion_tokens:4}}));
+  const job=await f.engine.create(input,key(1));
+  assert.deepEqual((await f.engine.getJob(job.id)).usage,{totalTokens:null,inputTokens:null,outputTokens:null,reportedSteps:0});
+  await f.engine.alarm();
+  assert.deepEqual((await f.engine.getJob(job.id)).usage,{totalTokens:10,inputTokens:6,outputTokens:4,reportedSteps:1});
+});

@@ -47,6 +47,14 @@ Create accepts `title` (up to 120 characters), `prompt` (up to 20,000), `maxStep
 
 States are `queued`, `running`, `paused`, `completed`, `needs_input`, `stopped`, `failed` and `limit_reached`. Pause/Stop invalidate a running step's claim, so a late model response cannot restart the job. A request already sent to the model may still consume usage. Ambiguous interruption is handled conservatively rather than silently repeating a potentially charged request. Resume may briefly return 409 while an interrupted request settles.
 
+## Progress and verification safeguards
+
+- Two consecutive **byte-identical output texts** from pure `continue` steps (without files or documentation reads) cause `needs_input` instead of silently spending more model requests. This is a conservative no-progress guard, not semantic quality evaluation. A user may explicitly resume after reviewing the history.
+- The private job-detail API reports `usage` with `totalTokens`, `inputTokens`, `outputTokens` and `reportedSteps`. Counts are **partial and provider-reported**, never a monetary cost estimate or a hard spending limit. A missing counter is `null`, not zero; the web UI shows coverage.
+- A job with status `completed` exposes `verification: "model_reported"`. It means the AI produced a result and declared completion, **not** that code was built, deployed, tested or independently reviewed.
+- In the Web Cloud detail view, **Bericht (JSON) exportieren** generates a local, click-initiated report including job, step history, files and token metadata, without sending any extra request or including the private access token. This report contains **private assignment and artifact contents** and must be stored securely.
+- The guard does not change earlier jobs' saved history, nor the native app's API compatibility. The original step and time limits remain in place.
+
 ## iPhone distribution
 
 `ios-preview` on Codemagic builds the native app, executes XCTest and creates an unsigned device archive and `REDLoop-unsigned.ipa`. That IPA requires separate signing before installation. It is not a TestFlight build.

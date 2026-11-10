@@ -8,7 +8,7 @@ const artifactPrefix=id=>'artifact:'+id+':';
 const terminal=new Set(['completed','stopped','failed','limit_reached']);
 export function publicJob(job) {
   const result={};for(const key of ['id','title','prompt','status','createdAt','updatedAt','stepCount','maxSteps','maxDurationMinutes','summary'])result[key]=job[key];
-  if(job.error)result.error=job.error;return result;
+  if(job.error)result.error=job.error;result.verification=job.status==='completed'?'model_reported':null;return result;
 }
 export function validateJobInput(value) {
   if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['title','prompt','maxSteps','maxDurationMinutes'].includes(key)))throw new ApiError(400,'Ungültiger Auftrag.');
@@ -28,6 +28,33 @@ export function validateStepResult(value) {
   if(value.researchUrls.length&&value.status!=='continue')throw new Error('Recherche muss vor einer Abschlussbehauptung ausgeführt werden.');
   return value;
 }
+
+// Provider-reported usage is intentionally partial: absent counters are UNKNOWN,
+// not zero. Never interpret token counts as a monetary charge or a hard quota.
+export function summarizeUsage(steps) {
+  const totals={totalTokens:null,inputTokens:null,outputTokens:null,reportedSteps:0};
+  const number=value=>Number.isSafeInteger(value)&&value>=0?value:null;
+  for(const step of steps) {
+    const usage=step.usage;
+    if(!usage||typeof usage!=='object')continue;
+    const input=number(usage.input_tokens)??number(usage.prompt_tokens);
+    const output=number(usage.output_tokens)??number(usage.completion_tokens);
+    const total=number(usage.total_tokens)??(input!==null||output!==null?(input??0)+(output??0):null);
+    if(total===null&&input===null&&output===null)continue;
+    totals.reportedSteps++;
+    for(const [key,value] of [['totalTokens',total],['inputTokens',input],['outputTokens',output]]) {
+      if(value!==null)totals[key]=Math.min(Number.MAX_SAFE_INTEGER,(totals[key]??0)+value);
+    }
+  }
+  return totals;
+}
+// Keep only a digest of the last pure continuation output on the job record.
+// Raw model output remains solely in its bounded per-step record.
+async function outputDigest(value) {
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+
 export class JobEngine {
   constructor(store,provider,{now=Date.now,uuid=()=>crypto.randomUUID(),research=fetchDocumentation,requestTimeoutMs=45000}={}) {
     this.store=store;this.provider=provider;this.now=now;this.uuid=uuid;this.research=research;this.requestTimeoutMs=requestTimeoutMs;this.active=null;
@@ -58,7 +85,8 @@ export class JobEngine {
   requireJob(id){const job=this.store.get(jobKey(id));if(!job)throw new ApiError(404,'Auftrag nicht gefunden.');return job;}
   async getJob(id) {
     await this.ready;const job=this.requireJob(id);
-    return {job:publicJob(job),steps:this.store.list(stepPrefix(id)).map(row=>row.value),artifacts:this.store.list(artifactPrefix(id)).map(row=>row.value)};
+    const steps=this.store.list(stepPrefix(id)).map(row=>row.value);
+    return {job:publicJob(job),usage:summarizeUsage(steps),steps,artifacts:this.store.list(artifactPrefix(id)).map(row=>row.value)};
   }
   async create(input,idempotencyKey) {
     await this.ready;const value=validateJobInput(input);
@@ -127,7 +155,7 @@ export class JobEngine {
     // after a crash see this claim and stop for human review, never rebill it.
     const deadline=AbortSignal.timeout(Math.max(1,job.deadlineAt-this.now()));
     const signal=AbortSignal.any([controller.signal,deadline]);
-    let result,usage,error;
+    let result,usage,error,outputHash;
     try {
       await this.store.setAlarm(this.now()+60000);await this.store.flush();
       const beforeCall=this.requireJob(job.id);
@@ -149,6 +177,7 @@ export class JobEngine {
         researchArtifacts.push({name:`research-${claim.claim.index}-${index+1}.txt`,content:`Source: ${doc.url}\nRetrieved: ${iso(this.now())}\nTruncated: ${doc.truncated}\n\n${doc.text}`});
       }
       result={...result,artifacts:[...result.artifacts,...researchArtifacts]};
+      if(result.status==='continue'&&!result.artifacts.length&&!result.researchUrls.length)outputHash=await outputDigest(result.output.trim());
     }catch(caught){error=caught;usage=usage||caught?.usage;}
     try {
       this.store.transaction(()=>{
@@ -163,10 +192,14 @@ export class JobEngine {
             if(result.status==='completed'&&!result.artifacts.length)workspace.set('result.md',{name:'result.md',content:result.output});
             if(workspace.size>LIMITS.artifacts||[...workspace.values()].reduce((sum,artifact)=>sum+bytes(artifact.content),0)>LIMITS.workspaceBytes)throw new CapabilityError('Der Job-Workspace ist voll. Keine weiteren Dateien wurden gespeichert.');
             for(const artifact of workspace.values())this.store.put(artifactPrefix(job.id)+artifact.name,artifact);
-            current.status=result.status==='continue'?'running':result.status;current.summary=result.summary;delete current.error;
+            const repeated=Boolean(outputHash&&current.lastOutputDigest===outputHash);
+            current.status=repeated?'needs_input':result.status==='continue'?'running':result.status;
+            current.summary=repeated?'Wiederholter KI-Schritt ohne neue Dateien oder Recherche. Automatisch angehalten, um Kontingent zu schützen. Bitte Ergebnis prüfen.':result.summary;
+            if(repeated)current.error=current.summary;else delete current.error;
+            current.lastOutputDigest=outputHash??null;
             if(result.needsCapability)current.error=result.needsCapability;
             if(current.status==='running'&&current.stepCount>=current.maxSteps){current.status='limit_reached';current.summary=result.summary+' · Schrittlimit erreicht.';}
-            step.status='completed';step.summary=result.summary;step.output=result.output;
+            step.status='completed';step.summary=current.summary;step.output=result.output;
           }
         }else if(error instanceof ProviderTimeoutError&&current.status==='paused') {current.status='failed';current.summary=error.message;current.error=error.message;step.status='failed';step.summary=error.message;}
         else {step.status='discarded';step.summary='Ergebnis nach Pause/Stopp verworfen.';}
