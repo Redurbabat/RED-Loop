@@ -13,7 +13,7 @@ Scope: integration target is the existing open PR #6, not `main`. Do not mark a 
 | 7 | Multi-agent coordination | Planned | Isolated workspaces and collision-free tasks, one owner per write, auditable merges |
 | 8 | GitHub integration | Planned, requires an authorized GitHub App and permissions | Read-only discovery first; separately approved scoped write actions and reliable CI |
 | 9 | Independent completion verification | **Partial:** model-reported badge, evidence export; not actual verification | Code jobs require test/build evidence before verified badge |
-| 10 | Multiple model providers / Ollama | Workers AI and optional OpenAI existing; local Ollama planned | User-controlled local gateway with authentication, TLS, host allowlist, capacity policy |
+| 10 | Multiple model providers / Ollama | Workers AI and optional OpenAI existing; **new local Ollama CLI** for bounded text tasks; app gateway still planned | User-controlled local gateway with authentication, TLS, host allowlist, capacity policy |
 | 11 | Cross-platform unified job dashboard | Cloud API shared; device-local ChatGPT tabs are separate | Sync server job IDs/states on Web/iPhone/Android/Windows without centralizing credentials |
 | 12 | Notifications | Existing iOS/Android native hooks in PR #6, unverified | Notification permission, stop reasons, duplicates and per-chat controls tested |
 | 13 | Resource and cost limits | Existing per-job step/time and storage limits; **new partial token reporting and optional reported-token budget** | Explicit user budget and truthful provider accounting; stop before overruns where possible |
