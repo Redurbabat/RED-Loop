@@ -7,15 +7,18 @@ const stepKey=(id,index)=>stepPrefix(id)+String(index).padStart(3,'0');
 const artifactPrefix=id=>'artifact:'+id+':';
 const terminal=new Set(['completed','stopped','failed','limit_reached']);
 export function publicJob(job) {
-  const result={};for(const key of ['id','title','prompt','status','createdAt','updatedAt','stepCount','maxSteps','maxDurationMinutes','summary'])result[key]=job[key];
+  const result={};for(const key of ['id','title','prompt','status','createdAt','updatedAt','stepCount','maxSteps','maxDurationMinutes','maxTotalTokens','summary'])result[key]=job[key];
   if(job.error)result.error=job.error;result.verification=job.status==='completed'?'model_reported':null;return result;
 }
 export function validateJobInput(value) {
-  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['title','prompt','maxSteps','maxDurationMinutes'].includes(key)))throw new ApiError(400,'Ungültiger Auftrag.');
-  const {title,prompt,maxSteps,maxDurationMinutes}=value;
+  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['title','prompt','maxSteps','maxDurationMinutes','maxTotalTokens'].includes(key)))throw new ApiError(400,'Ungültiger Auftrag.');
+  const {title,prompt,maxSteps,maxDurationMinutes,maxTotalTokens}=value;
   if(typeof title!=='string'||!title.trim()||title.length>LIMITS.title||typeof prompt!=='string'||!prompt.trim()||prompt.length>LIMITS.prompt||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(title+prompt)||(typeof prompt.isWellFormed==='function'&&!prompt.isWellFormed()))throw new ApiError(400,'Titel (1–120) und Auftragstext (1–20000 Zeichen) prüfen.');
   if(!Number.isInteger(maxSteps)||maxSteps<1||maxSteps>LIMITS.steps||!Number.isInteger(maxDurationMinutes)||maxDurationMinutes<1||maxDurationMinutes>LIMITS.durationMinutes)throw new ApiError(400,'Schritte müssen 1–50 und Laufzeit 1–480 Minuten betragen.');
-  return {title:title.trim(),prompt:prompt.trim(),maxSteps,maxDurationMinutes};
+  if(maxTotalTokens!==undefined&&(!Number.isSafeInteger(maxTotalTokens)||maxTotalTokens<1||maxTotalTokens>LIMITS.tokenBudget))throw new ApiError(400,'Tokenbudget muss zwischen 1 und 1000000 liegen.');
+  const result={title:title.trim(),prompt:prompt.trim(),maxSteps,maxDurationMinutes};
+  if(maxTotalTokens!==undefined)result.maxTotalTokens=maxTotalTokens;
+  return result;
 }
 export function validateStepResult(value) {
   const keys=['status','summary','output','artifacts','researchUrls','needsCapability'];
@@ -117,7 +120,7 @@ export class JobEngine {
         if(!['paused','needs_input'].includes(job.status))throw new ApiError(409,'Dieser Auftrag kann nicht fortgesetzt werden.');
         if(job.inflight)throw new ApiError(409,'Die vorherige Anfrage wird noch beendet. Bitte anschließend erneut fortsetzen.');
         if(!this.provider.info.configured)throw new ApiError(409,'Der KI-Zugang ist weiterhin nicht eingerichtet.');
-        if(this.now()>=job.deadlineAt||job.stepCount>=job.maxSteps){job.status='limit_reached';job.summary='Schritt- oder Laufzeitlimit erreicht.';}
+        if(this.now()>=job.deadlineAt||job.stepCount>=job.maxSteps||this.tokenBudgetReached(job)){job.status='limit_reached';job.summary='Schritt- oder Laufzeitlimit erreicht.';}
         else {job.status='queued';job.summary='Ausdrücklich zur Fortsetzung eingeplant.';delete job.error;}
         job.revision++;
       }else throw new ApiError(404,'Aktion nicht gefunden.');
@@ -125,6 +128,11 @@ export class JobEngine {
     });
     if(['pause','stop'].includes(action)&&this.active?.jobId===id)this.active.controller.abort();
     await this.schedule();return publicJob(job);
+  }
+  tokenBudgetReached(job) {
+    if(!job.maxTotalTokens)return false;
+    const used=summarizeUsage(this.store.list(stepPrefix(job.id)).map(row=>row.value)).totalTokens;
+    return used!==null&&used>=job.maxTotalTokens;
   }
   context(job) {
     const recent=this.store.list(stepPrefix(job.id)).map(row=>row.value).filter(step=>step.status==='completed').slice(-2).map(step=>({index:step.index,summary:step.summary,output:step.output.slice(-6000)}));
@@ -141,7 +149,7 @@ export class JobEngine {
       if(this.store.get('meta:lease'))return null;
       for(const job of this.jobs()){
         if(!['queued','running'].includes(job.status)||job.inflight)continue;
-        if(this.now()>=job.deadlineAt||job.stepCount>=job.maxSteps){job.status='limit_reached';job.summary='Schritt- oder Laufzeitlimit erreicht.';job.updatedAt=iso(this.now());this.store.put(jobKey(job.id),job);continue;}
+        if(this.now()>=job.deadlineAt||job.stepCount>=job.maxSteps||this.tokenBudgetReached(job)){job.status='limit_reached';job.summary='Schritt- oder Laufzeitlimit erreicht.';job.updatedAt=iso(this.now());this.store.put(jobKey(job.id),job);continue;}
         const claim={id:this.uuid(),jobId:job.id,index:job.stepCount+1,revision:job.revision+1};
         job.status='running';job.stepCount=claim.index;job.revision=claim.revision;job.inflight=claim;job.updatedAt=iso(this.now());
         this.store.put(jobKey(job.id),job);this.store.put(stepKey(job.id,claim.index),{index:claim.index,createdAt:job.updatedAt,summary:'KI-Schritt gestartet; Ergebnis steht aus.',output:'',status:'running'});this.store.put('meta:lease',claim);
@@ -204,6 +212,11 @@ export class JobEngine {
         }else if(error instanceof ProviderTimeoutError&&current.status==='paused') {current.status='failed';current.summary=error.message;current.error=error.message;step.status='failed';step.summary=error.message;}
         else {step.status='discarded';step.summary='Ergebnis nach Pause/Stopp verworfen.';}
         if(usage)step.usage=usage;
+        if(current.status==='running'&&current.maxTotalTokens){
+          const saved=this.store.list(stepPrefix(job.id)).map(row=>row.value).map(row=>row.index===step.index?step:row);
+          const spent=summarizeUsage(saved).totalTokens;
+          if(spent!==null&&spent>=current.maxTotalTokens){current.status='limit_reached';current.summary+=' · Gemeldetes Tokenbudget erreicht.';}
+        }
         if(current.inflight?.id===claim.claim.id)current.inflight=null;
         current.updatedAt=iso(this.now());this.store.put(stepKey(job.id,step.index),step);this.store.put(jobKey(job.id),current);
         if(this.store.get('meta:lease')?.id===claim.claim.id)this.store.delete('meta:lease');

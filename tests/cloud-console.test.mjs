@@ -252,3 +252,24 @@ test('verified status is not implied, token usage is qualified and private JSON 
     assert.equal(app.requests.filter(request=>request.method==='POST').length,0);
   }finally{app.close();}
 });
+
+test('optional token budget is validated locally and only sent when entered',async()=>{
+  let created;
+  const app=setup((path,options)=>{
+    if(path==='/api/v1/jobs'&&options.method==='POST'){
+      created=JSON.parse(options.body);return json({job:fixtureJob});
+    }
+  });
+  try{
+    await app.connect();
+    app.$('#cloud-title').value='Bounded task';
+    app.$('#cloud-prompt').value='Make a document';
+    app.$('#cloud-max-tokens').value='1000001';
+    await app.console.create();
+    assert.equal(created,undefined);
+    app.$('#cloud-max-tokens').value='1200';
+    await app.console.create();
+    assert.equal(created.maxTotalTokens,1200);
+    assert.equal(created.maxSteps,8);
+  }finally{app.close();}
+});

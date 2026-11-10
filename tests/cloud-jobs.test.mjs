@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../cloudflare/src/index.js';
 import {ApiError,CapabilityError,LIMITS,bytes} from '../cloudflare/src/cloud-common.js';
-import {JobEngine} from '../cloudflare/src/job-engine.js';
+import {JobEngine,validateJobInput} from '../cloudflare/src/job-engine.js';
 import {dispatchJobRequest} from '../cloudflare/src/jobs-api.js';
 import {ProviderError,createProvider} from '../cloudflare/src/providers.js';
 import {documentationURL,fetchDocumentation} from '../cloudflare/src/research.js';
@@ -198,4 +198,23 @@ test('missing usage is unknown, while alternate provider token counters are coun
   assert.deepEqual((await f.engine.getJob(job.id)).usage,{totalTokens:null,inputTokens:null,outputTokens:null,reportedSteps:0});
   await f.engine.alarm();
   assert.deepEqual((await f.engine.getJob(job.id)).usage,{totalTokens:10,inputTokens:6,outputTokens:4,reportedSteps:1});
+});
+
+test('optional token budget is backward compatible and stops before another billed step',async()=>{
+  let turn=0;const f=await fixture(async()=>({result:result('continue',{output:'Fresh progress '+(++turn)}),usage:{total_tokens:7}}));
+  const before=validateJobInput(input);
+  assert.equal(Object.hasOwn(before,'maxTotalTokens'),false);
+  for(const maxTotalTokens of [0,-1,1000001,1.2,'10',null]){
+    await assert.rejects(f.engine.create({...input,maxTotalTokens},key('bad'+String(maxTotalTokens))),error=>error.status===400);
+  }
+  const job=await f.engine.create({...input,maxSteps:6,maxTotalTokens:12},key(123));
+  assert.equal(job.maxTotalTokens,12);
+  await f.engine.alarm();assert.equal((await f.engine.getJob(job.id)).job.status,'running');
+  await f.engine.alarm();
+  const detail=await f.engine.getJob(job.id);
+  assert.equal(detail.job.status,'limit_reached');
+  assert.match(detail.job.summary,/Tokenbudget/);
+  assert.equal(detail.usage.totalTokens,14);
+  await f.engine.alarm();assert.equal(f.calls,2);
+  await assert.rejects(f.engine.action(job.id,'resume'),error=>error.status===409);
 });

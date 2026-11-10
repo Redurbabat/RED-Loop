@@ -314,7 +314,7 @@ export class CloudConsole {
     this.$('#cloud-job-prompt').textContent = job.prompt || '';
     this.$('#cloud-job-progress').max = Math.max(1, Number(job.maxSteps) || 1);
     this.$('#cloud-job-progress').value = Number(job.stepCount) || 0;
-    this.$('#cloud-job-limits').textContent = `${job.stepCount ?? 0} / ${job.maxSteps ?? '—'} Schritte · maximal ${job.maxDurationMinutes ?? '—'} Minuten` + (usage?.totalTokens == null ? ' · Tokenverbrauch nicht gemeldet' : ` · ${usage.totalTokens.toLocaleString('de-CH')} Token gemeldet (${usage.reportedSteps ?? 0}/${job.stepCount ?? 0} Schritte)`);
+    this.$('#cloud-job-limits').textContent = `${job.stepCount ?? 0} / ${job.maxSteps ?? '—'} Schritte · maximal ${job.maxDurationMinutes ?? '—'} Minuten` + (usage?.totalTokens == null ? ' · Tokenverbrauch nicht gemeldet' : ` · ${usage.totalTokens.toLocaleString('de-CH')} Token gemeldet (${usage.reportedSteps ?? 0}/${job.stepCount ?? 0} Schritte)`) + (job.maxTotalTokens ? ` · Budget ${job.maxTotalTokens.toLocaleString('de-CH')} Token (nur gemessene Schritte)` : '');
     this.$('#cloud-job-dates').textContent = `Erstellt ${dateLabel(job.createdAt)} · Aktualisiert ${dateLabel(job.updatedAt)}`;
     this.$('#cloud-job-error').hidden = !job.error;
     this.$('#cloud-job-error').textContent = job.error ? String(job.error).slice(0, 3000) : '';
@@ -355,10 +355,12 @@ export class CloudConsole {
     const prompt = this.$('#cloud-prompt').value.trim();
     const maxSteps = Number(this.$('#cloud-max-steps').value);
     const maxDurationMinutes = Number(this.$('#cloud-max-minutes').value);
-    if (!title || !prompt || !Number.isInteger(maxSteps) || maxSteps < 1 || maxSteps > 50 || !Number.isInteger(maxDurationMinutes) || maxDurationMinutes < 1 || maxDurationMinutes > 480) {
-      this.#error(new Error('Bitte Titel, Auftrag, 1–50 Schritte und 1–480 Minuten angeben.')); return;
+    const tokenBudgetText = this.$('#cloud-max-tokens').value.trim();
+    const maxTotalTokens = Number(tokenBudgetText);
+    if (!title || !prompt || !Number.isInteger(maxSteps) || maxSteps < 1 || maxSteps > 50 || !Number.isInteger(maxDurationMinutes) || maxDurationMinutes < 1 || maxDurationMinutes > 480 || (tokenBudgetText && (!Number.isSafeInteger(maxTotalTokens) || maxTotalTokens < 1 || maxTotalTokens > 1000000))) {
+      this.#error(new Error('Bitte Titel, Auftrag, 1–50 Schritte, 1–480 Minuten und ein gültiges optionales Tokenbudget angeben.')); return;
     }
-    const body = {title, prompt, maxSteps, maxDurationMinutes};
+    const body = {title, prompt, maxSteps, maxDurationMinutes, ...(tokenBudgetText ? {maxTotalTokens} : {})};
     const signature = JSON.stringify(body);
     const session = this.#session;
     this.#busy = true;

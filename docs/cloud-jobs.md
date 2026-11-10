@@ -43,7 +43,7 @@ All `/api/v1/` endpoints require `Authorization: Bearer <private token>`. Missin
 | `POST /api/v1/jobs/:id/stop` | Stop future steps |
 | `GET /api/v1/jobs/:id/artifacts/:name` | Download an artifact as plain text |
 
-Create accepts `title` (up to 120 characters), `prompt` (up to 20,000), `maxSteps` (1–50) and `maxDurationMinutes` (1–480). Reusing the same idempotency key and payload returns the original job; changing the payload with that key returns 409. The workspace holds at most 20 jobs, with explicit storage/output bounds; it never silently deletes old jobs to make room.
+Create accepts `title` (up to 120 characters), `prompt` (up to 20,000), `maxSteps` (1–50), `maxDurationMinutes` (1–480), and optional `maxTotalTokens` (1–1,000,000). The optional token budget stops additional steps only when the provider has reported sufficient usage; the final step can exceed the budget, and providers may omit usage entirely. It is **not** a guaranteed cost ceiling. Reusing the same idempotency key and payload returns the original job; changing the payload with that key returns 409. The workspace holds at most 20 jobs, with explicit storage/output bounds; it never silently deletes old jobs to make room.
 
 States are `queued`, `running`, `paused`, `completed`, `needs_input`, `stopped`, `failed` and `limit_reached`. Pause/Stop invalidate a running step's claim, so a late model response cannot restart the job. A request already sent to the model may still consume usage. Ambiguous interruption is handled conservatively rather than silently repeating a potentially charged request. Resume may briefly return 409 while an interrupted request settles.
 
@@ -53,7 +53,7 @@ States are `queued`, `running`, `paused`, `completed`, `needs_input`, `stopped`,
 - The private job-detail API reports `usage` with `totalTokens`, `inputTokens`, `outputTokens` and `reportedSteps`. Counts are **partial and provider-reported**, never a monetary cost estimate or a hard spending limit. A missing counter is `null`, not zero; the web UI shows coverage.
 - A job with status `completed` exposes `verification: "model_reported"`. It means the AI produced a result and declared completion, **not** that code was built, deployed, tested or independently reviewed.
 - In the Web Cloud detail view, **Bericht (JSON) exportieren** generates a local, click-initiated report including job, step history, files and token metadata, without sending any extra request or including the private access token. This report contains **private assignment and artifact contents** and must be stored securely.
-- The guard does not change earlier jobs' saved history, nor the native app's API compatibility. The original step and time limits remain in place.
+- The optional token limit is accepted from the Web form and API without requiring an update to native clients. The guard does not change earlier jobs' saved history, nor the native app's API compatibility. The original step and time limits remain in place.
 
 ## iPhone distribution
 

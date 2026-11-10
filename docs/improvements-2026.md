@@ -16,7 +16,7 @@ Scope: integration target is the existing open PR #6, not `main`. Do not mark a 
 | 10 | Multiple model providers / Ollama | Workers AI and optional OpenAI existing; local Ollama planned | User-controlled local gateway with authentication, TLS, host allowlist, capacity policy |
 | 11 | Cross-platform unified job dashboard | Cloud API shared; device-local ChatGPT tabs are separate | Sync server job IDs/states on Web/iPhone/Android/Windows without centralizing credentials |
 | 12 | Notifications | Existing iOS/Android native hooks in PR #6, unverified | Notification permission, stop reasons, duplicates and per-chat controls tested |
-| 13 | Resource and cost limits | Existing per-job step/time and storage limits; **new partial token reporting** | Explicit user budget and truthful provider accounting; stop before overruns where possible |
+| 13 | Resource and cost limits | Existing per-job step/time and storage limits; **new partial token reporting and optional reported-token budget** | Explicit user budget and truthful provider accounting; stop before overruns where possible |
 | 14 | Secure script delivery | Existing HTTPS+content checks, **no signature verification** | Signed/pinned payload digest with rollback, same source for all clients |
 | 15 | RED Morph visual consistency | Existing Web Motion Studio; native parity pending | Shared component tokens, measured UI and accessibility tests across platforms |
 
