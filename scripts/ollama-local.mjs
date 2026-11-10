@@ -1,4 +1,4 @@
-import {readFile, mkdir, writeFile} from 'node:fs/promises';
+import {readFile, mkdir, writeFile, rename} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
@@ -32,7 +32,7 @@ export function validLocalStep(value) {
 }
 const token=value=>Number.isSafeInteger(value)&&value>=0?value:null;
 
-export async function runLocalOllama({prompt,model,maxSteps=8,endpoint='http://127.0.0.1:11434',fetchImpl=fetch,onStep=()=>{},timeoutMs=120000}={}) {
+export async function runLocalOllama({prompt,model,maxSteps=8,endpoint='http://127.0.0.1:11434',fetchImpl=fetch,onStep=()=>{},onCheckpoint=async()=>{},timeoutMs=120000}={}) {
   const base=localEndpoint(endpoint);
   if(typeof prompt!=='string'||!prompt.trim()||prompt.length>20000||/[\u0000-\u0008\u000e-\u001f]/.test(prompt))throw new Error('Auftrag muss 1–20000 Zeichen enthalten.');
   if(typeof model!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,99}$/.test(model))throw new Error('Bitte einen installierten Ollama-Modellnamen angeben.');
@@ -41,6 +41,10 @@ export async function runLocalOllama({prompt,model,maxSteps=8,endpoint='http://1
   for(let index=1;index<=maxSteps;index++) {
     const context={assignment:report.prompt,step:index,maxSteps,plan:report.plan,previous:report.steps.slice(-2).map(step=>({summary:step.summary,output:step.output.slice(-5000)}))};
     try {
+      // Persist an uncertain in-flight claim before contacting Ollama. On a
+      // process crash this prevents accidentally treating the call as unsent.
+      report.inflight={index,startedAt:new Date().toISOString()};
+      await onCheckpoint(report);
       const response=await fetchImpl(base+'/api/chat',{
         method:'POST',redirect:'error',credentials:'omit',
         headers:{'content-type':'application/json'},
@@ -64,10 +68,15 @@ export async function runLocalOllama({prompt,model,maxSteps=8,endpoint='http://1
       if(current.inputTokens!==null){report.reportedTokens.input+=current.inputTokens;report.reportedTokens.steps++;}
       if(current.outputTokens!==null)report.reportedTokens.output+=current.outputTokens;
       report.summary=current.summary;
-      await onStep(current);
+      report.inflight=null;
       if(current.status!=='continue'){
-        report.status=current.status;report.verification=current.status==='completed'?'model_reported':null;break;
+        report.status=current.status;report.verification=current.status==='completed'?'model_reported':null;
       }
+      // Commit the model output before showing it in the console or moving to
+      // the next step. A crash now leaves an inspectable, durable checkpoint.
+      await onCheckpoint(report);
+      await onStep(current);
+      if(current.status!=='continue')break;
     }catch(error){
       // Never automatically retry an uncertain request or expose raw model text.
       report.status='needs_input';
@@ -78,6 +87,7 @@ export async function runLocalOllama({prompt,model,maxSteps=8,endpoint='http://1
   }
   if(report.status==='running'){report.status='limit_reached';report.summary='Maximale Schrittzahl erreicht.';}
   report.updatedAt=new Date().toISOString();
+  await onCheckpoint(report);
   return report;
 }
 
@@ -94,12 +104,17 @@ async function cli(args) {
   }
   if(!options.model||!options['prompt-file'])throw new Error('--model und --prompt-file werden benötigt (siehe --help).');
   const prompt=await readFile(resolve(options['prompt-file']),'utf8');
-  const report=await runLocalOllama({prompt,model:options.model,maxSteps:Number(options.steps),endpoint:options.endpoint,
-    onStep:step=>process.stdout.write('Schritt '+step.index+': '+step.status+'\n')});
   const directory=resolve(options.out);
-  await mkdir(directory,{recursive:true});
+  await mkdir(directory,{recursive:true,mode:0o700});
   const file=resolve(directory,'red-loop-local-'+new Date().toISOString().replace(/[:.]/g,'-')+'-'+randomUUID().slice(0,8)+'.json');
-  await writeFile(file,JSON.stringify(report,null,2)+'\n',{flag:'wx',mode:0o600});
+  const temporary=file+'.tmp';
+  const save=async state=>{
+    await writeFile(temporary,JSON.stringify(state,null,2)+'\n',{mode:0o600});
+    await rename(temporary,file);
+  };
+  const report=await runLocalOllama({prompt,model:options.model,maxSteps:Number(options.steps),endpoint:options.endpoint,
+    onCheckpoint:save,
+    onStep:step=>process.stdout.write('Schritt '+step.index+': '+step.status+'\n')});
   process.stdout.write('Status: '+report.status+'\nBericht: '+file+'\n');
   if(report.status!=='completed')process.exitCode=2;
 }

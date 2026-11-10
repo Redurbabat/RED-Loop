@@ -48,3 +48,37 @@ test('Model selection, prompt and step limits are bounded before any request',as
     await assert.rejects(runLocalOllama(options));
   }
 });
+
+test('local run checkpoints an in-flight claim before each request and finalizes every step',async()=>{
+  const snapshots=[];const host=fake([value('continue','First'),value('completed','Final')]);
+  const report=await runLocalOllama({model:'qwen3:8b',prompt:'Prepare a report',maxSteps:3,fetchImpl:host.fetch,
+    onCheckpoint:async state=>snapshots.push(structuredClone(state))});
+  assert.equal(report.status,'completed');
+  assert.equal(snapshots[0].inflight.index,1);
+  assert.equal(snapshots[0].steps.length,0);
+  assert.equal(snapshots[1].inflight,null);
+  assert.equal(snapshots[1].steps.length,1);
+  assert.equal(snapshots[2].inflight.index,2);
+  assert.equal(snapshots[3].status,'completed');
+  assert.equal(snapshots[3].inflight,null);
+  assert.equal(snapshots.at(-1).status,'completed');
+  assert.equal(host.requests.length,2);
+});
+test('uncertain request leaves an inspectable claim and does not retry',async()=>{
+  let calls=0;const snapshots=[];
+  const report=await runLocalOllama({model:'qwen3:8b',prompt:'Write a plan',fetchImpl:async()=>{calls++;throw Error('Network dropped');},
+    onCheckpoint:async state=>snapshots.push(structuredClone(state))});
+  assert.equal(calls,1);
+  assert.equal(report.status,'needs_input');
+  assert.equal(report.inflight.index,1);
+  assert.equal(report.steps.length,0);
+  assert.equal(snapshots.at(-1).status,'needs_input');
+  assert.equal(snapshots.at(-1).inflight.index,1);
+});
+test('a storage checkpoint failure prevents any model request',async()=>{
+  let calls=0;
+  await assert.rejects(runLocalOllama({model:'qwen3:8b',prompt:'Write a plan',
+    fetchImpl:async()=>{calls++;throw Error('Model must not run');},
+    onCheckpoint:async()=>{throw Error('Disk full');}}),/Disk full/);
+  assert.equal(calls,0);
+});

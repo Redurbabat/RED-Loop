@@ -5,7 +5,7 @@ Scope: integration target is the existing open PR #6, not `main`. Do not mark a 
 | # | Goal | State after this change | Acceptance gate |
 |---|---|---|---|
 | 1 | Reliable Android background operation | Implemented in PR #6, **unverified** | Screen-off 30/120 min on actual tablet with 1, 3, 5 conversations; record CPU/battery/OS kills |
-| 2 | Crash-safe resumption | Existing conservative cloud recovery; Android logic in PR #6 unverified | Kill during a send, restart: no duplicate submission, explicit recovery reason |
+| 2 | Crash-safe resumption | Cloud recovery implemented; local Ollama now saves an in-flight claim and per-step JSON checkpoints; Android restart logic unverified | Kill during a send, restart: no duplicate submission, explicit recovery reason |
 | 3 | Intelligent endless mode | Existing end-of-work markers; **new cloud repeated-output guard** | Two unchanged cloud continuations require manual review; ChatGPT loops also need live scenario tests |
 | 4 | Fix GitHub Actions | **Blocked by issue #9 outside application code** | Both Ubuntu and macOS jobs publish actual passing steps/logs |
 | 5 | Physical iPhone tests | Pending | Sign-in, work loop, pause, notification, background/suspension and signing on device |

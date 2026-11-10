@@ -28,3 +28,11 @@ node --test tests/ollama-local.test.mjs
 The tests use stubbed HTTP replies. A genuine local run with the user's installed model is still required; the model may fail to follow the requested JSON schema.
 
 Official Ollama reference: https://github.com/ollama/ollama/blob/main/docs/api.md
+
+## Crash-sichere lokale Berichte
+
+Vor **jeder** Modellanfrage legt die CLI eine Datei im Ergebnisordner an bzw. aktualisiert diese mit `inflight` (Schrittnummer und Startzeit). Nach jedem vollständigen Ergebnis wird der neue Stand ebenfalls auf die Festplatte geschrieben. Dazu wird eine temporäre JSON-Datei im selben Ordner geschrieben und anschliessend atomar umbenannt. Der Ergebnisordner wird beim Erstellen auf private Verzeichnisrechte gesetzt, die Berichtsdatei auf private Dateirechte (soweit das Betriebssystem dies unterstützt).
+
+Bei Stromausfall, hartem Prozessende oder abgebrochener Verbindung bleibt der letzte gespeicherte Bericht erhalten. Ein `inflight`-Eintrag bedeutet **möglicherweise bereits ausgeführter** Modellaufruf. RED LOOP startet nach einem Neustart keinen automatischen Wiederholungsversuch. Bitte den bestehenden JSON-Bericht zuerst prüfen. Die CLI bietet bewusst noch keinen `--resume`-Schalter.
+
+Kontrolltest: `node --test tests/ollama-local.test.mjs`; das ist eine simulierte Unterbrechung, kein echter Stromausfall-/Windows-Dauertest.
