@@ -29,6 +29,12 @@ if(await present(releaseManifest)) {
 }
 
 // Only the PUBLIC key is bundled. No key means signed downloads remain disabled.
+await rm('ios/REDLoop/Resources/release-public.pem',{force:true});
+if (await present(releasePublic)) {
+  await copyFile(releasePublic,'ios/REDLoop/Resources/release-public.pem');
+} else {
+  await writeFile('ios/REDLoop/Resources/release-public.pem','');
+}
 await rm('android/app/src/main/assets/release-public.pem',{force:true});
 if (await present(releasePublic)) {
   await copyFile(releasePublic,'android/app/src/main/assets/release-public.pem');

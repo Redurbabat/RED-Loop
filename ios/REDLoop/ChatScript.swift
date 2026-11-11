@@ -38,7 +38,10 @@ struct ChatScriptTransfer: ChatScriptTransferring {
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("REDLoop-App", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw ChatScriptError.missing }
+        // Reject even successful cross-host redirects before any script reaches a WKWebView.
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              http.url?.absoluteString == url.absoluteString,
+              data.count <= ChatScriptLoader.maxBytes else { throw ChatScriptError.missing }
         return data
     }
 }
@@ -51,11 +54,14 @@ struct ChatScriptLoader {
     static let resource = "red-loop-webview"
     static let maxBytes = 262_144
     private static let cacheName = "red-loop-webview.js"
+    private static let signedCacheName = "red-loop-signed-pair.json"
+    private static let counterName = "red-loop-signed-counter.json"
 
     private let transfer: ChatScriptTransferring
     private let bundle: Bundle
     private let cacheDirectory: URL?
     private let server: String?
+    private let trustedPublicKey: String?
 
     init(transfer: ChatScriptTransferring = ChatScriptTransfer(),
          bundle: Bundle = .main,
@@ -67,13 +73,23 @@ struct ChatScriptLoader {
         // The stored connection decides which private server publishes the
         // script. Its token is never sent: the script is a public asset.
         self.server = (try? credentials.load())?.serverURL ?? CloudConnection.defaultServer
+        self.trustedPublicKey = ChatScriptLoader.publicKey(in: bundle)
     }
 
-    init(transfer: ChatScriptTransferring, bundle: Bundle, cacheDirectory: URL?, server: String?) {
+    init(transfer: ChatScriptTransferring, bundle: Bundle, cacheDirectory: URL?, server: String?,
+         trustedPublicKey: String? = nil) {
         self.transfer = transfer
         self.bundle = bundle
         self.cacheDirectory = cacheDirectory
         self.server = server
+        self.trustedPublicKey = trustedPublicKey ?? ChatScriptLoader.publicKey(in: bundle)
+    }
+
+    private static func publicKey(in bundle: Bundle) -> String? {
+        guard let url = bundle.url(forResource: "release-public", withExtension: "pem"),
+              let contents = try? String(contentsOf: url, encoding: .utf8),
+              !contents.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return contents
     }
 
     var serverAddress: String? { server }
@@ -91,6 +107,15 @@ struct ChatScriptLoader {
         parts.path += path
         parts.query = nil
         parts.fragment = nil
+        return parts.url
+    }
+
+    /// The manifest is resolved beside the script on the same HTTPS origin.
+    static func manifestURL(server: String?) -> URL? {
+        guard let script = scriptURL(server: server),
+              var parts = URLComponents(url: script, resolvingAgainstBaseURL: false),
+              parts.path.hasSuffix(path) else { return nil }
+        parts.path = String(parts.path.dropLast(path.count)) + "/red-loop-webview.manifest.json"
         return parts.url
     }
 
@@ -155,6 +180,12 @@ struct ChatScriptLoader {
                 && ChatScriptLoader.trusted(body, bundled: bundledBody)
         }
 
+        if let trustedPublicKey,
+           let signed = await signedScript(allowCloud: allowCloud, publicKey: trustedPublicKey,
+                                           bundledVersion: floor) {
+            return signed
+        }
+
         if allowCloud, let url = ChatScriptLoader.scriptURL(server: server) {
             do {
                 let body = try ChatScriptLoader.validate(try await transfer.data(from: url))
@@ -168,6 +199,87 @@ struct ChatScriptLoader {
             return ChatScript(source: .cache, version: ChatScriptLoader.version(in: cached), body: cached)
         }
         return ChatScript(source: .bundle, version: ChatScriptLoader.version(in: bundledBody), body: bundledBody)
+    }
+
+
+    private var signedCacheFile: URL? { cacheDirectory?.appendingPathComponent(ChatScriptLoader.signedCacheName) }
+    private var sequenceFile: URL? { cacheDirectory?.appendingPathComponent(ChatScriptLoader.counterName) }
+
+    private func keyFingerprint(_ key: String) -> String {
+        SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// A malformed persisted counter never resets silently. A new key identity
+    /// can only arrive through an updated, signed iOS app.
+    private func minimumSequence(for fingerprint: String) -> Int? {
+        guard let sequenceFile else { return nil }
+        guard FileManager.default.fileExists(atPath: sequenceFile.path) else { return 1 }
+        guard let data = try? Data(contentsOf: sequenceFile),
+              let record = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let storedKey = record["key"] as? String, let value = record["sequence"] as? Int,
+              value >= 1, value <= SignedScriptReleaseVerifier.maxSequence else { return nil }
+        return storedKey == fingerprint ? value : 1
+    }
+
+    private func persistSequence(_ sequence: Int, fingerprint: String) -> Bool {
+        guard let sequenceFile else { return false }
+        do {
+            let bytes = try JSONSerialization.data(withJSONObject: ["key":fingerprint,"sequence":sequence])
+            try bytes.write(to: sequenceFile, options: .atomic)
+            return true
+        } catch { return false }
+    }
+
+    private func cacheSigned(script: Data, manifest: Data) {
+        guard let signedCacheFile else { return }
+        let record: [String: String] = [
+            "script": script.base64EncodedString(), "manifest": manifest.base64EncodedString()
+        ]
+        guard let bytes = try? JSONSerialization.data(withJSONObject: record), bytes.count <= 500_000 else { return }
+        try? bytes.write(to: signedCacheFile, options: .atomic)
+    }
+
+    private func readSignedCache() -> (Data, Data)? {
+        guard let signedCacheFile,
+              let attrs = try? FileManager.default.attributesOfItem(atPath: signedCacheFile.path),
+              let size = attrs[.size] as? NSNumber, size.intValue <= 500_000,
+              let data = try? Data(contentsOf: signedCacheFile),
+              let record = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+              let script = record["script"].flatMap(Data.init(base64Encoded:)),
+              let manifest = record["manifest"].flatMap(Data.init(base64Encoded:)),
+              script.count <= ChatScriptLoader.maxBytes,
+              manifest.count <= SignedScriptReleaseVerifier.maxManifestBytes else { return nil }
+        return (script, manifest)
+    }
+
+    private func signedScript(allowCloud: Bool, publicKey: String, bundledVersion: String) async -> ChatScript? {
+        let fingerprint = keyFingerprint(publicKey)
+        guard let floor = minimumSequence(for: fingerprint) else { return nil }
+        func verified(script: Data, manifest: Data) -> (String, Int)? {
+            guard SignedScriptReleaseVerifier.verify(script: script, manifest: manifest,
+                  publicKeyPEM: publicKey, minimumSequence: floor, minimumVersion: bundledVersion),
+                  let body = try? ChatScriptLoader.validate(script),
+                  let object = try? JSONSerialization.jsonObject(with: manifest) as? [String: Any],
+                  let sequence = object["sequence"] as? Int else { return nil }
+            return (body,sequence)
+        }
+        if allowCloud, let manifestURL = ChatScriptLoader.manifestURL(server: server),
+           let scriptURL = ChatScriptLoader.scriptURL(server: server) {
+            // A signed manifest binds the exact script bytes and its version.
+            if let manifest = try? await transfer.data(from: manifestURL),
+               manifest.count <= SignedScriptReleaseVerifier.maxManifestBytes,
+               let downloaded = try? await transfer.data(from: scriptURL),
+               let (body, sequence) = verified(script: downloaded, manifest: manifest),
+               persistSequence(sequence, fingerprint: fingerprint) {
+                cacheSigned(script: downloaded, manifest: manifest)
+                return ChatScript(source: .cloud, version: ChatScriptLoader.version(in: body), body: body)
+            }
+        }
+        if let (script, manifest) = readSignedCache(),
+           let (body, _) = verified(script: script, manifest: manifest) {
+            return ChatScript(source: .cache, version: ChatScriptLoader.version(in: body), body: body)
+        }
+        return nil
     }
 
     /// Settings the script reads before it builds its panel. No credentials.

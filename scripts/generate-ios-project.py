@@ -18,11 +18,12 @@ resources=[file('REDLoopExtension/Resources/'+name,kind) for name,kind in [('man
 privacy=file('REDLoop/PrivacyInfo.xcprivacy','text.xml')
 # Bundled fallback for the in-app ChatGPT view; npm run build keeps it in sync.
 webview_script=file('REDLoop/Resources/red-loop-webview.js','sourcecode.javascript')
+release_public_key=file('REDLoop/Resources/release-public.pem','text')
 app_product=obj('app-product','PBXFileReference',explicitFileType='wrapper.application',path='REDLoop.app',sourceTree='BUILT_PRODUCTS_DIR')
 ext_product=obj('ext-product','PBXFileReference',explicitFileType='wrapper.app-extension',path='REDLoopExtension.appex',sourceTree='BUILT_PRODUCTS_DIR')
 test_product=obj('test-product','PBXFileReference',explicitFileType='wrapper.cfbundle',path='REDLoopTests.xctest',sourceTree='BUILT_PRODUCTS_DIR')
 products=obj('products','PBXGroup',children=[app_product,ext_product,test_product],name='Products',sourceTree='<group>')
-main=obj('main-group','PBXGroup',children=app_files+ext_files+test_files+[assets,privacy,webview_script]+resources+[products],sourceTree='<group>')
+main=obj('main-group','PBXGroup',children=app_files+ext_files+test_files+[assets,privacy,webview_script,release_public_key]+resources+[products],sourceTree='<group>')
 def configs(name, settings):
     configs=[]
     for mode in ['Debug','Release']:
@@ -43,7 +44,7 @@ def dependency(name,target):
     return obj(name+'dependency','PBXTargetDependency',target=target,targetProxy=proxy)
 embed_file=obj('embed-ext-file','PBXBuildFile',fileRef=ext_product,settings={'ATTRIBUTES':['RemoveHeadersOnCopy']})
 embed=obj('embed-ext','PBXCopyFilesBuildPhase',buildActionMask=2147483647,dstPath='',dstSubfolderSpec=13,files=[embed_file],name='Embed App Extensions',runOnlyForDeploymentPostprocessing=0)
-app_target=obj('app-target','PBXNativeTarget',buildConfigurationList=app_config,buildPhases=[phase('app-sources','PBXSourcesBuildPhase',app_files),phase('app-resources','PBXResourcesBuildPhase',[assets,privacy,webview_script]),phase('app-frameworks','PBXFrameworksBuildPhase',[]),embed],buildRules=[],dependencies=[dependency('REDLoopExtension',ext_target)],name='REDLoop',productName='REDLoop',productReference=app_product,productType='com.apple.product-type.application')
+app_target=obj('app-target','PBXNativeTarget',buildConfigurationList=app_config,buildPhases=[phase('app-sources','PBXSourcesBuildPhase',app_files),phase('app-resources','PBXResourcesBuildPhase',[assets,privacy,webview_script,release_public_key]),phase('app-frameworks','PBXFrameworksBuildPhase',[]),embed],buildRules=[],dependencies=[dependency('REDLoopExtension',ext_target)],name='REDLoop',productName='REDLoop',productReference=app_product,productType='com.apple.product-type.application')
 test_target=obj('test-target','PBXNativeTarget',buildConfigurationList=test_config,buildPhases=[phase('test-sources','PBXSourcesBuildPhase',test_files),phase('test-resources','PBXResourcesBuildPhase',[]),phase('test-frameworks','PBXFrameworksBuildPhase',[])],buildRules=[],dependencies=[dependency('REDLoop',app_target)],name='REDLoopTests',productName='REDLoopTests',productReference=test_product,productType='com.apple.product-type.bundle.unit-test')
 project=obj('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastUpgradeCheck':'1600','TargetAttributes':{test_target:{'TestTargetID':app_target}}},buildConfigurationList=project_config,compatibilityVersion='Xcode 14.0',developmentRegion='de',hasScannedForEncodings=0,knownRegions=['de','en','Base'],mainGroup=main,productRefGroup=products,projectDirPath='',projectRoot='',targets=[app_target,ext_target,test_target])
 def serialize(value,depth=0):

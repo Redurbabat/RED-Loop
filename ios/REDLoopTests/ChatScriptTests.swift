@@ -25,6 +25,14 @@ private final class Locked<Value>: @unchecked Sendable {
 
 private enum StubError: Error { case offline }
 
+private struct RouteTransfer: ChatScriptTransferring {
+    let contents: [String: Data]
+    func data(from url: URL) async throws -> Data {
+        guard let data = contents[url.absoluteString] else { throw StubError.offline }
+        return data
+    }
+}
+
 final class ChatScriptTests: XCTestCase {
     private var directory: URL!
 
@@ -133,6 +141,48 @@ final class ChatScriptTests: XCTestCase {
                                      bundle: .main, cacheDirectory: directory, server: "https://example.workers.dev")
         let script = try await loader.script()
         XCTAssertEqual(script.source, .bundle)
+    }
+
+    func testSignedCloudCopyUsesPublicKeyAndRejectsRollback() async throws {
+        let signer = P256.Signing.PrivateKey()
+        let remote = body(version: "9.9.9")
+        let script = Data(remote.utf8)
+        let hash = SHA256.hash(data: script).map { String(format: "%02x", $0) }.joined()
+        func package(_ sequence: Int) throws -> Data {
+            let message = "RED_LOOP_SCRIPT_V1\n9.9.9\n\(sequence)\n\(hash)\n"
+            let signature = try signer.signature(for: Data(message.utf8))
+            return try JSONSerialization.data(withJSONObject: [
+                "format":"red-loop-script-v1", "version":"9.9.9", "sequence":sequence,
+                "sha256":hash, "signature":signature.derRepresentation.base64EncodedString()
+            ])
+        }
+        let server = "https://example.workers.dev"
+        let remoteManifest = try package(3)
+        let loader = ChatScriptLoader(transfer: RouteTransfer(contents: [
+            server + "/red-loop-webview.manifest.json":remoteManifest,
+            server + "/red-loop-webview.js":script
+        ]),bundle:.main,cacheDirectory:directory,server:server,
+           trustedPublicKey:signer.publicKey.pemRepresentation)
+        let chosen = try await loader.script()
+        XCTAssertEqual(chosen.source,.cloud)
+        XCTAssertEqual(chosen.version,"9.9.9")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("red-loop-signed-pair.json").path))
+        let stale = ChatScriptLoader(transfer: RouteTransfer(contents: [
+            server + "/red-loop-webview.manifest.json":try package(2),
+            server + "/red-loop-webview.js":script
+        ]),bundle:.main,cacheDirectory:directory,server:server,
+           trustedPublicKey:signer.publicKey.pemRepresentation)
+        let fallback = try await stale.script()
+        XCTAssertEqual(fallback.source,.cache)
+        XCTAssertEqual(fallback.body,remote)
+    }
+
+    func testMissingTrustAnchorKeepsBundledScript() async throws {
+        let loader = ChatScriptLoader(transfer: StubTransfer(result:.success(Data(body(version:"9.9.9").utf8))),
+                                     bundle:.main,cacheDirectory:directory,
+                                     server:"https://example.workers.dev",trustedPublicKey:" ")
+        let chosen = try await loader.script()
+        XCTAssertEqual(chosen.source,.bundle)
     }
 
     func testDisabledCloudLoadingUsesTheBundledCopyAndNeverCallsTheServer() async throws {

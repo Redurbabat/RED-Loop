@@ -17,6 +17,9 @@ assert.equal(canonical,await readFile('ios/REDLoopExtension/Resources/red-loop.u
 assert.equal(canonical,await readFile('ios/REDLoop/Resources/red-loop-webview.js','utf8'),'Run npm run build to sync the bundled in-app script');
 assert.equal(canonical,await readFile('dist/red-loop-webview.js','utf8'),'Run npm run build to publish the in-app script');
 assert.equal(canonical,await readFile('android/app/src/main/assets/red-loop-webview.js','utf8'),'Run npm run build to sync the bundled Android script');
+const releasePem = await readFile('ios/REDLoop/Resources/release-public.pem','utf8');
+const hasTrust = await readFile('release/release-public.pem','utf8').catch(e=>e.code==='ENOENT'?null:Promise.reject(e));
+assert.equal(releasePem,hasTrust??'','Run npm run build to sync the trusted iOS public key');
 assert.match(canonical,/'ios-webview', 'android-webview'/,'Both native hosts must stay accepted by the canonical script');
 assert.match(canonical,/rl-autostart/,'The automatic start must stay in the canonical script');
 assert.match(canonical,/RED_LOOP_RUECKFRAGE/,'The question marker must stay in both presets');

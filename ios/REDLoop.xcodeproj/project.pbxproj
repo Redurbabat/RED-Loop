@@ -86,6 +86,10 @@
 			isa = PBXBuildFile;
 			fileRef = 238EC04F1AB931A33679491B;
 		};
+		87CA730848B88FF7427AE598 = {
+			isa = PBXBuildFile;
+			fileRef = 939245A6489258006BD79AF5;
+		};
 		EF759BE97A9411E6289649B9 = {
 			isa = PBXBuildFile;
 			fileRef = 600BBB952830ADC6F1BAC5E2;
@@ -265,6 +269,12 @@
 			path = "REDLoop/Resources/red-loop-webview.js";
 			sourceTree = "<group>";
 		};
+		939245A6489258006BD79AF5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "REDLoop/Resources/release-public.pem";
+			sourceTree = "<group>";
+		};
 		4E783A9E10D2A8ABA38CD11C = {
 			isa = PBXFileReference;
 			explicitFileType = wrapper.application;
@@ -338,6 +348,7 @@
 				620C685F2616B43581CC276E,
 				204D0DB0A73F5DECAE7387A8,
 				238EC04F1AB931A33679491B,
+				939245A6489258006BD79AF5,
 				32BE2FEB34DF865B59B85B39,
 				023F1CFBDBAACC9ECD33947C,
 				DDD047A9B3828AE85CAAABE8,
@@ -457,6 +468,7 @@
 				50F89A74F07C97586F615780,
 				CA305EB708EABEF48849FE8D,
 				766B156912A6F25A077ABC1C,
+				87CA730848B88FF7427AE598,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
