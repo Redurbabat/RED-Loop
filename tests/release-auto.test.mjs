@@ -17,6 +17,7 @@ test('one step generates a private P-256 key, public trust anchor and signed seq
   assert.equal(result.sequence,1);assert.equal(result.status,'signed');
   const [key,manifest,script]=await Promise.all([readFile(join(root,'release','release-public.pem'),'utf8'),readFile(join(root,'red-loop-signed-release','red-loop-webview.manifest.json'),'utf8'),readFile(join(root,'red-loop-signed-release','red-loop-webview.js'))]);
   assert.match(key,/BEGIN PUBLIC KEY/);assert.equal(JSON.parse(manifest).sequence,1);
+  assert.equal(await readFile(join(root,'release','red-loop-webview.manifest.json'),'utf8'),manifest);
   assert.ok(verifyRelease({script,manifest:JSON.parse(manifest),publicKey:key}));
   const info=await stat(join(root,'release-secrets','release-private.pem'));
   if(process.platform!=='win32') assert.equal(info.mode & 0o077,0);
@@ -25,6 +26,9 @@ test('identical source is a no-op; changed source increments the sequence and pr
   const root=await setup();await prepareRelease(root);
   const before=await readFile(join(root,'release-secrets','release-private.pem'),'utf8');
   assert.equal((await prepareRelease(root)).status,'unchanged');
+  await writeFile(join(root,'release','red-loop-webview.manifest.json'),'corrupted');
+  assert.equal((await prepareRelease(root)).status,'unchanged');
+  assert.equal(JSON.parse(await readFile(join(root,'release','red-loop-webview.manifest.json'),'utf8')).sequence,1);
   await writeFile(join(root,'userscripts','red-loop.user.js'),source('0.5.1'));
   const updated=await prepareRelease(root);assert.equal(updated.sequence,2);assert.equal(updated.status,'signed');
   assert.equal((await ensureReleaseIdentity(root)).state.lastSequence,2);

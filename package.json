@@ -15,6 +15,7 @@
     "release:verify": "node scripts/signed-script.mjs --verify",
     "release:auto": "node scripts/release-auto.mjs --prepare",
     "release:status": "node scripts/release-auto.mjs --status",
+    "release:deploy": "npm run release:auto && npm run deploy",
     "deploy": "npm run build && wrangler deploy",
     "dry-run": "npm run build && wrangler deploy --dry-run"
   },

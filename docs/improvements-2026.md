@@ -17,7 +17,7 @@ Scope: integration target is the existing open PR #6, not `main`. Do not mark a 
 | 11 | Cross-platform unified job dashboard | Cloud API shared; device-local ChatGPT tabs are separate | Sync server job IDs/states on Web/iPhone/Android/Windows without centralizing credentials |
 | 12 | Notifications | Existing iOS/Android native hooks in PR #6, unverified | Notification permission, stop reasons, duplicates and per-chat controls tested |
 | 13 | Resource and cost limits | Existing per-job step/time and storage limits; **new partial token reporting and optional reported-token budget** | Explicit user budget and truthful provider accounting; stop before overruns where possible |
-| 14 | Secure script delivery | SHA-256 pin retained; P-256 CLI and native verifiers; **one-command local key setup/auto-increment signing plus verified manifest packaging added**, native manifest fetch/anti-rollback and physical-device tests pending | Signed/pinned payload digest with rollback, same source for all clients |
+| 14 | Secure script delivery | SHA-256 pin retained; P-256 CLI and native verifiers; **one-command local key setup/auto-increment signing, tracked public manifest and verified packaging added**, native manifest fetch/anti-rollback and physical-device tests pending | Signed/pinned payload digest with rollback, same source for all clients |
 | 15 | RED Morph visual consistency | Existing Web Motion Studio; native parity pending | Shared component tokens, measured UI and accessibility tests across platforms |
 
 ## Safe release sequence

@@ -32,6 +32,7 @@ function layout(root) {
     publicKey:join(root,'release-secrets','release-public.pem'),
     state:join(root,'release-secrets','release-state.json'),
     trackedPublic:join(root,'release','release-public.pem'),
+    trackedManifest:join(root,'release','red-loop-webview.manifest.json'),
     canonical:join(root,'userscripts','red-loop.user.js'),
     output:join(root,'red-loop-signed-release'),
     outputScript:join(root,'red-loop-signed-release','red-loop-webview.js'),
@@ -97,7 +98,13 @@ export async function prepareRelease(root=ROOT) {
     let manifest;
     try {manifest=JSON.parse(rawManifest);}catch{throw new Error('Previous signed manifest is corrupt.');}
     if(!verifyRelease({script:oldScript,manifest,publicKey}) || manifest.sequence>state.lastSequence) throw new Error('Previous release does not verify against the local public key/state.');
-    if(currentHash===manifest.sha256) return {status:'unchanged',sequence:manifest.sequence,paths};
+    if(currentHash===manifest.sha256) {
+      const signedManifest=JSON.stringify(manifest,null,2)+'\n';
+      if(!await exists(paths.trackedManifest) || await readFile(paths.trackedManifest,'utf8')!==signedManifest) {
+        await atomicReplace(paths.trackedManifest,signedManifest);
+      }
+      return {status:'unchanged',sequence:manifest.sequence,paths};
+    }
   }
   if(state.lastSequence>=MAX_SEQUENCE) throw new Error('Release sequence exhausted; key rotation must be reviewed.');
   const nextSequence=state.lastSequence+1;
@@ -107,7 +114,9 @@ export async function prepareRelease(root=ROOT) {
   if(!verifyRelease({...release,publicKey,minimumSequence:nextSequence})) throw new Error('Generated release failed local verification.');
   await mkdir(paths.output,{recursive:true,mode:0o700});
   await atomicReplace(paths.outputScript,release.script);
-  await atomicReplace(paths.outputManifest,JSON.stringify(release.manifest,null,2)+'\n');
+  const manifestText=JSON.stringify(release.manifest,null,2)+'\n';
+  await atomicReplace(paths.outputManifest,manifestText);
+  await atomicReplace(paths.trackedManifest,manifestText);
   return {status:'signed',sequence:nextSequence,paths};
 }
 
