@@ -120,3 +120,6 @@ jobs:
       - name: Verify Windows test starter without opening a browser
         shell: pwsh
         run: ./scripts/windows-chat-test.ps1 -NoBrowser -SkipTests
+      - name: Exercise actual double-click CMD wrapper with Windows PowerShell
+        shell: cmd
+        run: RED-Loop-Windows-Test.cmd -NoBrowser -SkipTests

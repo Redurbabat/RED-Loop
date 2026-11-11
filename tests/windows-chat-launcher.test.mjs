@@ -9,6 +9,7 @@ test('Windows launcher uses its checkout and preserves git state',()=>{
   assert.doesNotMatch(starter,/\bgit\s+(?:pull|reset|checkout|switch|clean)\b/i);
   assert.match(launcher,/cd \/d "%~dp0"/i);
   assert.match(launcher,/powershell\.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\\windows-chat-test\.ps1"/i);
+  assert.match(launcher,/if \/I "%~1"=="-NoBrowser" exit \/b %RESULT%/);
 });
 test('Windows extension preflight checks build, test, manifest and SHA-256',()=>{
   assert.match(starter,/Get-Command npm\.cmd/);
