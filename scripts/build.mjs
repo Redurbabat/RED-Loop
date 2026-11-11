@@ -1,4 +1,5 @@
-import {mkdir, cp, copyFile, readFile, writeFile} from 'node:fs/promises';
+import {mkdir, cp, copyFile, readFile, writeFile, stat} from 'node:fs/promises';
+import {verifyRelease} from './signed-script.mjs';
 import {zipSync} from 'fflate';
 await mkdir('dist', {recursive:true});
 await cp('web', 'dist', {recursive:true});
@@ -10,6 +11,26 @@ await copyFile('userscripts/red-loop.user.js', 'dist/red-loop.user.js');
 await mkdir('ios/REDLoop/Resources', {recursive:true});
 await copyFile('userscripts/red-loop.user.js', 'ios/REDLoop/Resources/red-loop-webview.js');
 await copyFile('userscripts/red-loop.user.js', 'dist/red-loop-webview.js');
+// Optional signed release. Never publish an unverified or mismatched manifest.
+const releaseScript = 'red-loop-signed-release/red-loop-webview.js';
+const releaseManifest = 'red-loop-signed-release/red-loop-webview.manifest.json';
+const releasePublic = 'release/release-public.pem';
+const present = async file => {try {await stat(file);return true;} catch (error) {if(error.code==='ENOENT')return false;throw error;}};
+const [hasScript,hasManifest] = await Promise.all([present(releaseScript),present(releaseManifest)]);
+if(hasScript !== hasManifest) throw new Error('Incomplete signed release. Run npm run release:auto to prepare a complete one.');
+if(hasScript) {
+  if(!await present(releasePublic)) throw new Error('Signed release public key missing.');
+  const [canonical, signed, rawManifest, publicKey] = await Promise.all([
+    readFile('userscripts/red-loop.user.js'),readFile(releaseScript),
+    readFile(releaseManifest),readFile(releasePublic)
+  ]);
+  if(!canonical.equals(signed)) throw new Error('The userscript changed since signing. Run npm run release:auto before deployment.');
+  if(rawManifest.length > 4096) throw new Error('Signed manifest is too large.');
+  const manifest = JSON.parse(rawManifest.toString('utf8'));
+  if(!verifyRelease({script:canonical,manifest,publicKey})) throw new Error('Release signature verification failed. Deployment aborted.');
+  await copyFile(releaseManifest,'dist/red-loop-webview.manifest.json');
+}
+
 // The Android app bundles the same script and shares the iOS app icon.
 await mkdir('android/app/src/main/assets', {recursive:true});
 await mkdir('android/app/src/main/res/mipmap-xxhdpi', {recursive:true});

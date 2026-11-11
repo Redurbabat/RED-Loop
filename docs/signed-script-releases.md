@@ -31,3 +31,20 @@ Der CLI-Test `node --test tests/signed-script.test.mjs` verwendet kurzlebige Tes
 ## Native Signaturprüfer – vorbereitet (11.11.2026)
 
 Die Quellmodule `ios/REDLoop/ChatScript.swift` (`SignedScriptReleaseVerifier`) und `android/app/src/main/java/com/bbtred/redloop/SignedScriptRelease.kt` (`SignedScriptRelease`) prüfen kanonische P-256/DER-Signaturen, die exacten Skriptbytes (SHA-256), Versionsnummern, Format und Mindestsequenzen. Beide nehmen den öffentlichen Schlüssel **als Parameter** entgegen, nicht vom Server. Das Android-Modul kann ohne Android-Laufzeit als reine Kotlin/JVM-Klasse getestet werden. Neue Swift-XCTest- und Kotlin-Tests enthalten einen gemeinsam mit Node.js signierten Referenzvektor (nur öffentlicher Testschlüssel und Signatur), zusätzlich negative Manipulationsprüfungen. Die nativen Loader rufen diese Prüfer **noch nicht auf**, solange kein öffentlicher Produktionsschlüssel im App-Build verankert ist. JSON-Parsing/Manifest-Download, dauerhafter Rollback-Schutz, atomare Paar-Speicherung und Geräteprüfung bleiben offen. Der SHA-256-Bundle-Pin bleibt unverändert wirksam.
+
+
+## Automatische Release-Vorbereitung (weniger Handarbeit)
+
+Auf dem **eigenen Entwicklungsrechner** ist nur noch ein Befehl für den ersten Setup- und Signiervorgang erforderlich:
+
+\`\`\`sh
+npm run release:auto
+\`\`\`
+
+Der Befehl generiert bei der ersten Ausführung ein lokales P-256-Schlüsselpaar und signiert die aktuelle \`userscripts/red-loop.user.js\`. Er schreibt den **privaten** Schlüssel und den monotonen Zähler nach \`release-secrets/\` (beide durch \`.gitignore\` ausgeschlossen). Der **öffentliche** Schlüssel wird nach \`release/release-public.pem\` geschrieben; dieser darf zur späteren Einbettung ins signierte App-Bundle versioniert werden.
+
+Wird der Befehl erneut ausgeführt, so bleibt ein unverändertes Skript unangetastet. Nach einer Skriptänderung wird die nächste Release-Sequenz automatisch **vor** dem Schreiben der neuen signierten Dateien reserviert. Ein beschädigter Zustand, ausgetauschter öffentlicher Schlüssel oder unvollständiges Release führt zum Fehler statt zu automatischem Schlüsseltausch. **Ein Backup von \`release-secrets/\` ist wichtig**: Bei Geräteverlust lässt sich die alte Vertrauensidentität nicht durch ein neu erzeugtes Schlüsselpaar ersetzen. Private PEM-Daten dürfen nicht hochgeladen oder im Chat geteilt werden. Auf dem Rechner sollten Festplattenverschlüsselung und restriktive Zugriffsrechte aktiviert sein.
+
+Bei \`npm run build\` wird ein vorhandenes signiertes Release automatisch gegen \`release/release-public.pem\` verifiziert. Nur wenn die Signatur gültig ist und die JavaScript-Datei **bytegleich** mit der kanonischen Quelle ist, wird das Manifest zusätzlich nach \`dist/red-loop-webview.manifest.json\` kopiert. Ungültige oder veraltete Signaturen brechen den Build ab, statt ein falsches Manifest zu veröffentlichen. Ohne Release-Dateien baut die App weiterhin mit dem bisherigen Bundle-Pin. **Diese Vorbereitung deployt nicht von selbst**; vorhandene Cloudflare-Zugangsdaten und die normale Deployment-Freigabe bleiben erforderlich.
+
+\`npm run release:status\` zeigt den Stand des lokalen Zählers. \`node --test tests/release-auto.test.mjs\` testet Schlüsselerzeugung, automatische Sequenz, Schutz vor Vertrauensankerwechsel und beschädigten Zustand.

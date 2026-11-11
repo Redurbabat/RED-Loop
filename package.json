@@ -13,6 +13,8 @@
     "local:ollama": "node scripts/ollama-local.mjs",
     "release:sign": "node scripts/signed-script.mjs --sign",
     "release:verify": "node scripts/signed-script.mjs --verify",
+    "release:auto": "node scripts/release-auto.mjs --prepare",
+    "release:status": "node scripts/release-auto.mjs --status",
     "deploy": "npm run build && wrangler deploy",
     "dry-run": "npm run build && wrangler deploy --dry-run"
   },
