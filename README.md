@@ -23,6 +23,8 @@ Open **http://127.0.0.1:8787**. Choose a limit (1–50), press **Demo starten**,
 
 The responsive RED Morph interface includes light/dark/system appearance, keyboard controls, accessible status/error announcements, progress, bounded activity history, and Reduced Motion support. Demo content stays in tab memory; only the chosen appearance is saved locally.
 
+The **homepage includes a RED Morph component finder with lazy static Canvas previews**: see what all twelve original studies look like directly on the dashboard, search and filter by scene metadata, bookmark or remove a study directly on the homepage card using its independent star button, filter your browser-local ★ saved scenes, compare any two original studies side by side with still Canvas previews, inspect and copy their canonical integration code or download a three-file starter ZIP (HTML demo, original engine, README) directly from each card; the Motion Studio Einbau tab additionally exports a starter ZIP with the currently selected scene and live density, depth, speed and hue settings, or open a study in Motion Studio with one click. Each visible preview is drawn once from the original engine and immediately released; thumbnails never autoplay. The finder works at phone, tablet, MacBook and Windows web viewport sizes and never sends search terms to the cloud. See [homepage discovery behavior](docs/scene-discovery.md).
+
 ## Real browser integration
 
 **Windows / Edge / Chrome:** [download the ready-to-load extension ZIP](https://red-loop.redurbabat7.workers.dev/red-loop-browser-extension.zip), extract it, open `edge://extensions` or `chrome://extensions`, enable Developer mode and choose **Load unpacked**. Select the extracted folder and reload the ChatGPT tab. A userscript manager is not required for this path. [Detailed Windows instructions](extensions/README.md).
@@ -83,6 +85,8 @@ npx playwright install chromium webkit
 npm run test:browser
 npm run dry-run
 ```
+
+GitHub Actions validates pull requests and pushes to `main` with individual build, check, unit, dry-run and browser stages. The latest GitHub logs showed a successful iOS simulator build but two failing Web Motion Studio test assumptions; their corrections are included in this branch and require the next CI run to verify. Cloudflare Workers Builds reports an additional failure; do not treat a merge as a successful deployment. See [CI troubleshooting](docs/ci-troubleshooting.md).
 
 `check` verifies JS syntax, JSON/YAML, Xcode project structure and extension-source parity. It is **not an iOS compilation**. Browser tests include four platform viewport profiles, light/dark accessibility scans, keyboard and Reduced Motion, navigation and safety scenarios. Userscript browser tests run against intercepted local fixtures, never a live conversation.
 

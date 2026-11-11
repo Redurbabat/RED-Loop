@@ -1,8 +1,45 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f4f2ee"><meta name="description" content="RED Loop: lokale Demo, Browser-Integration und begrenzte, servergespeicherte Cloud-Aufträge."><title>RED Loop · Kontrollierter Fortschritt</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f4f2ee"><meta name="description" content="RED Loop: lokale Demo, Browser-Integration und begrenzte, servergespeicherte Cloud-Aufträge."><title>RED Loop · Kontrollierter Fortschritt</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script><script type="module" src="/scene-discovery.js"></script></head>
 <body><a class="skip" href="#main">Zum Inhalt</a>
-<div class="shell"><header><a class="brand" href="/" aria-label="RED Loop Dashboard"><span class="brand-mark" aria-hidden="true">R</span><span>RED <b>Loop</b><small>BBT RED / RED MORPH</small></span></a><nav aria-label="Hauptnavigation"><a href="#dashboard" aria-current="page" data-view="dashboard">Dashboard</a><a href="#cloud" data-view="cloud">Cloud-Aufträge</a><a href="#integration" data-view="integration">Integration</a><a href="#privacy" data-view="privacy">Datenschutz</a></nav><button id="theme" class="quiet" type="button" aria-label="Farbschema wechseln">Darstellung: System</button></header>
+<div class="shell"><header><a class="brand" href="/" aria-label="RED Loop Dashboard"><span class="brand-mark" aria-hidden="true">R</span><span>RED <b>Loop</b><small>BBT RED / RED MORPH</small></span></a><nav aria-label="Hauptnavigation"><a href="#dashboard" aria-current="page" data-view="dashboard">Dashboard</a><a href="#cloud" data-view="cloud">Cloud-Aufträge</a><a href="#integration" data-view="integration">Integration</a><a href="#privacy" data-view="privacy">Datenschutz</a><a href="/motion-studio.html">Motion Studio</a></nav><button id="theme" class="quiet" type="button" aria-label="Farbschema wechseln">Darstellung: System</button></header>
 <main id="main" tabindex="-1"><section id="dashboard" class="view"><div class="intro"><div><p class="eyebrow">DEIN AUFTRAG. IM FLUSS.</p><h1>Kontrollierter<br><span>Fortschritt.</span></h1><p class="lead">Ein klarer Rahmen für den nächsten Schritt.<br>Du startest. Du setzt das Limit. Du behältst die Kontrolle.</p></div><div class="demo-label"><span class="dot"></span> Demo-Modus <small>Lokal in deinem Browser</small></div></div>
+<section class="scene-discovery glass" id="scene-discovery" aria-labelledby="scene-discovery-title">
+  <div class="scene-discovery-heading">
+    <div><p class="scene-discovery-eyebrow">RED MORPH · KOMPONENTENBIBLIOTHEK</p><h2 id="scene-discovery-title">UI-Effekte <span>direkt finden.</span></h2><p class="scene-discovery-description">Zwölf originale Motion-Studien. Suche nach Glas, Partikeln, Licht oder Material und öffne die gewünschte Vorschau direkt.</p></div>
+    <a class="scene-discovery-visit" href="/motion-studio.html">Zum Motion Studio <span aria-hidden="true">↗</span></a>
+  </div>
+  <div class="scene-discovery-search-row">
+    <label for="scene-discovery-search">Komponenten durchsuchen</label>
+    <input id="scene-discovery-search" type="search" autocomplete="off" spellcheck="false" placeholder="z. B. Glas, Iris oder Licht" aria-describedby="scene-discovery-help">
+    <p id="scene-discovery-help">↓ zu den Treffern · Enter öffnet den ersten Treffer</p>
+  </div>
+  <div id="scene-discovery-filters" class="scene-discovery-filters" role="group" aria-label="Komponenten nach Kategorie filtern"></div>
+  <div class="scene-discovery-meta"><p id="scene-discovery-count" role="status" aria-live="polite" aria-atomic="true">12 Komponenten gefunden</p><span>Responsive Web-Vorschau · MacBook · Windows · iPhone · Android</span></div>
+  <section id="scene-discovery-usage" class="scene-discovery-usage" role="region" aria-labelledby="scene-discovery-usage-title" hidden>
+    <div class="scene-usage-heading">
+      <div><h3 id="scene-discovery-usage-title">Einbau-Code · <span id="scene-discovery-usage-scene"></span></h3>
+        <p>Ein vollständiges Einbaubeispiel mit Standardwerten. Die Datei <code>motion-engine.js</code> wird im eigenen Projekt benötigt.</p></div>
+      <button type="button" id="scene-discovery-usage-close" aria-label="Einbau-Code schließen">Schließen</button>
+    </div>
+    <pre id="scene-discovery-usage-source" class="scene-usage-source" tabindex="0"><code id="scene-discovery-usage-text"></code></pre>
+    <div class="scene-usage-footer">
+      <button type="button" id="scene-discovery-usage-copy">Code kopieren</button>
+      <button type="button" id="scene-discovery-usage-download">Starterpaket (.zip)</button>
+      <span>Das Paket enthält die originale Engine, eine HTML-Demo und eine Startanleitung. Bei gesperrter Zwischenablage bleibt der Code oben markierbar.</span>
+    </div>
+  </section>
+  <section id="scene-discovery-comparison" class="scene-discovery-comparison" aria-labelledby="scene-discovery-comparison-title" hidden>
+    <div class="scene-comparison-heading">
+      <div><h3 id="scene-discovery-comparison-title">Komponenten vergleichen <span id="scene-discovery-comparison-count">0 / 2</span></h3><p>Bis zu zwei Motive nebeneinander. Eine dritte Auswahl ersetzt das zuerst gewählte Motiv.</p></div>
+      <button type="button" id="scene-discovery-comparison-clear">Vergleich löschen</button>
+    </div>
+    <div id="scene-discovery-comparison-items" class="scene-comparison-grid" aria-label="Verglichene Komponenten"></div>
+  </section>
+  <div id="scene-discovery-results" class="scene-discovery-grid" aria-label="Motion-Komponenten"></div>
+  <p id="scene-discovery-feedback" class="scene-discovery-feedback" role="status" aria-live="polite" aria-atomic="true"></p>
+  <div id="scene-discovery-empty" class="scene-discovery-empty" hidden><p>Keine passenden Komponenten gefunden. Probiere einen anderen Suchbegriff oder eine andere Kategorie.</p><button type="button" id="scene-discovery-reset">Suche zurücksetzen</button></div>
+  <noscript><p>Die Vorschau-Galerie benötigt JavaScript. <a href="/motion-studio.html">Motion Studio öffnen ↗</a></p></noscript>
+</section>
 <div class="workspace"><section class="glass control" aria-labelledby="control-title"><div class="section-top"><h2 id="control-title">Loop-Steuerung</h2><span class="tag">LOKAL</span></div><div class="meter" aria-hidden="true"><div class="meter-inner"><span id="count">00</span><small>VON <span id="limit-display">05</span></small></div></div><div class="status-wrap"><span class="status-dot"></span><p id="status" role="status" aria-live="polite">Bereit</p></div><progress id="progress" max="5" value="0" aria-label="Abgeschlossene Fortsetzungen"></progress><div class="progress-label"><span>Fortsetzungen</span><span id="progress-text">0 / 5</span></div>
 <div class="settings"><label for="limit">Limit <span>1–50 Fortsetzungen</span></label><input id="limit" type="number" min="1" max="50" step="1" value="5" inputmode="numeric"><label for="scenario">Testszenario</label><select id="scenario"><option value="normal">Normaler Ablauf</option><option value="error">Antwortfehler simulieren</option><option value="draft">Vorhandenen Entwurf simulieren</option></select></div>
 <div id="error" class="error" role="alert" hidden></div><div class="actions"><button id="start" class="primary" type="button"><span aria-hidden="true">▶</span> Demo starten</button><button id="stop" type="button" disabled><span aria-hidden="true">■</span> Stopp</button></div><button id="reset" class="reset" type="button">Zurücksetzen</button><p class="footnote">Keine Zugangsdaten. Keine echten Nachrichten.<br>Die Demo stoppt beim Verlassen des Tabs.</p></section>

@@ -1,36 +1,98 @@
 name: RED Loop validation
 on:
   pull_request:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   web:
+    name: Web, extensions and browser tests
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Configure Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run build && npm run check && npm test && npm run dry-run
-      - run: npx playwright install --with-deps chromium webkit
-      - run: npm run test:browser
-      - uses: actions/upload-artifact@v4
+      - name: Identify runner and runtime
+        run: |
+          echo "Runner: ${RUNNER_OS} / ${RUNNER_ARCH}"
+          node --version
+          npm --version
+      - name: Install dependencies
+        id: install
+        run: npm ci
+      - name: Build web and extension assets
+        id: build
+        run: npm run build
+      - name: Verify JavaScript, manifests, archives and native project metadata
+        id: check
+        run: npm run check
+      - name: Run unit and integration tests
+        id: unit
+        run: npm test
+      - name: Check Cloudflare deployment bundle without deploying
+        id: dry_run
+        run: npm run dry-run
+      - name: Install Chromium and WebKit for visual checks
+        id: browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run browser tests
+        id: browser
+        run: npm run test:browser
+      - name: Summarize web validation stages
+        if: always()
+        run: |
+          {
+            echo '### RED Loop web CI stages'
+            echo '| Stage | Outcome |'
+            echo '| --- | --- |'
+            echo '| npm ci | ${{ steps.install.outcome }} |'
+            echo '| Build | ${{ steps.build.outcome }} |'
+            echo '| Syntax / manifests / archives | ${{ steps.check.outcome }} |'
+            echo '| Unit / integration | ${{ steps.unit.outcome }} |'
+            echo '| Wrangler dry-run | ${{ steps.dry_run.outcome }} |'
+            echo '| Browser installation | ${{ steps.browsers.outcome }} |'
+            echo '| Playwright | ${{ steps.browser.outcome }} |'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload browser diagnostics
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: web-test-results
           path: |
             test-results/
             docs/previews/
+
   ios:
+    name: iOS simulator and unsigned archive
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - run: bash scripts/ios-ci.sh
-      - uses: actions/upload-artifact@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Identify macOS runner and Xcode
+        run: |
+          echo "Runner: ${RUNNER_OS} / ${RUNNER_ARCH}"
+          xcodebuild -version
+      - name: Build and test iOS simulator
+        id: ios_build
+        run: bash scripts/ios-ci.sh
+      - name: Summarize iOS result
+        if: always()
+        run: |
+          echo '### RED Loop iOS validation' >> "$GITHUB_STEP_SUMMARY"
+          echo 'iOS build and simulator tests: ${{ steps.ios_build.outcome }}' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload simulator logs and unsigned archive
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ios-simulator-and-unsigned-archive
