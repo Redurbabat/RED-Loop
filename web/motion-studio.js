@@ -98,7 +98,8 @@ function updateCatalog(){
 function currentPreset(){return {scene:active.id,...engine.settings};}
 function presetUrl(){
   // Rebuild the public link from origin + path, never from arbitrary query/fragment data.
-  const url=new URL(location.pathname,location.origin);
+  // Emit the stable public entrypoint even when Cloudflare canonicalizes .html away.
+  const url=new URL('/motion-studio.html',location.origin);
   url.search=serializeMotionPreset(currentPreset());
   return url;
 }

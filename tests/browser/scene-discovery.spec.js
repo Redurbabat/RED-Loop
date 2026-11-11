@@ -16,7 +16,7 @@ test('dashboard finds original motion components by text and category and opens 
   const result=grid.locator('a[data-scene="prism-veil"]');
   await expect(result).toHaveAttribute('href','/motion-studio.html?scene=prism-veil');
   await result.click();
-  await expect(page).toHaveURL(/motion-studio.html\?scene=prism-veil/);
+  await expect(page).toHaveURL(/motion-studio(?:\.html)?\?scene=prism-veil/);
   await expect(page.locator('#ui-loop-title')).toContainText('Prism');
 });
 
@@ -40,7 +40,7 @@ test('homepage discovery supports direct keyboard search and clear empty results
 
   await search.fill('Iris Caustics');
   await search.press('Enter');
-  await expect(page).toHaveURL(/motion-studio.html\?scene=iris-caustics/);
+  await expect(page).toHaveURL(/motion-studio(?:\.html)?\?scene=iris-caustics/);
   await expect(page.locator('#ui-loop-title')).toContainText('Iris');
 });
 

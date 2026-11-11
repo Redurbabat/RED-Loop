@@ -118,6 +118,10 @@ test('packaged endless mode continues past the numeric limit and pause keeps the
 });
 
 test.describe('natural background visibility',()=>{
+  // GitHub-hosted Ubuntu runners cannot start headed Chromium with a usable
+  // namespace sandbox. Keep this genuine-focus test for supported desktop hosts.
+  test.skip(Boolean(process.env.CI) && process.platform==='linux',
+    'Natural-focus Chromium requires a desktop/sandbox not provided by Linux CI');
   test.use({naturalVisibility:true});
   test.describe.configure({mode:'serial'});
 
