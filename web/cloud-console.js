@@ -31,6 +31,7 @@ export class CloudConsole {
   #refreshPromise = null;
   #service = null;
   #job = null;
+  #detail = null;
   #jobs = [];
   #busy = false;
   #draftKey = null;
@@ -50,6 +51,7 @@ export class CloudConsole {
     this.$('#cloud-create').addEventListener('submit', event => { event.preventDefault(); void this.create(); });
     this.$('#cloud-refresh').addEventListener('click', () => { void this.refresh(); });
     this.$('#cloud-poll').addEventListener('click', () => this.togglePolling());
+    this.$('#cloud-export').addEventListener('click', () => this.exportReport());
     for (const action of ['pause', 'resume', 'stop']) {
       this.$(`#cloud-${action}`).addEventListener('click', () => { void this.action(action); });
     }
@@ -207,6 +209,7 @@ export class CloudConsole {
     this.#service = null;
     this.#selected = null;
     this.#job = null;
+    this.#detail = null;
     this.#jobs = [];
     this.#busy = false;
     this.#detailVersion += 1;
@@ -280,6 +283,7 @@ export class CloudConsole {
     if (!this.#token || !this.#visible || this.document.hidden) return;
     if (id !== this.#selected || this.#job?.id !== id) {
       this.#job = null;
+    this.#detail = null;
       this.$('#cloud-details').hidden = true;
       this.$('#cloud-selection-empty').hidden = false;
       this.#renderActions();
@@ -298,18 +302,19 @@ export class CloudConsole {
     } catch (error) { if (session === this.#session || !this.#token && error?.name !== 'AbortError') this.#error(error); }
   }
 
-  #renderDetails({job, steps, artifacts}) {
+  #renderDetails({job, steps, artifacts, usage}) {
     this.#job = job;
+    this.#detail = {job, steps, artifacts, usage};
     this.$('#cloud-selection-empty').hidden = true;
     this.$('#cloud-details').hidden = false;
     this.$('#cloud-job-title').textContent = job.title || 'Ohne Titel';
     this.$('#cloud-job-id').textContent = job.id;
-    this.$('#cloud-job-status').textContent = STATUS[job.status] || job.status || 'Unbekannt';
+    this.$('#cloud-job-status').textContent = job.status === 'completed' ? 'Abgeschlossen · KI-Meldung (ungeprüft)' : STATUS[job.status] || job.status || 'Unbekannt';
     this.$('#cloud-job-summary').textContent = job.summary || 'Noch keine Zusammenfassung vorhanden.';
     this.$('#cloud-job-prompt').textContent = job.prompt || '';
     this.$('#cloud-job-progress').max = Math.max(1, Number(job.maxSteps) || 1);
     this.$('#cloud-job-progress').value = Number(job.stepCount) || 0;
-    this.$('#cloud-job-limits').textContent = `${job.stepCount ?? 0} / ${job.maxSteps ?? '—'} Schritte · maximal ${job.maxDurationMinutes ?? '—'} Minuten`;
+    this.$('#cloud-job-limits').textContent = `${job.stepCount ?? 0} / ${job.maxSteps ?? '—'} Schritte · maximal ${job.maxDurationMinutes ?? '—'} Minuten` + (usage?.totalTokens == null ? ' · Tokenverbrauch nicht gemeldet' : ` · ${usage.totalTokens.toLocaleString('de-CH')} Token gemeldet (${usage.reportedSteps ?? 0}/${job.stepCount ?? 0} Schritte)`) + (job.maxTotalTokens ? ` · Budget ${job.maxTotalTokens.toLocaleString('de-CH')} Token (nur gemessene Schritte)` : '');
     this.$('#cloud-job-dates').textContent = `Erstellt ${dateLabel(job.createdAt)} · Aktualisiert ${dateLabel(job.updatedAt)}`;
     this.$('#cloud-job-error').hidden = !job.error;
     this.$('#cloud-job-error').textContent = job.error ? String(job.error).slice(0, 3000) : '';
@@ -340,6 +345,7 @@ export class CloudConsole {
     this.$('#cloud-pause').disabled = unavailable || !['queued', 'running'].includes(status);
     this.$('#cloud-resume').disabled = unavailable || !['paused', 'needs_input'].includes(status) || this.#service?.configured !== true;
     this.$('#cloud-stop').disabled = unavailable || TERMINAL.has(status);
+    this.$('#cloud-export').disabled = unavailable || !this.#detail;
   }
 
   async create() {
@@ -349,10 +355,12 @@ export class CloudConsole {
     const prompt = this.$('#cloud-prompt').value.trim();
     const maxSteps = Number(this.$('#cloud-max-steps').value);
     const maxDurationMinutes = Number(this.$('#cloud-max-minutes').value);
-    if (!title || !prompt || !Number.isInteger(maxSteps) || maxSteps < 1 || maxSteps > 50 || !Number.isInteger(maxDurationMinutes) || maxDurationMinutes < 1 || maxDurationMinutes > 480) {
-      this.#error(new Error('Bitte Titel, Auftrag, 1–50 Schritte und 1–480 Minuten angeben.')); return;
+    const tokenBudgetText = this.$('#cloud-max-tokens').value.trim();
+    const maxTotalTokens = Number(tokenBudgetText);
+    if (!title || !prompt || !Number.isInteger(maxSteps) || maxSteps < 1 || maxSteps > 50 || !Number.isInteger(maxDurationMinutes) || maxDurationMinutes < 1 || maxDurationMinutes > 480 || (tokenBudgetText && (!Number.isSafeInteger(maxTotalTokens) || maxTotalTokens < 1 || maxTotalTokens > 1000000))) {
+      this.#error(new Error('Bitte Titel, Auftrag, 1–50 Schritte, 1–480 Minuten und ein gültiges optionales Tokenbudget angeben.')); return;
     }
-    const body = {title, prompt, maxSteps, maxDurationMinutes};
+    const body = {title, prompt, maxSteps, maxDurationMinutes, ...(tokenBudgetText ? {maxTotalTokens} : {})};
     const signature = JSON.stringify(body);
     const session = this.#session;
     this.#busy = true;
@@ -390,6 +398,24 @@ export class CloudConsole {
       if (session === this.#session) this.#message({pause: 'Auftrag pausiert.', resume: 'Auftrag fortgesetzt.', stop: 'Auftrag gestoppt.'}[action]);
     } catch (error) { if (session === this.#session || !this.#token && error?.name !== 'AbortError') this.#error(error); }
     finally { if (session === this.#session) { this.#busy = false; this.#renderConnection(); } }
+  }
+
+  exportReport() {
+    if (!this.#detail || !this.#token || this.#busy) return;
+    const {job, steps, artifacts, usage} = this.#detail;
+    // Export is local and opt-in. It contains the full private assignment and
+    // artifacts, but never the authorization token or browser login.
+    const report = {format:'red-loop-job-report',version:1,exportedAt:new Date().toISOString(),
+      verification:job.verification || 'not_independently_verified',
+      job,usage:usage || null,steps:Array.isArray(steps)?steps:[],artifacts:Array.isArray(artifacts)?artifacts:[]};
+    const blob = new this.window.Blob([JSON.stringify(report,null,2)], {type:'application/json;charset=utf-8'});
+    const url = this.window.URL.createObjectURL(blob);
+    const anchor = this.#element('a');
+    anchor.href=url;
+    anchor.download=downloadName('red-loop-'+job.id+'.json');
+    this.document.body.append(anchor);
+    try { anchor.click(); this.#message('Privaten Auftragsbericht lokal exportiert. Datei sicher aufbewahren.'); }
+    finally { anchor.remove(); this.schedule(()=>this.window.URL.revokeObjectURL(url),1000); }
   }
 
   async download(id, name, button) {

@@ -39,5 +39,5 @@ test('narrow 320px screen remains usable',async({page})=>{
 test('keyboard control and health',async({page,request})=>{
   await page.locator('#start').focus();await page.keyboard.press('Enter');await expect(page.locator('#stop')).toBeEnabled();
   await page.keyboard.press('Tab');await expect(page.locator('#stop')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('#status')).toHaveText('Gestoppt');
-  const health=await request.get('/health');expect(health.ok()).toBe(true);const data=await health.json();expect(data.mode).toBe('cloud-jobs-and-local-demo');expect(data.version).toBe('0.4.0');
+  const health=await request.get('/health');expect(health.ok()).toBe(true);const data=await health.json();expect(data.mode).toBe('cloud-jobs-and-local-demo');expect(data.version).toBe('0.5.0');
 });

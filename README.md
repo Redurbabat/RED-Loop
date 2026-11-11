@@ -1,6 +1,6 @@
 # RED Loop
 
-RED Loop provides a **private Cloudflare workspace**, an iPhone client, a browser-local demo and a bounded ChatGPT extension. Cloud jobs keep working when the phone is locked or the laptop is off. They create downloadable text/code artifacts and read supported public documentation; they do not control existing ChatGPT chats or the user's computer.
+RED Loop provides a **private Cloudflare workspace**, an iPhone client that shows ChatGPT in the app and continues a conversation automatically until you pause, a browser-local demo and a bounded ChatGPT extension. Cloud jobs keep working when the phone is locked or the laptop is off. They create downloadable text/code artifacts and read supported public documentation; they do not control existing ChatGPT chats or the user's computer. Continuing an existing ChatGPT conversation always happens in the user's own signed-in page — in the app's Chat tab or in a browser — never from the server.
 
 ## Cloud jobs on iPhone and web
 
@@ -32,8 +32,9 @@ The **homepage includes a RED Morph component finder with lazy static Canvas pre
 1. Use the standalone [Userscripts Safari extension](https://github.com/quoid/userscripts) on iPhone/iPad/Mac, or a compatible userscript manager on Windows.
 2. Import `userscripts/red-loop.user.js` (also downloadable from the deployed dashboard's Integration view).
 3. Grant website access only to `chatgpt.com` (the legacy host is included for redirects).
-4. Open an existing `/c/...` conversation with an assistant response. Enter your repeated message in **Automatischer Folgetext** in the RED Loop panel, choose a small limit and press **Start**. After each completed response, the panel sends that text again until the limit or Stop.
-5. For Windows background operation, enable **Auch im Hintergrund weiterarbeiten** before Start. Leave the browser/chat open and the PC awake. Without this option, keep the tab visible and focused. **Stopp** is reachable in the minimized panel.
+4. Open an existing `/c/...` conversation with an assistant response. Enter your repeated message in **Automatischer Folgetext** in the RED Loop panel, choose a small limit and press **Start**. After each completed response, the panel sends that text again until the limit or Pause. Instead of a number you can tick **Endlos bis Pause**: the run then ends only on Pause, a completion or user-input marker, or a detected error, and consumes quota until then.
+5. For Windows background operation, enable **Auch im Hintergrund weiterarbeiten** before Start. Leave the browser/chat open and the PC awake. Without this option, keep the tab visible and focused. **Pause** is reachable in the minimized panel.
+6. Several chats at once: one tab per conversation, background option and Start in each. State is per chat, so each tab keeps its own counter and limit. This is the only way to keep continuations running while the phone is locked or away — the PC does the work.
 
 The script never overwrites a composer draft or stores credentials. It stops on navigation, detected errors and missing composer. Hidden tabs/focus loss stop the foreground mode; the explicit background option permits them. It waits for a new response after each send; an unchanged previous answer cannot trigger duplicate execution. Counters, limits, follow-up text (1–4000 characters) and the background preference are kept in per-chat tab session storage; reload never restarts a run. Stop before editing; Reset keeps the text.
 
@@ -41,12 +42,29 @@ For an evening task, give ChatGPT the initial assignment and wait for its first 
 
 The Windows developer package has baseline tests as an actual loaded Chromium extension against intercepted fixtures, plus the real Edge/live-service follow-up below. A separate physical Chrome check is still outstanding. Safari distribution uses the native host described below.
 
-**Windows verification:** the installed v0.3.0 work preset completed two benign steps in actual Edge/live ChatGPT and stopped at 2/3 on the completion marker. Current v0.3.1 passes 48 unit tests and 17 focused browser checks across full/focused runs. Its isolated native Chromium test records `document.hidden === true` and `document.hasFocus() === false` at the actual send event, then verifies completion stopping. This is separate from the real-service Edge run and from overnight endurance. See [evidence and version boundaries](docs/windows-live-test.md). The broader historical browser/iOS results concern the baseline labeled in the report.
+**Windows verification:** the installed v0.3.0 work preset completed two benign steps in actual Edge/live ChatGPT and stopped at 2/3 on the completion marker. Script v0.5.0 passes 100 unit tests and 23 of 24 executed Chromium browser checks, including endless mode sending past a numeric limit in the loaded extension, two conversations looping side by side with separate counters, and the app-style injection reporting counters only; the exception is the headed natural-visibility check, which cannot start as root in the current container. WebKit profiles and all iOS work were not executed there. Its isolated native Chromium test records `document.hidden === true` and `document.hasFocus() === false` at the actual send event, then verifies completion stopping. This is separate from the real-service Edge run and from overnight endurance. See [evidence and version boundaries](docs/windows-live-test.md). The broader historical browser/iOS results concern the baseline labeled in the report.
+
+## Android tablet: several chats with the screen off
+
+The Android app (`android/`) is the only RED Loop path where continuations keep running while the screen is off and you do something else — iOS forbids that, Android allows it through a foreground service. It runs **up to eight conversations at once**, each in its own web view with its own panel, counter and limit, and the views belong to the service rather than to the screen, so leaving the app does not stop a run. Each tab takes its name from the ChatGPT conversation and can be renamed, remembers which conversation it had open across restarts, and an **Übersicht** screen lists every chat with its status, counter and its own Pause button. An ongoing notification shows how many chats are active and carries **Alle pausieren**; each chat posts its own notification when its run ends on its own.
+
+Codemagic's `android-preview` workflow runs the JVM unit tests and builds `app-debug.apk`, which is signed with the standard debug key and installs directly on a tablet — no developer account, no store, no profiles.
+
+**On Xiaomi this needs four manual steps** (allow notifications, enable Autostart, set battery saving to "no restrictions", lock the app in recents), because MIUI and HyperOS kill background apps aggressively regardless of how the app is built. **Nothing here has been verified on a device yet.** [Installation, Xiaomi setup, mechanics and limits](docs/android.md).
+
+## ChatGPT inside the iPhone app
+
+The app's **Chat** tab loads `chatgpt.com` in an in-app web view and puts the RED Loop panel on top of it, so no Safari extension and no website permission is involved. Sign in once inside the app, write the assignment into the chat yourself, wait for the first answer, then press **Start** in the panel. After every completed answer the panel sends your follow-up text again — with **Endlos bis Pause** without a step number, until you press **Pause**. Pause is always reachable from the app's bottom bar; Start stays in the panel so the follow-up text and limit are checked first. A pause keeps the counter, so Start resumes the same run. Drag the panel by its header to move it out of the way; the position holds across chats and reloads.
+
+The in-app ChatGPT script defaults to the exact version bundled with the signed app. When an owner-prepared P-256 public release key is included in the installed app, it also accepts a higher-version remote script only after verifying the signed manifest, SHA-256 digest, and persisted anti-rollback sequence. Without that key, remote and cached scripts must match the bundled bytes. Any invalid or unreachable release falls back to the last verified or bundled script. Native end-to-end validation is pending.
+
+When a run ends on its own — completion marker, question, limit or error — the app posts a local notification with the reason and the counter, so the phone can lie on the desk unwatched; a pause you triggered yourself stays silent. The loop runs only while the app is in the foreground, and the screen stays awake during a run. Locking the phone or switching apps makes iOS suspend the page; on return the panel keeps waiting instead of reporting a stall, and if iOS discarded the page it reports that it paused, so one Start resumes the same run with the same counter. For work after closing the app, use cloud jobs. Automatic continuations consume ChatGPT quota continuously. **This view has not been verified on a physical iPhone.** [Flow, limits and script delivery](docs/iphone-chat.md).
 
 ## Native iPhone/iPad host
 
 Open `ios/REDLoop.xcodeproj` in Xcode on a Mac and select the shared **REDLoop** scheme. The project contains:
 
+- In-app ChatGPT view with the injected continuation panel, native pause, stop notifications, script source switch and app-only sign-out.
 - Private cloud client: connection, job creation, progress, controls and artifact sharing.
 - Separate SwiftUI demo dashboard, bounded controls, scenarios, events and privacy information.
 - Activation/permission troubleshooting for the embedded Safari Web Extension.
@@ -68,12 +86,16 @@ npm run test:browser
 npm run dry-run
 ```
 
-GitHub Actions validates pull requests **and pushes to `main`** using separately reported build, check, unit, dry-run and browser steps. The web and iOS runner failures currently require account-side diagnosis: [CI troubleshooting and recovery](docs/ci-troubleshooting.md) ([tracking issue #9](https://github.com/Redurbabat/RED-Loop/issues/9)). A merge does not establish passing CI or deployment.\n\n`check` verifies JS syntax, JSON/YAML, Xcode project structure and extension-source parity. It is **not an iOS compilation**. Browser tests include four platform viewport profiles, light/dark accessibility scans, keyboard and Reduced Motion, navigation and safety scenarios. Userscript browser tests run against intercepted local fixtures, never a live conversation.
+GitHub Actions validates pull requests and pushes to `main` with individual build, check, unit, dry-run and browser stages. The latest GitHub logs showed a successful iOS simulator build but two failing Web Motion Studio test assumptions; their corrections are included in this branch and require the next CI run to verify. Cloudflare Workers Builds reports an additional failure; do not treat a merge as a successful deployment. See [CI troubleshooting](docs/ci-troubleshooting.md).
+
+`check` verifies JS syntax, JSON/YAML, Xcode project structure and extension-source parity. It is **not an iOS compilation**. Browser tests include four platform viewport profiles, light/dark accessibility scans, keyboard and Reduced Motion, navigation and safety scenarios. Userscript browser tests run against intercepted local fixtures, never a live conversation.
 
 On macOS, `bash scripts/ios-ci.sh` executes XCTest on an available iPhone simulator and creates an unsigned device archive. Codemagic workflows use the same scripts. [Test evidence](docs/test-report.md) distinguishes each validation level and lists untested items.
 
 ## Documentation and source
 
+- [ChatGPT in the iPhone app](docs/iphone-chat.md)
+- [Android: several chats with the screen off](docs/android.md)
 - [Deployment and signing](docs/deployment.md)
 - [Architecture and safety boundaries](docs/architecture.md)
 - [RED Morph design tokens](docs/brand-spec.md)

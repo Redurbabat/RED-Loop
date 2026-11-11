@@ -220,3 +220,56 @@ test('artifact filenames cannot traverse directories or contain platform control
   assert.equal(downloadName(''), 'artefakt.txt');
   assert.equal(downloadName('a'.repeat(200)).length, 160);
 });
+
+test('verified status is not implied, token usage is qualified and private JSON can be exported on click',async()=>{
+  const completed={...fixtureJob,status:'completed',verification:'model_reported',stepCount:2};
+  const app=setup(path=>{
+    if(path==='/api/v1/jobs')return json({jobs:[completed]});
+    if(path==='/api/v1/jobs/fixture-job')return json({job:completed,
+      usage:{totalTokens:30,inputTokens:20,outputTokens:10,reportedSteps:1},
+      steps:[{index:1,status:'completed',summary:'Fixture step',output:'Private result',createdAt:completed.createdAt,usage:{total_tokens:30}}],
+      artifacts:[{name:'private.txt',content:'Private artifact'}]});
+  });
+  try{
+    await app.connect();
+    assert.match(app.$('#cloud-job-status').textContent,/ungeprüft/);
+    assert.match(app.$('#cloud-job-limits').textContent,/30 Token gemeldet \(1\/2 Schritte\)/);
+    assert.equal(app.$('#cloud-export').disabled,false);
+    let source='',file='';
+    const RealBlob=app.dom.window.Blob;
+    app.dom.window.Blob=function(parts,options){source=parts.join('');return new RealBlob(parts,options);};
+    app.dom.window.URL.createObjectURL=()=> 'blob:https://red-loop.test/report';
+    app.dom.window.URL.revokeObjectURL=()=>{};
+    app.dom.window.HTMLAnchorElement.prototype.click=function(){file=this.download;};
+    app.$('#cloud-export').click();
+    assert.equal(file,'red-loop-fixture-job.json');
+    const report=JSON.parse(source);
+    assert.equal(report.format,'red-loop-job-report');
+    assert.equal(report.verification,'model_reported');
+    assert.equal(report.artifacts[0].content,'Private artifact');
+    assert.equal(report.usage.totalTokens,30);
+    assert.equal(source.includes('private-fixture-token'),false);
+    assert.equal(app.requests.filter(request=>request.method==='POST').length,0);
+  }finally{app.close();}
+});
+
+test('optional token budget is validated locally and only sent when entered',async()=>{
+  let created;
+  const app=setup((path,options)=>{
+    if(path==='/api/v1/jobs'&&options.method==='POST'){
+      created=JSON.parse(options.body);return json({job:fixtureJob});
+    }
+  });
+  try{
+    await app.connect();
+    app.$('#cloud-title').value='Bounded task';
+    app.$('#cloud-prompt').value='Make a document';
+    app.$('#cloud-max-tokens').value='1000001';
+    await app.console.create();
+    assert.equal(created,undefined);
+    app.$('#cloud-max-tokens').value='1200';
+    await app.console.create();
+    assert.equal(created.maxTotalTokens,1200);
+    assert.equal(created.maxSteps,8);
+  }finally{app.close();}
+});

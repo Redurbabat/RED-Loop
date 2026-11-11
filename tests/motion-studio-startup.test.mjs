@@ -11,6 +11,7 @@ test('Motion Studio initializes controls, presets and swatches without an except
   const html = readFileSync(new URL('../web/motion-studio.html', import.meta.url), 'utf8')
   const dom = new JSDOM(html, {
     url: 'https://red-loop.example/motion-studio.html?scene=iris-caustics&density=72&hue=255&token=private-value#session-state',
+    pretendToBeVisual: true, // JSDOM otherwise reports document.hidden=true and correctly blocks playback.
   })
   const keys = ['window', 'document', 'location', 'history', 'Element', 'Event',
     'ResizeObserver', 'requestAnimationFrame', 'cancelAnimationFrame', 'fetch']

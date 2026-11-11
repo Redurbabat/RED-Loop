@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RED Loop</string>
+    <string name="channel_name">Laufende Fortsetzungen</string>
+    <string name="channel_description">Zeigt, welche Chats gerade weiterarbeiten.</string>
+    <string name="stops_channel_name">Angehaltene Läufe</string>
+    <string name="stops_channel_description">Meldet, wenn ein Lauf von selbst anhält.</string>
+    <string name="pause_all">Alle pausieren</string>
+    <string name="add_chat">Chat hinzufügen</string>
+    <string name="pause">Pause</string>
+    <string name="loading_script">Loop-Skript laden …</string>
+    <string name="overview">Übersicht</string>
+    <string name="back_to_chat">Zum Chat</string>
+    <string name="rename">Umbenennen</string>
+    <string name="close_chat">Schließen</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="readiness_title">Hintergrundbetrieb</string>
+    <string name="fix_notifications">Mitteilungen erlauben</string>
+    <string name="fix_overlay">Über anderen Apps anzeigen</string>
+    <string name="fix_battery">Akku-Optimierung aus</string>
+    <string name="fix_autostart">Autostart und Sperren (Hersteller)</string>
+    <string name="reveal_panel">Panel einblenden</string>
+    <string name="reload_page">Seite neu laden</string>
+    <string name="chat_list">Zur Chatliste</string>
+    <string name="script_cloud_on">Skript von Cloudflare: an</string>
+    <string name="script_cloud_off">Skript von Cloudflare: aus</string>
+    <string name="script_reload">Skript neu laden</string>
+    <string name="automatic">Automatik</string>
+    <string name="auto_start">Automatisch starten (A)</string>
+    <string name="auto_retry">Fehler selbst überbrücken (F)</string>
+    <string name="save">Speichern</string>
+    <string name="boot_on">Beim Einschalten starten: an</string>
+    <string name="boot_off">Beim Einschalten starten: aus</string>
+    <string name="resume_on">Nach Systemstopp fortsetzen: an</string>
+    <string name="resume_off">Nach Systemstopp fortsetzen: aus</string>
+    <string name="unload_chat">Chat entladen</string>
+    <string name="unload_idle">Ruhende Chats entladen</string>
+    <string name="history">Verlauf</string>
+    <string name="clear_history">Verlauf leeren</string>
+</resources>

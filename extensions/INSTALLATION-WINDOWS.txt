@@ -11,8 +11,11 @@ RED Loop fuer Windows — Edge und Chrome
 7. Im Feld "Automatischer Folgetext" den zu wiederholenden Text eintragen.
    Er wird nach jeder fertigen ChatGPT-Antwort automatisch gesendet.
    Ein kleines Limit waehlen (zuerst 1), dann Start.
-   Stopp oder Reset sind jederzeit im Panel erreichbar.
-   Zum Aendern des Texts zuerst Stopp. Reset behaelt den Text.
+   Alternativ "Endlos bis Pause" ankreuzen: der Lauf endet dann nur
+   durch Pause, Fertigmeldung, Rueckfrage oder einen Fehler.
+   Pause oder Reset sind jederzeit im Panel erreichbar.
+   Pause behaelt den Zaehler, Start setzt denselben Lauf fort.
+   Zum Aendern des Texts zuerst Pause. Reset behaelt den Text.
 
 Die Erweiterung ist ein lokales Entwicklerpaket, kein Store-Eintrag.
 Es werden keine Zugangsdaten abgefragt. Fuer andere Programme oder Tabs:

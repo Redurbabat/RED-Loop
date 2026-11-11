@@ -42,6 +42,18 @@
 				);
 			};
 		};
+		143B3AC788B85E2CE6BD8E1D = {
+			isa = PBXBuildFile;
+			fileRef = 5F1DD0EE73466676586DCBBE;
+		};
+		DA5DF0D0B825DBCC6EFDAC88 = {
+			isa = PBXBuildFile;
+			fileRef = 21B33B52E2E8042A933CF295;
+		};
+		1DA5A65D03029F60AC692B18 = {
+			isa = PBXBuildFile;
+			fileRef = 8EDA90BCDF6EA206B8221086;
+		};
 		C6BD20BDD8A2D1E63B99FA31 = {
 			isa = PBXBuildFile;
 			fileRef = 117C9B25477E298EF3C263B0;
@@ -69,6 +81,22 @@
 		50F89A74F07C97586F615780 = {
 			isa = PBXBuildFile;
 			fileRef = 620C685F2616B43581CC276E;
+		};
+		766B156912A6F25A077ABC1C = {
+			isa = PBXBuildFile;
+			fileRef = 238EC04F1AB931A33679491B;
+		};
+		87CA730848B88FF7427AE598 = {
+			isa = PBXBuildFile;
+			fileRef = 939245A6489258006BD79AF5;
+		};
+		EF759BE97A9411E6289649B9 = {
+			isa = PBXBuildFile;
+			fileRef = 600BBB952830ADC6F1BAC5E2;
+		};
+		64C1F41A637F6E53F59F434C = {
+			isa = PBXBuildFile;
+			fileRef = 4E7A001B92BA46E5F9D390D6;
 		};
 		E330D3567497CBDC54203778 = {
 			isa = PBXBuildFile;
@@ -109,6 +137,24 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 /* Begin PBXFileReference section */
+		5F1DD0EE73466676586DCBBE = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/ChatNotifier.swift;
+			sourceTree = "<group>";
+		};
+		21B33B52E2E8042A933CF295 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/ChatScript.swift;
+			sourceTree = "<group>";
+		};
+		8EDA90BCDF6EA206B8221086 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoop/ChatView.swift;
+			sourceTree = "<group>";
+		};
 		117C9B25477E298EF3C263B0 = {
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
@@ -149,6 +195,18 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.swift;
 			path = REDLoopExtension/SafariWebExtensionHandler.swift;
+			sourceTree = "<group>";
+		};
+		600BBB952830ADC6F1BAC5E2 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoopTests/ChatNotifierTests.swift;
+			sourceTree = "<group>";
+		};
+		4E7A001B92BA46E5F9D390D6 = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.swift;
+			path = REDLoopTests/ChatScriptTests.swift;
 			sourceTree = "<group>";
 		};
 		7E57D39E434BCACF3412E4CC = {
@@ -203,6 +261,18 @@
 			isa = PBXFileReference;
 			lastKnownFileType = text.xml;
 			path = REDLoop/PrivacyInfo.xcprivacy;
+			sourceTree = "<group>";
+		};
+		238EC04F1AB931A33679491B = {
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.javascript;
+			path = "REDLoop/Resources/red-loop-webview.js";
+			sourceTree = "<group>";
+		};
+		939245A6489258006BD79AF5 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "REDLoop/Resources/release-public.pem";
 			sourceTree = "<group>";
 		};
 		4E783A9E10D2A8ABA38CD11C = {
@@ -261,6 +331,9 @@
 		870B3294C0CBD48AF6BBCC1B = {
 			isa = PBXGroup;
 			children = (
+				5F1DD0EE73466676586DCBBE,
+				21B33B52E2E8042A933CF295,
+				8EDA90BCDF6EA206B8221086,
 				117C9B25477E298EF3C263B0,
 				93A1AD7C55DBE62A0EB8B0F5,
 				DAE9712FC8A306D306F53BAC,
@@ -268,10 +341,14 @@
 				DD10F4D1DF303DA53B122519,
 				FAA06955D9DE9E882E3D664F,
 				E5BA8D7F3F0BC7D2BFD4C23C,
+				600BBB952830ADC6F1BAC5E2,
+				4E7A001B92BA46E5F9D390D6,
 				7E57D39E434BCACF3412E4CC,
 				9FC3A7823FA502100DF6F769,
 				620C685F2616B43581CC276E,
 				204D0DB0A73F5DECAE7387A8,
+				238EC04F1AB931A33679491B,
+				939245A6489258006BD79AF5,
 				32BE2FEB34DF865B59B85B39,
 				023F1CFBDBAACC9ECD33947C,
 				DDD047A9B3828AE85CAAABE8,
@@ -390,6 +467,8 @@
 			files = (
 				50F89A74F07C97586F615780,
 				CA305EB708EABEF48849FE8D,
+				766B156912A6F25A077ABC1C,
+				87CA730848B88FF7427AE598,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -414,6 +493,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				143B3AC788B85E2CE6BD8E1D,
+				DA5DF0D0B825DBCC6EFDAC88,
+				1DA5A65D03029F60AC692B18,
 				C6BD20BDD8A2D1E63B99FA31,
 				5BDC680343F1C0261C2A3084,
 				0D2E9F41B826FFF99EBD77A1,
@@ -427,6 +509,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EF759BE97A9411E6289649B9,
+				64C1F41A637F6E53F59F434C,
 				E330D3567497CBDC54203778,
 				867B724A7E9C1A3FAED4764B,
 			);
@@ -455,7 +539,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				CURRENT_PROJECT_VERSION = 1;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -474,7 +558,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.5.0;
 				CURRENT_PROJECT_VERSION = 1;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";

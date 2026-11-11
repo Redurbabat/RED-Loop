@@ -93,6 +93,11 @@ struct PrivacyView: View {
                 Text("Beim Erstellen eines Auftrags werden Titel und Auftragstext an deinen RED-Loop-Server gesendet. Der Server speichert Auftrag, Schritte und Artefakte; sein konfigurierter KI-Anbieter verarbeitet die Inhalte. Gib nur Daten ein, die du dort verarbeiten lassen möchtest.")
                 Text("Serveradresse und Zugangstoken werden im iOS-Schlüsselbund dieses Geräts gespeichert. Die App enthält keinen KI-Anbieter-Schlüssel und protokolliert keine Zugangstokens. Entfernen der Verbindung löscht keine Serveraufträge.")
             }
+            Section("Chat in der App") {
+                Text("Im Tab Chat lädt die App chatgpt.com. Deine Anmeldung, Cookies und Website-Daten liegen im Datenspeicher dieser App, getrennt von Safari, und lassen sich im Menü des Chat-Tabs löschen. Was du dort eingibst, geht an ChatGPT und unterliegt dessen Bedingungen.")
+                Text("Das Loop-Panel liest den sichtbaren Antwortzustand lokal und speichert Zähler, Limit, Endlos-Einstellung und Folgetext im Sitzungsspeicher der Seite. An die App meldet es nur Zähler und seine eigene Statuszeile; Gesprächsinhalt und Folgetext verlassen die Seite nicht.")
+                Text("Das Panel-Skript wird von deinem privaten RED-Loop-Server über HTTPS geladen, ohne Zugangstoken; zuletzt geladene und mitgelieferte Fassung dienen als Rückfall. Wer auf diesen Server veröffentlichen kann, bestimmt damit Code in deiner angemeldeten ChatGPT-Seite. Das Laden lässt sich abschalten.")
+            }
             Section("Lokale Demo und Safari") {
                 Text("Die lokale Demo hält ihre Zähler und Ereignisse nur im Arbeitsspeicher. Sie überträgt keine Aufträge. Die Safari-Erweiterung steuert separat die ChatGPT-Oberfläche.")
                 Text("Die Erweiterung liest Antworten lokal und speichert Zähler, Limits, deinen Folgetext und die Hintergrund-Einstellung pro Chat im Sitzungsspeicher des Tabs. Der Folgetext wird nach deinem Start über die ChatGPT-Oberfläche an ChatGPT gesendet.")

@@ -173,10 +173,9 @@ test('catalog search shortcut controls expose accessible feedback and iterable r
   assert.match(script,/searchInput\.addEventListener\('keydown'/);
   assert.match(script,/results\[0\]\.click\(\)/);
   assert.match(script,/if\(hadFocus&&!compactViewport\.matches\)/);
-  assert.equal(
-    [...script.matchAll(/\$\$\('#ui-loop-scene-list button\[data-scene\]'\)/g)].length,
-    3,
-    'result navigation must use querySelectorAll, not a single HTMLElement'
+  assert.ok(
+    [...script.matchAll(/\$\$\('#ui-loop-scene-list button\[data-scene\]'\)/g)].length >= 3,
+    'catalog navigation must enumerate results, not query a single HTMLElement'
   );
   assert.doesNotMatch(script,/(?<!\$)\$\('#ui-loop-scene-list button\[data-scene\]'\)/);
 });

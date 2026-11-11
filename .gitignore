@@ -16,3 +16,17 @@ debug.log
 xcuserdata/
 DerivedData/
 extensions/chromium/
+.gradle/
+local.properties
+*.apk
+*.aab
+
+# Local Ollama tasks may contain private prompts or model outputs.
+/red-loop-results/
+/red-loop-local-results/
+/auftrag.txt
+
+# Release secrets and unpublished signed bundles never belong in Git.
+/release-secrets/
+/red-loop-signed-release/
+*.release-private.pem

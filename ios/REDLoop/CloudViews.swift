@@ -7,16 +7,17 @@ struct CloudRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
         TabView(selection: $selectedTab) {
-            CloudJobsView(store: store).tabItem { Label("Aufträge", systemImage: "tray.full") }.tag(0)
-            LocalDemoView().tabItem { Label("Lokale Demo", systemImage: "play.rectangle") }.tag(1)
-            NavigationStack { CloudHelpView() }.tabItem { Label("Info", systemImage: "info.circle") }.tag(2)
+            ChatView().tabItem { Label("Chat", systemImage: "bubble.left.and.text.bubble.right") }.tag(0)
+            CloudJobsView(store: store).tabItem { Label("Aufträge", systemImage: "tray.full") }.tag(1)
+            LocalDemoView().tabItem { Label("Lokale Demo", systemImage: "play.rectangle") }.tag(2)
+            NavigationStack { CloudHelpView() }.tabItem { Label("Info", systemImage: "info.circle") }.tag(3)
         }
         .tint(Morph.accent)
         .task { updatePolling() }
         .onChange(of: scenePhase) { _, _ in updatePolling() }
         .onChange(of: selectedTab) { _, _ in updatePolling() }
     }
-    private func updatePolling() { store.setActive(scenePhase == .active && selectedTab == 0) }
+    private func updatePolling() { store.setActive(scenePhase == .active && selectedTab == 1) }
 }
 
 @MainActor
@@ -339,9 +340,14 @@ struct CloudHelpView: View {
                 Text("3. Die App darf geschlossen werden. Der Server führt den Auftrag aus; beim nächsten Öffnen werden Zustand, Schritte und Artefakte neu geladen.")
                 Text("Pause, Fortsetzen und Stoppen werden ausdrücklich an den Server gesendet. App schließen pausiert keinen Auftrag.")
             }
+            Section("ChatGPT im Tab Chat") {
+                Text("Der Tab Chat zeigt chatgpt.com in dieser App und legt das RED-Loop-Panel darüber. Nach jeder fertigen Antwort sendet es deinen Folgetext erneut, bis du Pause drückst.")
+                Text("Die Anmeldung gilt nur in dieser App. Der Loop läuft nur im Vordergrund; für Arbeit nach dem Schließen sind Cloud-Aufträge zuständig.")
+                NavigationLink("Ablauf, Grenzen und Skriptquelle") { ChatInfoView() }
+            }
             Section("Getrennte Funktionen") {
                 Text("Cloud-Aufträge nutzen den auf dem Server eingerichteten KI-Dienst. Sie steuern keinen vorhandenen ChatGPT- oder Safari-Chat.")
-                Text("Die lokale Demo simuliert Abläufe ohne Server. Die Safari-Erweiterung hat ihre eigene browserbasierte Steuerung.")
+                Text("Die lokale Demo simuliert Abläufe ohne Server. Der Tab Chat und die Safari-Erweiterung steuern jeweils ihre eigene ChatGPT-Oberfläche.")
                 NavigationLink("Safari-Erweiterung aktivieren") { ActivationView() }
                 NavigationLink("Datenschutz und Speicherung") { PrivacyView() }
             }
