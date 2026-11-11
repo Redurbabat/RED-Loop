@@ -102,3 +102,21 @@ jobs:
             build/*.xcarchive
             build/DerivedData/Build/Products/Debug-iphonesimulator/*.app
             build/ios/unsigned/*.ipa
+
+  windows:
+    name: Windows extension preparation (PowerShell)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Configure Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify Windows test starter without opening a browser
+        shell: pwsh
+        run: ./scripts/windows-chat-test.ps1 -NoBrowser -SkipTests
