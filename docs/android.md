@@ -130,3 +130,7 @@ Dasselbe wie bei iOS: `userscripts/red-loop.user.js` wird vom Worker unter `/red
 - Jeder geöffnete ChatGPT-WebView braucht spürbar Arbeitsspeicher. Acht ist die Obergrenze der App; realistisch sind auf einem Tablet drei bis fünf, darüber beendet Android den Prozess.
 - Automatische Fortsetzungen verbrauchen laufend ChatGPT-Kontingent und unterliegen den Bedingungen des Dienstes.
 - Die App ist für Sideloading gedacht. Ein Vordergrund-Dienst vom Typ `specialUse` müsste für den Play Store gesondert begründet werden.
+
+### Signierte Skript-Updates – Quellstand vom 11.11.2026
+
+Wenn das installierte APK den lokal vorbereiteten öffentlichen P-256-Schlüssel enthält, prüft der Android-Loader automatisch das HTTPS-Manifest und die JavaScript-Datei, schützt gegen ältere Release-Nummern und speichert Manifest und Skript zusammen in einem atomaren Cache. Ohne Schlüssel ist keine neue Fernversion erlaubt; die bestehende SHA-256-Prüfung des App-Bundles bleibt aktiv. Ein echter Gradle-Build oder Tablet-Test wurde dafür noch nicht ausgeführt.

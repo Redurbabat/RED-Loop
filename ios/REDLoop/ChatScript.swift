@@ -245,8 +245,8 @@ struct ChatScriptLoader {
               let size = attrs[.size] as? NSNumber, size.intValue <= 500_000,
               let data = try? Data(contentsOf: signedCacheFile),
               let record = try? JSONSerialization.jsonObject(with: data) as? [String: String],
-              let script = record["script"].flatMap(Data.init(base64Encoded:)),
-              let manifest = record["manifest"].flatMap(Data.init(base64Encoded:)),
+              let script = record["script"].flatMap { Data(base64Encoded: $0) },
+              let manifest = record["manifest"].flatMap { Data(base64Encoded: $0) },
               script.count <= ChatScriptLoader.maxBytes,
               manifest.count <= SignedScriptReleaseVerifier.maxManifestBytes else { return nil }
         return (script, manifest)
@@ -307,8 +307,10 @@ struct ChatScriptLoader {
     }
 
     func clearCache() {
-        guard let cacheFile else { return }
-        try? FileManager.default.removeItem(at: cacheFile)
+        if let cacheFile { try? FileManager.default.removeItem(at: cacheFile) }
+        if let signedCacheFile { try? FileManager.default.removeItem(at: signedCacheFile) }
+        // Deliberately retain the high-water sequence. Clearing a cache must
+        // not permit rollback to a previously revoked signed script.
     }
 }
 

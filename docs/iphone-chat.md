@@ -56,3 +56,7 @@ Zurück meldet das Panel ausschließlich `{type: 'state', running, count, limit,
 ## Bauen und installieren
 
 `ios/REDLoop.xcodeproj` enthält die neuen Dateien `ChatScript.swift` und `ChatView.swift` sowie die mitgelieferte Skriptfassung als App-Ressource. Das Projekt wird reproduzierbar von `python scripts/generate-ios-project.py` erzeugt. Für die Installation auf einem iPhone sind eine Apple-Signieridentität und passende Profile für App **und** Erweiterung nötig; siehe [Installation und Signierung](deployment.md).
+
+### Signierte Skript-Updates – Quellstand vom 11.11.2026
+
+Die iPhone-App kann jetzt – **nur wenn ein öffentlicher P-256-Schlüssel innerhalb ihres signierten App-Bundles liegt** – das veröffentlichte Manifest und Skript vom gleichen HTTPS-Server laden, deren Signatur und SHA-256 prüfen und eine dauerhaft gespeicherte Mindest-Release-Nummer durchsetzen. Skript und Manifest werden zusammen in einem atomar geschriebenen Cache gespeichert und beim nächsten Laden erneut verifiziert. Bei Fehlern dient die letzte gültige oder die mitgelieferte Version als Rückfall. Das Löschen des Caches setzt die gespeicherte Mindestnummer absichtlich nicht zurück. Ohne eingebetteten Schlüssel gilt der bisherige feste Bundle-Hash. Diese Änderungen sind **noch nicht mit Xcode oder auf einem iPhone gebaut oder getestet**.
