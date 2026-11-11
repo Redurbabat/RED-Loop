@@ -139,6 +139,17 @@ class ScriptSourceTest {
     }
 
     @Test
+    fun signedManifestParserRejectsUnknownFieldsAndCoercedSequence() {
+        val valid = """{"format":"red-loop-script-v1","version":"0.5.1","sequence":3,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","signature":"demo"}"""
+        assertEquals(3, ScriptSource.parseManifest(valid)?.sequence)
+        assertNull(ScriptSource.parseManifest(valid.replace("\"sequence\":3","\"sequence\":\"3\"")))
+        assertNull(ScriptSource.parseManifest(valid.replace("\"sequence\":3","\"sequence\":3.5")))
+        assertNull(ScriptSource.parseManifest(valid.replace("\"sequence\":3","\"sequence\":true")))
+        assertNull(ScriptSource.parseManifest(valid.dropLast(1)+",\"unknown\":2}"))
+        assertNull(ScriptSource.parseManifest("a".repeat(SignedScriptRelease.MAX_MANIFEST_BYTES+1)))
+    }
+
+    @Test
     fun `the version comes from the user script header`() {
         assertEquals("1.2.3", ScriptSource.version(body(version = "1.2.3")))
         assertEquals("unbekannt", ScriptSource.version("(() => {})();"))

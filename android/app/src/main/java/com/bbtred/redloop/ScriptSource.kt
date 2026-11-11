@@ -2,6 +2,10 @@ package com.bbtred.redloop
 
 import android.content.Context
 import java.io.File
+import java.io.ByteArrayOutputStream
+import android.util.AtomicFile
+import org.json.JSONObject
+import java.util.Base64
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -24,7 +28,30 @@ object ScriptSource {
     const val MAX_BYTES = 262_144
     const val DEFAULT_SERVER = "https://red-loop.redurbabat7.workers.dev"
     private const val CACHE_NAME = "red-loop-webview.js"
+    private const val SIGNED_CACHE = "red-loop-signed-cache.json"
+    private const val PUBLIC_KEY_ASSET = "release-public.pem"
+    private const val SIGNED_PREFS = "red-loop-signed-release"
+    private const val MANIFEST_PATH = "/red-loop-webview.manifest.json"
     private val REQUIRED = listOf("red-loop-root", "__RED_LOOP_HOST__", "rl-start", "rl-stop")
+
+    /** Strict manifest parser: no coercion and no unknown fields. */
+    internal fun parseManifest(raw: String): SignedScriptRelease.Manifest? = runCatching {
+        if (raw.toByteArray(Charsets.UTF_8).size !in 1..SignedScriptRelease.MAX_MANIFEST_BYTES) return null
+        val obj = JSONObject(raw)
+        val keys = mutableSetOf<String>()
+        val names = obj.keys()
+        while (names.hasNext()) keys += names.next()
+        if (keys != setOf("format", "version", "sequence", "sha256", "signature")) return null
+        val sequence = when (val value = obj.get("sequence")) {
+            is Int -> value
+            is Long -> if (value in 1..SignedScriptRelease.MAX_SEQUENCE.toLong()) value.toInt() else return null
+            else -> return null
+        }
+        SignedScriptRelease.Manifest(
+            format=obj.getString("format"),version=obj.getString("version"),
+            sequence=sequence,sha256=obj.getString("sha256"),signature=obj.getString("signature")
+        )
+    }.getOrNull()
 
     /** Only HTTPS, and only the host of the configured private server. */
     fun url(server: String?): URL? {
@@ -100,6 +127,7 @@ object ScriptSource {
      * never a copy older than the one shipped with the app. A server that was
      * not redeployed must not quietly take features away.
      */
+    @Synchronized
     fun load(context: Context, server: String?, allowCloud: Boolean): LoopScript? {
         val bundled = validate(
             runCatching { context.assets.open(ASSET).use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
@@ -109,8 +137,16 @@ object ScriptSource {
             atLeast(version(body), floor) && trusted(body, bundled)
         }
 
+        // Trust anchors are shipped in APK assets, never accepted from HTTP.
+        val trustedKey = runCatching {
+            context.assets.open(PUBLIC_KEY_ASSET).bufferedReader().use { it.readText() }
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+        if (trustedKey != null) {
+            loadSigned(context, server, allowCloud, trustedKey, floor)?.let { return it }
+        }
+
         if (allowCloud) {
-            val downloaded = validate(download(url(server)))
+            val downloaded = validate(download(url(server), MAX_BYTES)?.toString(Charsets.UTF_8))
             if (downloaded != null && acceptable(downloaded)) {
                 runCatching { cacheFile(context).writeText(downloaded) }
                 return LoopScript(ScriptOrigin.CLOUD, version(downloaded), downloaded)
@@ -123,7 +159,96 @@ object ScriptSource {
 
     private fun cacheFile(context: Context) = File(context.filesDir, CACHE_NAME)
 
-    private fun download(url: URL?): String? {
+    private fun fingerprint(key: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(key.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
+    private fun minimumSequence(context: Context, keyId: String): Int? = runCatching {
+        val prefs = context.getSharedPreferences(SIGNED_PREFS, Context.MODE_PRIVATE)
+        val previous = prefs.getString("key-fingerprint", null)
+        // A different trust anchor can only arrive in a newly installed APK.
+        if (previous != null && previous != keyId) 1
+        else {
+            val saved = prefs.getInt("sequence", 0)
+            if (saved !in 0..SignedScriptRelease.MAX_SEQUENCE) return null
+            maxOf(saved, 1)
+        }
+    }.getOrNull()
+
+    private fun persistSequence(context: Context, keyId: String, sequence: Int): Boolean = runCatching {
+        context.getSharedPreferences(SIGNED_PREFS, Context.MODE_PRIVATE).edit()
+            .putString("key-fingerprint",keyId).putInt("sequence",sequence).commit()
+    }.getOrDefault(false)
+
+    private fun manifestURL(server: String?): URL? {
+        val scriptURL = url(server) ?: return null
+        return runCatching {
+            URL(scriptURL.protocol,scriptURL.host,scriptURL.port,scriptURL.path.removeSuffix(PATH)+MANIFEST_PATH)
+        }.getOrNull()
+    }
+
+    private fun signedCache(context: Context) = AtomicFile(File(context.filesDir,SIGNED_CACHE))
+
+    private fun storeSignedPair(context: Context, script: ByteArray, manifest: String): Boolean = runCatching {
+        val record = JSONObject().put("script",Base64.getEncoder().encodeToString(script))
+            .put("manifest",manifest).toString().toByteArray(Charsets.UTF_8)
+        if (record.size>500_000) return false
+        val file = signedCache(context)
+        val stream = file.startWrite()
+        try {
+            stream.write(record)
+            file.finishWrite(stream)
+        } catch (error: Exception) {
+            file.failWrite(stream)
+            throw error
+        }
+        true
+    }.getOrDefault(false)
+
+    private fun readSignedPair(context: Context): Pair<ByteArray,String>? = runCatching {
+        val file = signedCache(context)
+        if (!file.baseFile.exists() || file.baseFile.length()>500_000) return null
+        val obj = JSONObject(file.readFully().toString(Charsets.UTF_8))
+        val script = Base64.getDecoder().decode(obj.getString("script"))
+        if (script.size !in 1..MAX_BYTES) return null
+        val manifest = obj.getString("manifest")
+        if (manifest.toByteArray(Charsets.UTF_8).size>SignedScriptRelease.MAX_MANIFEST_BYTES) return null
+        Pair(script,manifest)
+    }.getOrNull()
+
+    private fun loadSigned(context: Context, server: String?, allowCloud: Boolean,
+                           publicKey: String, bundledVersion: String): LoopScript? {
+        val keyId = fingerprint(publicKey)
+        val floor = minimumSequence(context,keyId) ?: return null
+        fun checked(script: ByteArray, text: String): SignedScriptRelease.Manifest? {
+            val manifest = parseManifest(text) ?: return null
+            if (!SignedScriptRelease.verify(script,manifest,publicKey,
+                    minimumSequence=floor,minimumVersion=bundledVersion)) return null
+            return manifest
+        }
+        if (allowCloud) {
+            // The trust anchor is the APK, while the network is untrusted.
+            val manifestText = download(manifestURL(server),SignedScriptRelease.MAX_MANIFEST_BYTES)
+                ?.toString(Charsets.UTF_8)
+            val script = if (manifestText != null) download(url(server),MAX_BYTES) else null
+            if (manifestText != null && script != null) {
+                val valid = checked(script,manifestText)
+                if (valid != null && persistSequence(context,keyId,valid.sequence)) {
+                    // Never make a partially written response a trusted cache.
+                    storeSignedPair(context,script,manifestText)
+                    return LoopScript(ScriptOrigin.CLOUD,valid.version,script.toString(Charsets.UTF_8))
+                }
+            }
+        }
+        val old = readSignedPair(context)
+        if (old != null) {
+            val valid = checked(old.first,old.second)
+            if (valid != null) return LoopScript(ScriptOrigin.CACHE,valid.version,old.first.toString(Charsets.UTF_8))
+        }
+        return null
+    }
+
+    private fun download(url: URL?, limit: Int): ByteArray? {
         val target = url ?: return null
         var connection: HttpURLConnection? = null
         return try {
@@ -132,14 +257,21 @@ object ScriptSource {
                 readTimeout = 12_000
                 requestMethod = "GET"
                 instanceFollowRedirects = false
-                setRequestProperty("User-Agent", "REDLoop-App")
+                setRequestProperty("User-Agent","REDLoop-App")
             }
             if (connection.responseCode != 200) return null
             connection.inputStream.use { stream ->
-                val bytes = stream.readBytes()
-                if (bytes.size > MAX_BYTES) null else bytes.toString(Charsets.UTF_8)
+                val out = ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val n = stream.read(buffer)
+                    if (n < 0) break
+                    if (out.size() + n > limit) return null
+                    out.write(buffer,0,n)
+                }
+                out.toByteArray()
             }
-        } catch (error: Exception) {
+        } catch (_: Exception) {
             null
         } finally {
             connection?.disconnect()

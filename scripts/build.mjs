@@ -28,6 +28,11 @@ if(await present(releaseManifest)) {
   await copyFile(releaseManifest,'dist/red-loop-webview.manifest.json');
 }
 
+// Only the PUBLIC key is bundled. No key means signed downloads remain disabled.
+await rm('android/app/src/main/assets/release-public.pem',{force:true});
+if (await present(releasePublic)) {
+  await copyFile(releasePublic,'android/app/src/main/assets/release-public.pem');
+}
 // The Android app bundles the same script and shares the iOS app icon.
 await mkdir('android/app/src/main/assets', {recursive:true});
 await mkdir('android/app/src/main/res/mipmap-xxhdpi', {recursive:true});
