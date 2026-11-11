@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 @testable import REDLoop
 
 private struct StubTransfer: ChatScriptTransferring {
@@ -208,5 +209,50 @@ final class ChatScriptVersionTests: XCTestCase {
         XCTAssertFalse(ChatScriptLoader.atLeast("", "0.5.0"))
         XCTAssertFalse(ChatScriptLoader.atLeast("0.5.x", "0.5.0"))
         XCTAssertTrue(ChatScriptLoader.atLeast("0.5.0", "unbekannt"))
+    }
+}
+
+
+final class SignedScriptReleaseTests: XCTestCase {
+    private let source = "// ==UserScript==\n// @version 0.5.1\n// ==/UserScript==\n(() => {const marker='red-loop-root'; const host='__RED_LOOP_HOST__'; const b='rl-start rl-stop'; void marker; void host; void b;})();"
+
+    func testGeneratedSignatureMatchesCanonicalManifest() throws {
+        let signer = P256.Signing.PrivateKey()
+        let bytes = Data(source.utf8)
+        let digest = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        let message = "RED_LOOP_SCRIPT_V1\n0.5.1\n4\n\(digest)\n"
+        let signature = try signer.signature(for: Data(message.utf8))
+        let manifest: [String: Any] = [
+            "format": "red-loop-script-v1", "version": "0.5.1", "sequence": 4,
+            "sha256": digest, "signature": signature.derRepresentation.base64EncodedString()
+        ]
+        let json = try JSONSerialization.data(withJSONObject: manifest)
+        XCTAssertTrue(SignedScriptReleaseVerifier.verify(script: bytes, manifest: json,
+                    publicKeyPEM: signer.publicKey.pemRepresentation, minimumSequence: 4, minimumVersion: "0.5.1"))
+        XCTAssertFalse(SignedScriptReleaseVerifier.verify(script: bytes, manifest: json,
+                    publicKeyPEM: signer.publicKey.pemRepresentation, minimumSequence: 5))
+        XCTAssertFalse(SignedScriptReleaseVerifier.verify(script: bytes, manifest: json,
+                    publicKeyPEM: signer.publicKey.pemRepresentation, minimumVersion: "0.5.2"))
+        XCTAssertFalse(SignedScriptReleaseVerifier.verify(script: Data(("// injected\n" + source).utf8),
+                    manifest: json, publicKeyPEM: signer.publicKey.pemRepresentation))
+        XCTAssertFalse(SignedScriptReleaseVerifier.verify(script: bytes, manifest: json,
+                    publicKeyPEM: P256.Signing.PrivateKey().publicKey.pemRepresentation))
+        XCTAssertFalse(SignedScriptReleaseVerifier.verify(script: bytes, manifest: json, publicKeyPEM: nil))
+    }
+
+    func testNodeSignedFixtureVerifiesWithCryptoKit() throws {
+        let pem = """
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzz7pHtAZHOTw/EHsW8zJgnDmGItC
+        OIuRRxjOS63xlkZ96DFaoLcPb77RXIyUQamMSadLNFwVkQ1wvG5iTzzlnA==
+        -----END PUBLIC KEY-----
+        """
+        let manifest: [String: Any] = [
+            "format": "red-loop-script-v1", "version": "0.5.1", "sequence": 17,
+            "sha256": "7f04139db8ec17744e9fa79daf7306db3a283052f917d4cf3caa19737471e925",
+            "signature": "MEUCIQCHQrSZXGvTkPxqRKN3C/tyYPz9P7YykG/d54fia4X70AIgGTmQMn8MXNIbboZq6/9da60IIbY+zBZFe7aOnanBGCk="
+        ]
+        let json = try JSONSerialization.data(withJSONObject: manifest)
+        XCTAssertTrue(SignedScriptReleaseVerifier.verify(script: Data(source.utf8), manifest: json, publicKeyPEM: pem))
     }
 }

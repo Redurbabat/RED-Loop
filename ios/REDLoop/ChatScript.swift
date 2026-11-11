@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import CoreFoundation
 
 /// Where the in-app continuation script came from.
 enum ChatScriptSource: String, Sendable {
@@ -221,4 +222,63 @@ struct ChatLoopState: Equatable, Sendable {
     }
 
     var progress: String { endless ? "\(count) / ∞" : "\(count) / \(limit)" }
+}
+
+
+/// Verifies the canonical P-256 release manifest produced by scripts/signed-script.mjs.
+/// This does NOT enable remote updates: only a public key embedded in a signed
+/// app build is trusted, and the caller must durably enforce minimumSequence.
+enum SignedScriptReleaseVerifier {
+    static let format = "red-loop-script-v1"
+    static let maxManifestBytes = 4096
+    static let maxSequence = 2_147_483_647
+
+    private static func versionParts(_ value: String) -> [Int]? {
+        let parts = value.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3 else { return nil }
+        var result: [Int] = []
+        for part in parts {
+            let octets = Array(part.utf8)
+            guard !octets.isEmpty, octets.count <= 9,
+                  octets.allSatisfy({ (48...57).contains($0) }),
+                  (octets.count == 1 || octets[0] != 48),
+                  let parsed = Int(part) else { return nil }
+            result.append(parsed)
+        }
+        return result
+    }
+
+    static func verify(script: Data, manifest: Data, publicKeyPEM: String?,
+                       minimumSequence: Int = 1, minimumVersion: String = "0.0.0") -> Bool {
+        guard let keyText = publicKeyPEM, !keyText.isEmpty,
+              (1...maxSequence).contains(minimumSequence),
+              manifest.count > 0, manifest.count <= maxManifestBytes,
+              let minimumParts = versionParts(minimumVersion),
+              let body = try? ChatScriptLoader.validate(script),
+              let object = try? JSONSerialization.jsonObject(with: manifest) as? [String: Any],
+              Set(object.keys) == Set(["format", "version", "sequence", "sha256", "signature"]),
+              object["format"] as? String == format,
+              let version = object["version"] as? String,
+              let parts = versionParts(version), !parts.lexicographicallyPrecedes(minimumParts),
+              ChatScriptLoader.version(in: body) == version,
+              let sequenceNumber = object["sequence"] as? NSNumber,
+              CFGetTypeID(sequenceNumber) != CFBooleanGetTypeID(),
+              sequenceNumber.doubleValue == Double(sequenceNumber.int64Value),
+              (minimumSequence...maxSequence).contains(sequenceNumber.intValue),
+              let digest = object["sha256"] as? String,
+              digest.utf8.count == 64,
+              digest.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+              let signatureText = object["signature"] as? String,
+              signatureText.utf8.count <= 160,
+              let signatureData = Data(base64Encoded: signatureText),
+              (64...80).contains(signatureData.count),
+              signatureData.base64EncodedString() == signatureText else { return false }
+
+        let computed = SHA256.hash(data: script).map { String(format: "%02x", $0) }.joined()
+        guard computed == digest else { return false }
+        let canonical = "RED_LOOP_SCRIPT_V1\n\(version)\n\(sequenceNumber.intValue)\n\(digest)\n"
+        guard let key = try? P256.Signing.PublicKey(pemRepresentation: keyText),
+              let signature = try? P256.Signing.ECDSASignature(derRepresentation: signatureData) else { return false }
+        return key.isValidSignature(signature, for: Data(canonical.utf8))
+    }
 }
