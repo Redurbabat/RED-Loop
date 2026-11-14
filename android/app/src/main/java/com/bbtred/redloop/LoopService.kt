@@ -34,6 +34,7 @@ class LoopService : Service(), SessionListener {
         private const val RUNNING_ID = 1
         private const val WAKE_TAG = "RedLoop::loops"
         const val PREFERENCES = "red-loop"
+        private const val AUTOPILOT_KEY = "autopilotEnabled"
         private const val CLEAN_SHUTDOWN = "cleanShutdown"
         private const val RUNNING_BEFORE = "runningBefore"
         private const val KILLED_ID = 900
@@ -142,14 +143,15 @@ class LoopService : Service(), SessionListener {
     fun addSession(
         startUrl: String = ChatHosts.START,
         savedName: String? = null,
-        autoStart: Boolean = false,
-        autoRetry: Boolean = false,
+        autoStart: Boolean? = null,
+        autoRetry: Boolean? = null,
         resumeNow: Boolean = false
     ): ChatSession? {
         val loaded = script ?: return null
         if (_sessions.size >= MAX_SESSIONS) return null
+        val auto = AutopilotPolicy.forChat(autopilotEnabled, autoStart, autoRetry)
         val session = ChatSession(
-            nextId++, applicationContext, loaded, startUrl, savedName, autoStart, autoRetry, resumeNow, this
+            nextId++, applicationContext, loaded, startUrl, savedName, auto.start, auto.retry, resumeNow, this
         )
         session.parkingLot = overlay.ensure()
         _sessions.add(session)
@@ -239,6 +241,30 @@ class LoopService : Service(), SessionListener {
     }
 
     private fun preferences() = getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    /**
+     * User-controlled one-switch convenience for all existing chats and future
+     * sessions. It also enables boot restore and interrupted-run recovery.
+     * Switching off stops active work and prevents boot auto-start; it never
+     * deletes a chat, prompt or progress counter.
+     */
+    var autopilotEnabled: Boolean
+        get() = preferences().getBoolean(AUTOPILOT_KEY, false)
+        set(value) {
+            if (autopilotEnabled == value) return
+            preferences().edit()
+                .putBoolean(AUTOPILOT_KEY, value)
+                .putBoolean("startAtBoot", value)
+                .putBoolean("resumeAfterStop", value)
+                .apply()
+            _sessions.forEach { it.setAutomatic(value, value) }
+            if (!value) pauseAll()
+            note("App", if (value) "Autopilot eingeschaltet – alle Chats vorbereitet"
+                else "Autopilot ausgeschaltet – alle Chats pausiert")
+            persistSessions()
+            notifyListener()
+            updateNotification()
+        }
 
     var startAtBoot: Boolean
         get() = preferences().getBoolean("startAtBoot", false)

@@ -123,3 +123,5 @@ jobs:
       - name: Exercise actual double-click CMD wrapper with Windows PowerShell
         shell: cmd
         run: RED-Loop-Windows-Test.cmd -NoBrowser -SkipTests
+      - name: Test all Node unit tests on Windows (including signed-script CLI)
+        run: npm test

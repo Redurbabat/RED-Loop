@@ -306,6 +306,18 @@ class MainActivity : AppCompatActivity() {
             textSize = 15f
             setPadding(0, 0, 0, dp(12))
         })
+        overviewList.addView(Button(this).apply {
+            setText(if (active.autopilotEnabled) R.string.autopilot_disable else R.string.autopilot_enable)
+            isAllCaps = false
+            minimumHeight = dp(52)
+            setOnClickListener { active.autopilotEnabled = !active.autopilotEnabled }
+        })
+        overviewList.addView(TextView(this).apply {
+            setText(if (active.autopilotEnabled) R.string.autopilot_status_on else R.string.autopilot_status_off)
+            textSize = 12f
+            alpha = 0.75f
+            setPadding(0, dp(4), 0, dp(14))
+        })
         renderReadiness(active)
 
         if (sessions.isEmpty()) {

@@ -14,6 +14,14 @@ Die Android-App ist der einzige RED-Loop-Weg, auf dem Fortsetzungen weiterlaufen
 - **Dauerhafte Mitteilung** mit Stand („3 von 5 Chats aktiv · 41 Fortsetzungen") und einer Aktion **Alle pausieren**. Android verlangt diese Mitteilung als Gegenleistung für den Hintergrundbetrieb.
 - **Eigene Mitteilung je Chat**, wenn ein Lauf von selbst anhält — mit Chatname, Grund und Zählerstand. Eine Pause, die du auslöst, meldet sich nicht.
 
+## Autopilot – möglichst wenig manuell machen
+
+In der App **Übersicht → Autopilot für alle Chats einschalten** einmal drücken. Damit werden in allen vorhandenen Chats die Optionen **Automatisch starten** und **Fehler selbst überbrücken** eingeschaltet. Neue Chats erben dieselben Optionen. Der Schalter aktiviert ausserdem **Beim Einschalten starten** und **Nach Systemstopp fortsetzen**. Deine Unterhaltungen bleiben unverändert; Chats, die du zuvor absichtlich pausiert hast, springen nicht heimlich wieder an. Pro Chat kannst du die Optionen weiterhin über langes Drücken verändern.
+
+Der Gegenknopf **Autopilot beenden und alle pausieren** deaktiviert die Automatik aller Chats, beendet deren aktive Schleifen und schaltet den automatischen Start nach einem Geräte-Neustart ab. Der Fortschritt und die gespeicherten Chats bleiben erhalten.
+
+Einmalig brauchst du die Android-Freigaben für **Mitteilungen**, **Über anderen Apps anzeigen**, **Akku-Optimierung** und je nach Hersteller **Autostart**. Ohne diese Freigaben oder wenn Android den Dienst stoppt, läuft kein verlässlicher 24/7-Betrieb. ChatGPT kann wegen Kontingenten, notwendigen Rückfragen und Fertigmeldungen anhalten; der Autopilot darf diese Stopps nicht unbegrenzt übergehen. RED LOOP erzeugt nicht selbst neue Aufträge, führt keine Repo-Änderungen aus und meldet keine Modell-Aussage als unabhängig überprüften Erfolg. Für Arbeiten bei ausgeschaltetem Gerät braucht es einen tatsächlich eingerichteten Cloud-Job.
+
 ## Installieren
 
 1. Auf GitHub **Actions → RED Loop Android APK** öffnen und **Run workflow → main → Run workflow** wählen. Bei Android-Änderungen auf main wird die APK auch automatisch neu gebaut.

@@ -165,9 +165,13 @@ class ChatSession(
     fun setAutomatic(start: Boolean, retry: Boolean) {
         autoStart = start
         autoRetry = retry
-        applyOption("rl-autostart", start)
-        applyOption("rl-retry", retry)
+        syncAutomaticOptions()
         listener.onDetails(this)
+    }
+
+    private fun syncAutomaticOptions() {
+        applyOption("rl-autostart", autoStart)
+        applyOption("rl-retry", autoRetry)
     }
 
     private fun applyOption(id: String, value: Boolean) = webView?.evaluateJavascript(
@@ -272,6 +276,13 @@ class ChatSession(
                 if (!ChatHosts.isChat(Uri.parse(view.url ?: "").host)) return@post
                 val previous = state
                 state = parsed
+                // The web panel disables automatic-option inputs while
+                // running. Apply requested host options once it stops or
+                // finishes its first injection, instead of silently losing
+                // a global Autopilot toggle.
+                if (!parsed.running && (previous.running || previous.status == LoopState().status)) {
+                    syncAutomaticOptions()
+                }
                 listener.onState(this@ChatSession, previous, parsed)
             }
         }

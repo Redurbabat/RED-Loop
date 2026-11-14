@@ -7,6 +7,34 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+class AutopilotPolicyTest {
+    @Test
+    fun `autopilot is off by default and enables two options together`() {
+        assertEquals(AutomaticOptions(false, false), AutopilotPolicy.forChat(false))
+        assertEquals(AutomaticOptions(true, true), AutopilotPolicy.forChat(true))
+    }
+
+    @Test
+    fun `restored chat preferences override global autopilot defaults`() {
+        assertEquals(AutomaticOptions(false, true), AutopilotPolicy.forChat(true, false, true))
+        assertEquals(AutomaticOptions(true, false), AutopilotPolicy.forChat(false, true, false))
+        assertEquals(AutomaticOptions(false, true), AutopilotPolicy.forChat(true, false))
+        assertEquals(AutomaticOptions(true, false), AutopilotPolicy.forChat(false, true))
+    }
+
+    @Test
+    fun `autopilot enabled session survives a persisted restart`() {
+        val auto = AutopilotPolicy.forChat(true)
+        val saved = SessionStore.encode(listOf(SavedChat(
+            "https://chatgpt.com/c/agent", "Agent", auto.start, auto.retry
+        )))
+        val restored = SessionStore.decode(saved).single()
+        assertTrue(restored.autoStart)
+        assertTrue(restored.autoRetry)
+        assertFalse(restored.wasRunning)
+    }
+}
+
 class LoopStateTest {
     @Test
     fun `only a well formed state report is accepted`() {
