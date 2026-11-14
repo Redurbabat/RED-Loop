@@ -126,6 +126,16 @@ object ChatTitles {
 }
 
 /**
+ * The global Autopilot switch supplies defaults only for new chats. Explicitly
+ * saved per-chat choices still win after a restart (including manual overrides).
+ */
+data class AutomaticOptions(val start: Boolean, val retry: Boolean)
+object AutopilotPolicy {
+    fun forChat(enabled: Boolean, startOverride: Boolean? = null, retryOverride: Boolean? = null) =
+        AutomaticOptions(startOverride ?: enabled, retryOverride ?: enabled)
+}
+
+/**
  * What survives a restart: which conversation a tab had open, its name, and
  * whether it should pick its work back up on its own.
  */

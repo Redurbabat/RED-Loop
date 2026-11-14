@@ -5,6 +5,7 @@ import {spawnSync} from 'node:child_process';
 import {mkdtemp, readFile, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {signRelease, verifyRelease, scriptBytes, manifestMessage} from '../scripts/signed-script.mjs';
 
 const fixture = version => ['// ==UserScript==','// @version '+version,'// ==/UserScript==','(() => {',"const root='red-loop-root';","const host='__RED_LOOP_HOST__';","const buttons='rl-start rl-stop';",'void root;void host;void buttons;','})();'].join('\n');
@@ -47,7 +48,9 @@ test('CLI signs locally and verifies with public key without leaking private key
   const dir=await mkdtemp(join(tmpdir(),'red-loop-sign-test-'));
   const privatePath=join(dir,'private.pem'),publicPath=join(dir,'public.pem'),scriptPath=join(dir,'script.js'),outPath=join(dir,'out');
   await Promise.all([writeFile(privatePath,privateKey),writeFile(publicPath,publicKey),writeFile(scriptPath,fixture('1.2.3'))]);
-  const tool=new URL('../scripts/signed-script.mjs',import.meta.url).pathname;
+  // URL.pathname is not a native Windows filename: it leaves %20 encoded
+  // and can produce the invalid C:\\C:\\... path seen in local Windows runs.
+  const tool=fileURLToPath(new URL('../scripts/signed-script.mjs',import.meta.url));
   const signed=spawnSync(process.execPath,[tool,'--sign','--script',scriptPath,'--private-key',privatePath,'--sequence','17','--out',outPath],{encoding:'utf8'});
   assert.equal(signed.status,0,signed.stderr);
   assert.equal(signed.stdout.includes('PRIVATE KEY'),false);
