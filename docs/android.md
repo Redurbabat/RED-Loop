@@ -16,9 +16,13 @@ Die Android-App ist der einzige RED-Loop-Weg, auf dem Fortsetzungen weiterlaufen
 
 ## Installieren
 
-1. In Codemagic den Workflow **„RED Loop - Android APK (Debug, direkt installierbar)"** bauen. Er läuft auf einer Linux-Maschine, führt zuerst die JVM-Unit-Tests aus und baut dann das APK.
-2. Artefakt `app-debug.apk` herunterladen und auf das Tablet kopieren.
-3. Auf dem Tablet öffnen und die Installation aus unbekannter Quelle erlauben.
+1. Auf GitHub **Actions → RED Loop Android APK** öffnen und **Run workflow → main → Run workflow** wählen. Bei Android-Änderungen auf main wird die APK auch automatisch neu gebaut.
+2. Den abgeschlossenen erfolgreichen Lauf öffnen und unter **Artifacts** `RED-Loop-Android-debug-apk` herunterladen. Das ZIP enthält die installierbare Datei `app-debug.apk`.
+3. APK auf das Tablet kopieren, öffnen und die Installation aus dieser Quelle erlauben.
+
+GitHub Actions führt zuerst `npm run build` aus (synchronisiert das aktuelle ChatGPT-Skript), danach `scripts/android-ci.sh` mit JVM-Unit-Tests und `assembleDebug`. Der Build funktioniert ohne Play Store und ohne private Signaturschlüssel. Ein echter Gerätetest, einschliesslich Hintergrundbetrieb bei ausgeschaltetem Bildschirm, ist separat erforderlich.
+
+**Alternative:** Der vorhandene Codemagic-Workflow **„RED Loop - Android APK (Debug, direkt installierbar)"** kann weiterhin zum Bauen verwendet werden.
 
 Ein Debug-APK ist mit dem Standard-Debug-Schlüssel signiert und installiert sich direkt. Kein Entwicklerkonto, kein Store, keine Profile.
 
