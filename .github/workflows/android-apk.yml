@@ -1,0 +1,68 @@
+name: RED Loop Android APK
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/android-apk.yml'
+      - 'android/**'
+      - 'scripts/android-ci.sh'
+      - 'scripts/build.mjs'
+      - 'userscripts/red-loop.user.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'ios/REDLoop/Assets.xcassets/AppIcon.appiconset/AppIcon.png'
+      - 'docs/android.md'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/android-apk.yml'
+      - 'android/**'
+      - 'scripts/android-ci.sh'
+      - 'scripts/build.mjs'
+      - 'userscripts/red-loop.user.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'ios/REDLoop/Assets.xcassets/AppIcon.appiconset/AppIcon.png'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: Android JVM tests and downloadable APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Configure JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Configure Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android 35 platform and build tools
+        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Configure Gradle build cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: Install JavaScript build dependencies
+        run: npm ci
+      - name: Build synchronized Android assets
+        run: npm run build
+      - name: Android unit tests and debug APK
+        run: bash scripts/android-ci.sh
+      - name: Upload installable Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RED-Loop-Android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
