@@ -58,6 +58,7 @@
     <p id="rl-endless-help">Ohne Zahlenlimit fortsetzen. Ende nur durch Pause, Fertigmeldung, Rückfrage oder Fehler. Verbraucht laufend ChatGPT-Kontingent.</p>
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Pause</button><button class="rl-reset" type="button">Reset</button></div>
+    <button class="rl-diagnose" type="button" hidden>Verbindung prüfen</button><p class="rl-diagnostics" role="status" hidden></p>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
     <small>v0.5.1 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
   const style = document.createElement('style');
@@ -90,12 +91,14 @@
     if (wasRunning && state.autoRetry && quota && state.waits < MAX_WAITS) {
       state.waits += 1;
       state.retryAt = Date.now() + WAIT_DELAY;
+      if (mobileSafari) $('.rl-stop').disabled = false;
       persist();
       return status((msg || 'Gestoppt') + ' · wartet 10 Min (' + state.waits + '/' + MAX_WAITS + ')');
     }
     if (wasRunning && state.autoRetry && recoverable && state.retries < MAX_RETRIES) {
       state.retries += 1;
       state.retryAt = Date.now() + RETRY_DELAY;
+      if (mobileSafari) $('.rl-stop').disabled = false;
       persist();
       return status((msg || 'Gestoppt') + ' · Versuch ' + state.retries + '/' + MAX_RETRIES + ' folgt');
     }
@@ -116,7 +119,7 @@
     // storage dies with the view, so the host is what survives a restart.
     state.autoStart = embedded && hostConfig.autoStart === true;
     state.autoRetry = embedded && hostConfig.autoRetry === true;
-    state.autoBlocked = false; state.retries = 0; state.retryAt = 0;
+    state.autoBlocked = false; state.retries = 0; state.waits = 0; state.retryAt = 0;
     try {
       const saved = JSON.parse(sessionStorage.getItem(currentKey) || '{}');
       state.count = Number.isInteger(saved.count) ? Math.max(0, Math.min(MAX_COUNT, saved.count)) : 0;
@@ -164,7 +167,8 @@
     return nodes.filter(node => !nodes.some(parent => parent !== node && parent.contains(node)));
   };
   const lastAssistant = () => messages().at(-1);
-  const editor = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].find(el => visible(el) && belongsToChat(el));
+  const editors = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].filter(el => visible(el) && belongsToChat(el));
+  const editor = () => { const candidates = editors(); return candidates.length === 1 ? candidates[0] : undefined; };
   const sendButton = () => {
     const el = editor(); if (!el) return undefined;
     const buttons = [...(el.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].filter(button => visible(button) && belongsToChat(button));
@@ -229,6 +233,7 @@
     return blocks.map(p => { const text = inlineText(p); return text === '\n' && !p.textContent ? '' : text; }).join('\n').trim() === value;
   };
   const attemptSend = () => {
+    if (key() !== currentKey || (mobileSafari && document.hidden)) return stop('Ansicht geändert – nicht gesendet');
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim() !== state.composeText) return stop('Entwurf geändert – nicht gesendet');
     if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen', true);
@@ -237,6 +242,9 @@
       if (Date.now() - state.composeStarted >= 6000) return stop('Senden nicht verfügbar – bitte prüfen', true);
       return status('Bereite Fortsetzung vor …');
     }
+    // Record the claim before Safari dispatches the click: a reload or a
+    // synchronous navigation during submission must not resend the old answer.
+    if (mobileSafari) { state.submittedSignature = state.composeSignature; state.awaiting = true; persist(); }
     btn.click();
     state.composing = false; state.count += 1;
     state.submittedSignature = state.composeSignature; state.awaiting = true;
@@ -251,7 +259,7 @@
     if (!state.autoStart || state.autoBlocked || state.retryAt) return false;
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return false;
     if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return false;
-    if (hasResponseError() || isGenerating()) return false;
+    if (hasQuotaNotice() || hasResponseError() || isGenerating()) return false;
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim()) return false;
     const sig = signature();
@@ -263,7 +271,12 @@
   const idle = () => {
     if (mobileSafari && document.hidden) return;
     if (state.retryAt) {
-      if (Date.now() >= state.retryAt) { state.retryAt = 0; begin(false); }
+      if (Date.now() >= state.retryAt) {
+        // Never send while a quota notice is still active on mobile Safari.
+        if (mobileSafari && hasQuotaNotice()) { state.retryAt = 0; state.autoBlocked = true; stop('Kontingent weiterhin erschöpft – bitte später manuell starten'); return; }
+        state.retryAt = 0; begin(false);
+        if (mobileSafari && !state.running) { state.autoBlocked = true; $('.rl-stop').disabled = true; persist(); }
+      }
       return;
     }
     if (canAutoStart()) begin(false);
@@ -309,9 +322,11 @@
   };
   const begin = manual => {
     if (state.running) return;
+    if (key() !== currentKey) { status('Chat gewechselt – bitte erneut Start drücken'); return; }
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return status('Bitte eine bestehende Konversation öffnen');
     if (mobileSafari ? document.hidden : !$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
     const el = editor();
+    if (editors().length > 1) return status('Mehrere Eingabefelder – bitte nur einen Chat öffnen');
     if (el && (el.innerText || el.value || '').trim()) return status('Entwurf erkannt – nicht überschrieben');
     const endless = $('#rl-endless').checked;
     const n = Number($('#rl-limit').value);
@@ -480,10 +495,26 @@
   style.textContent += '#red-loop-root .rl-work,#red-loop-root .rl-decide{width:100%;margin-top:6px;font-size:12px}#red-loop-root .rl-background-label,#red-loop-root .rl-endless-label{display:flex;align-items:flex-start;gap:8px;font-size:12px}#red-loop-root #rl-background,#red-loop-root #rl-endless{width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#b83c56}#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{font-size:11px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{color:#65646c}}';
   if (mobileSafari) {
     root.classList.add('rl-mobile-safari');
+    $('.rl-diagnose').hidden = false;
+    $('.rl-diagnose').addEventListener('click', () => {
+      const result = $('.rl-diagnostics');
+      const count = editors().length;
+      const checks = [
+        /^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname) ? 'Chat erkannt' : 'Keine unterstützte Chat-Adresse – bestehende Konversation öffnen',
+        document.hidden ? 'Safari nicht sichtbar' : 'Safari sichtbar',
+        count === 1 ? 'Eingabefeld erkannt' : count > 1 ? 'Mehrere Eingabefelder' : 'Eingabefeld fehlt',
+        sendButton() ? 'Sendebutton erkannt' : 'Sendebutton fehlt oder ist nicht eindeutig',
+        lastAssistant() ? 'Antwort erkannt' : 'Keine Antwort erkannt',
+        isGenerating() ? 'Antwort wird erstellt' : 'Keine laufende Antwort erkannt',
+        hasQuotaNotice() ? 'Kontingentmeldung erkannt' : hasResponseError() ? 'Fehler erkannt' : 'Keine bekannte Fehlermeldung'
+      ];
+      result.textContent = checks.join(' · '); result.hidden = false;
+    });
     $('#rl-background').checked = false; state.background = false;
     style.textContent += '#red-loop-root.rl-mobile-safari{top:calc(env(safe-area-inset-top,0px) + 56px);right:max(10px,env(safe-area-inset-right,0px));bottom:auto;width:min(320px,calc(100vw - 24px));max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 90px);border-radius:22px;overscroll-behavior:contain}#red-loop-root.rl-mobile-safari #rl-prompt{font-size:16px}#red-loop-root.rl-mobile-safari .rl-background-label,#red-loop-root.rl-mobile-safari #rl-background-help{display:none}#red-loop-root.rl-mobile-safari.rl-min{width:min(238px,calc(100vw - 24px))}#red-loop-root.rl-mobile-safari.rl-min .rl-status{display:block;margin:3px 0;font-size:11px;overflow-wrap:anywhere}#red-loop-root.rl-mobile-safari.rl-min .rl-row button{padding:6px 8px;font-size:12px}';
     if (!root.style.top) { root.classList.add('rl-min'); $('.rl-collapse').textContent = '+'; $('.rl-collapse').setAttribute('aria-label','Panel öffnen'); $('.rl-collapse').setAttribute('aria-expanded','false'); }
     if (!conversationId()) status('Chat öffnen und erste Antwort abwarten');
+    style.textContent += '#red-loop-root .rl-diagnose{width:100%;margin-top:8px}#red-loop-root .rl-diagnostics{font-size:12px;line-height:1.5;overflow-wrap:anywhere}#red-loop-root [hidden]{display:none!important}';
   }
   if (embedded) {
     // In the app the page is always the active view, so the foreground option

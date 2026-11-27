@@ -574,3 +574,33 @@ test('a terminal stop does not re-arm auto-start after the error disappears',()=
   for(let i=0;i<4;i++)f.advance(20000);
   assert.equal(f.sends,1);f.dom.window.close();
 });
+
+test('Safari diagnostic checks the current page without submitting or revealing message text',()=>{
+  const f=setup(null,{mobile:true,modern:true});f.click('.rl-collapse');
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Secret answer';
+  f.click('.rl-diagnose');
+  const result=f.w.document.querySelector('.rl-diagnostics');
+  assert.equal(result.hidden,false);assert.match(result.textContent,/Chat erkannt/);assert.match(result.textContent,/Eingabefeld erkannt/);assert.doesNotMatch(result.textContent,/Secret answer/);
+  assert.equal(f.sends,0);f.dom.window.close();
+});
+test('two visible composers fail closed without writing into either',()=>{
+  const f=setup(null,{mobile:true,modern:true});const duplicate=f.w.document.querySelector('form').cloneNode(true);f.w.document.body.append(duplicate);
+  f.click('.rl-start');f.advance(20000);assert.equal(f.sends,0);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Mehrere Eingabefelder/);
+  assert.equal(duplicate.querySelector('[data-composer-markdown]').textContent,'');f.dom.window.close();
+});
+test('Safari can cancel a scheduled retry with Pause',()=>{
+  const f=setup(null,{mobile:true,modern:true});const retry=f.w.document.querySelector('#rl-retry');
+  retry.checked=true;retry.dispatchEvent(new f.w.Event('change'));f.click('.rl-start');f.advance(7000);
+  f.advance(95000);assert.equal(f.w.document.querySelector('.rl-stop').disabled,false);
+  f.click('.rl-stop');f.w.document.querySelector('[data-markdown-text-style]').textContent='Recovered';
+  f.advance(30000);f.advance(30000);assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/Pausiert/);f.dom.window.close();
+});
+test('Safari never restarts automatically against an outstanding quota notice',()=>{
+  const f=setup(null,{mobile:true,modern:true});const retry=f.w.document.querySelector('#rl-retry');
+  retry.checked=true;retry.dispatchEvent(new f.w.Event('change'));f.click('.rl-start');f.advance(7000);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='You have reached your GPT-4 limit.';
+  f.advance(1500);f.advance(610000);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/manuell starten/);
+  f.advance(610000);assert.equal(f.sends,1);f.dom.window.close();
+});
