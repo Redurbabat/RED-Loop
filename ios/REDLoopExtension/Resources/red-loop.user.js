@@ -58,7 +58,7 @@
     <p id="rl-endless-help">Ohne Zahlenlimit fortsetzen. Ende nur durch Pause, Fertigmeldung, Rückfrage oder Fehler. Verbraucht laufend ChatGPT-Kontingent.</p>
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Pause</button><button class="rl-reset" type="button">Reset</button></div>
-    <button class="rl-diagnose" type="button" hidden>Verbindung prüfen</button><p class="rl-diagnostics" role="status" hidden></p>
+    <button class="rl-diagnose" type="button" hidden>Verbindung prüfen</button><button class="rl-position-reset" type="button" hidden>Menüposition zurücksetzen</button><p class="rl-diagnostics" role="status" hidden></p>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
     <small>v0.5.1 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
   const style = document.createElement('style');
@@ -179,6 +179,14 @@
   };
   const editors = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].filter(el => visible(el) && belongsToChat(el));
   const editor = () => { const candidates = editors(); return candidates.length === 1 ? candidates[0] : undefined; };
+  // A composer may hold an attachment without any typed text. Do not
+  // submit a user's selected files as part of an automatic continuation.
+  const hasComposerAttachment = () => {
+    const form = editor()?.closest('form[data-chatgpt-composer]');
+    if (!form) return false;
+    return [...form.querySelectorAll('input[type="file"]')].some(input => input.files?.length > 0) ||
+      [...form.querySelectorAll('button[data-testid="remove-attachment"],button[data-testid="remove-file"],button[aria-label="Remove attachment"],button[aria-label="Remove file"],button[aria-label="Anhang entfernen"],button[aria-label="Datei entfernen"]')].some(visible);
+  };
   const sendButton = () => {
     const el = editor(); if (!el) return undefined;
     const buttons = [...(el.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].filter(button => visible(button) && belongsToChat(button));
@@ -251,6 +259,7 @@
     if (key() !== currentKey || (mobileSafari && document.hidden)) return stop('Ansicht geändert – nicht gesendet');
     if (mobileSafari && navigator.onLine === false) return stop('Offline – nicht gesendet');
     if (mobileSafari && waitingForUserTurn()) return stop('Neue Benutzernachricht erkannt – nicht gesendet');
+    if (mobileSafari && hasComposerAttachment()) return stop('Anhang im Entwurf erkannt – nicht gesendet');
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim() !== state.composeText) return stop('Entwurf geändert – nicht gesendet');
     if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen', true);
@@ -277,7 +286,7 @@
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return false;
     if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return false;
     if (hasQuotaNotice() || hasResponseError() || isGenerating()) return false;
-    if (mobileSafari && (navigator.onLine === false || waitingForUserTurn())) return false;
+    if (mobileSafari && (navigator.onLine === false || waitingForUserTurn() || hasComposerAttachment())) return false;
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim()) return false;
     const sig = signature();
@@ -307,6 +316,7 @@
     if (mobileSafari && navigator.onLine === false) return stop('Offline – Verbindung prüfen und Start drücken');
     if (!state.endless && state.count >= state.limit) { state.autoBlocked = true; return stop('Limit erreicht'); }
     if (state.count >= MAX_COUNT) return stop('Zähler-Obergrenze erreicht');
+    if (mobileSafari && hasComposerAttachment()) return stop('Anhang im Entwurf erkannt – nicht gesendet');
     const draft = editor();
     if (draft && (draft.innerText || draft.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
     if (hasQuotaNotice()) return stop('Kontingent erschöpft', false, true);
@@ -349,6 +359,7 @@
     if (mobileSafari ? document.hidden : !$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
     const el = editor();
     if (editors().length > 1) return status('Mehrere Eingabefelder – bitte nur einen Chat öffnen');
+    if (mobileSafari && hasComposerAttachment()) return status('Anhang im Entwurf erkannt – nicht gesendet');
     if (el && (el.innerText || el.value || '').trim()) return status('Entwurf erkannt – nicht überschrieben');
     const endless = $('#rl-endless').checked;
     const n = Number($('#rl-limit').value);
@@ -442,6 +453,7 @@
     $('.rl-collapse').textContent = collapsed ? '+' : '−';
     $('.rl-collapse').setAttribute('aria-label', collapsed ? 'Panel öffnen' : 'Panel minimieren');
     $('.rl-collapse').setAttribute('aria-expanded', String(!collapsed));
+    if (mobileSafari && root.style.left) place(parseFloat(root.style.left) || 0, parseFloat(root.style.top) || 0);
   });
   // Dragging the panel out of the way. The position is one setting for every
   // chat, kept in local storage so it survives reloads; everything else stays
@@ -522,6 +534,11 @@
   if (mobileSafari) {
     root.classList.add('rl-mobile-safari');
     $('.rl-diagnose').hidden = false;
+    $('.rl-position-reset').hidden = false;
+    $('.rl-position-reset').addEventListener('click', () => {
+      for (const prop of ['left','top','right','bottom']) root.style.removeProperty(prop);
+      try { localStorage.removeItem(POSITION_KEY); } catch {}
+    });
     $('.rl-diagnose').addEventListener('click', () => {
       const result = $('.rl-diagnostics');
       const count = editors().length;
@@ -532,6 +549,7 @@
         waitingForUserTurn() ? 'Benutzernachricht wartet auf Antwort' : 'Keine ausstehende Benutzernachricht erkannt',
         count === 1 ? 'Eingabefeld erkannt' : count > 1 ? 'Mehrere Eingabefelder' : 'Eingabefeld fehlt',
         sendButton() ? 'Sendebutton erkannt' : 'Sendebutton fehlt oder ist nicht eindeutig',
+        hasComposerAttachment() ? 'Anhang im Entwurf erkannt' : 'Kein bekannter Anhang erkannt',
         lastAssistant() ? 'Antwort erkannt' : 'Keine Antwort erkannt',
         isGenerating() ? 'Antwort wird erstellt' : 'Keine laufende Antwort erkannt',
         hasQuotaNotice() ? 'Kontingentmeldung erkannt' : hasResponseError() ? 'Fehler erkannt' : 'Keine bekannte Fehlermeldung'
@@ -539,10 +557,10 @@
       result.textContent = checks.join(' · '); result.hidden = false;
     });
     $('#rl-background').checked = false; state.background = false;
-    style.textContent += '#red-loop-root.rl-mobile-safari{top:calc(env(safe-area-inset-top,0px) + 56px);right:max(10px,env(safe-area-inset-right,0px));bottom:auto;width:min(320px,calc(100vw - 24px));max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 90px);border-radius:22px;overscroll-behavior:contain}#red-loop-root.rl-mobile-safari #rl-prompt{font-size:16px}#red-loop-root.rl-mobile-safari .rl-background-label,#red-loop-root.rl-mobile-safari #rl-background-help{display:none}#red-loop-root.rl-mobile-safari.rl-min{width:min(238px,calc(100vw - 24px))}#red-loop-root.rl-mobile-safari.rl-min .rl-status{display:block;margin:3px 0;font-size:11px;overflow-wrap:anywhere}#red-loop-root.rl-mobile-safari.rl-min .rl-row button{padding:6px 8px;font-size:12px}';
+    style.textContent += '#red-loop-root.rl-mobile-safari{top:calc(env(safe-area-inset-top,0px) + 56px);right:max(10px,env(safe-area-inset-right,0px));bottom:auto;width:min(320px,calc(100vw - 24px));max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 90px);border-radius:22px;overscroll-behavior:contain}#red-loop-root.rl-mobile-safari #rl-prompt{font-size:16px}#red-loop-root.rl-mobile-safari .rl-background-label,#red-loop-root.rl-mobile-safari #rl-background-help{display:none}#red-loop-root.rl-mobile-safari.rl-min{width:min(238px,calc(100vw - 24px))}#red-loop-root.rl-mobile-safari.rl-min .rl-counter{display:block;margin:3px 0;font-size:11px}#red-loop-root.rl-mobile-safari.rl-min .rl-status{display:block;margin:3px 0;font-size:11px;overflow-wrap:anywhere}#red-loop-root.rl-mobile-safari.rl-min .rl-row button{padding:6px 8px;font-size:12px}';
     if (!root.style.top) { root.classList.add('rl-min'); $('.rl-collapse').textContent = '+'; $('.rl-collapse').setAttribute('aria-label','Panel öffnen'); $('.rl-collapse').setAttribute('aria-expanded','false'); }
     if (!conversationId()) status('Chat öffnen und erste Antwort abwarten');
-    style.textContent += '#red-loop-root .rl-diagnose{width:100%;margin-top:8px}#red-loop-root .rl-diagnostics{font-size:12px;line-height:1.5;overflow-wrap:anywhere}#red-loop-root [hidden]{display:none!important}';
+    style.textContent += '#red-loop-root .rl-diagnose,#red-loop-root .rl-position-reset{width:100%;margin-top:8px}#red-loop-root .rl-diagnostics{font-size:12px;line-height:1.5;overflow-wrap:anywhere}#red-loop-root [hidden]{display:none!important}';
   }
   if (embedded) {
     // In the app the page is always the active view, so the foreground option

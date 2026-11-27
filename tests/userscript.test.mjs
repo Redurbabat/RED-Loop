@@ -649,3 +649,29 @@ test('Safari persists a resolved submission before sending another follow-up',()
   const saved=JSON.parse(f.w.sessionStorage.getItem('red-loop:v1:/c/test'));
   assert.equal(saved.awaiting,false);assert.equal(f.sends,1);f.dom.window.close();
 });
+
+test('Safari refuses to start with an attachment and an otherwise empty composer',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const form=f.w.document.querySelector('form');
+  const attachment=f.w.document.createElement('button');
+  attachment.type='button';attachment.setAttribute('aria-label','Remove attachment');form.append(attachment);
+  f.click('.rl-start');f.advance(20000);
+  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Anhang/);
+  attachment.remove();f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('Safari stops if a file attachment appears while the send button is disabled',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const send=f.w.document.querySelector('button[aria-label="Senden"]');send.disabled=true;
+  f.click('.rl-start');f.advance(7000);
+  const attachment=f.w.document.createElement('button');attachment.type='button';attachment.setAttribute('data-testid','remove-attachment');send.after(attachment);
+  send.disabled=false;f.advance(1500);assert.equal(f.sends,0);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Anhang/);assert.ok(attachment.isConnected);f.dom.window.close();
+});
+test('Safari menu position reset removes the stored coordinates without changing chat settings',()=>{
+  const f=setup(null,{mobile:true,modern:true});const root=f.w.document.getElementById('red-loop-root');
+  root.style.left='10px';root.style.top='100px';root.style.right='auto';root.style.bottom='auto';
+  f.w.localStorage.setItem('red-loop:v1:panel-position',JSON.stringify({left:10,top:100}));
+  f.click('.rl-collapse');f.click('.rl-position-reset');
+  assert.equal(root.style.left,'');assert.equal(root.style.top,'');assert.equal(f.w.localStorage.getItem('red-loop:v1:panel-position'),null);
+  assert.equal(f.sends,0);f.dom.window.close();
+});
