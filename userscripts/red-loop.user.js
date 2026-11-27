@@ -28,7 +28,7 @@
   const hostConfig = window.__RED_LOOP_HOST__;
   const HOSTS = ['ios-webview', 'android-webview'];
   const embedded = !!hostConfig && typeof hostConfig === 'object' && HOSTS.includes(hostConfig.app);
-  const mobileSafari = !embedded && /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const mobileSafari = !embedded && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
   // WebKit's handler takes an object; the Android interface takes a string.
   const handler = embedded ? window.webkit?.messageHandlers?.redLoop || window.RedLoopHost : null;
   const bridge = handler && typeof handler.postMessage === 'function' ? handler : null;
@@ -167,6 +167,14 @@
     return nodes.filter(node => !nodes.some(parent => parent !== node && parent.contains(node)));
   };
   const lastAssistant = () => messages().at(-1);
+  // A manual user turn after the latest assistant means a response is still
+  // outstanding, even if the stop control has not appeared yet.
+  const waitingForUserTurn = () => {
+    const answer = lastAssistant();
+    const users = [...document.querySelectorAll('[data-message-author-role="user"],[data-markdown-text-style="user-message"]')].filter(el => visible(el) && belongsToChat(el));
+    const user = users.at(-1);
+    return !!user && (!answer || !!(answer.compareDocumentPosition(user) & Node.DOCUMENT_POSITION_FOLLOWING));
+  };
   const editors = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].filter(el => visible(el) && belongsToChat(el));
   const editor = () => { const candidates = editors(); return candidates.length === 1 ? candidates[0] : undefined; };
   const sendButton = () => {
@@ -234,6 +242,8 @@
   };
   const attemptSend = () => {
     if (key() !== currentKey || (mobileSafari && document.hidden)) return stop('Ansicht geändert – nicht gesendet');
+    if (mobileSafari && navigator.onLine === false) return stop('Offline – nicht gesendet');
+    if (mobileSafari && waitingForUserTurn()) return stop('Neue Benutzernachricht erkannt – nicht gesendet');
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim() !== state.composeText) return stop('Entwurf geändert – nicht gesendet');
     if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen', true);
@@ -260,6 +270,7 @@
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return false;
     if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return false;
     if (hasQuotaNotice() || hasResponseError() || isGenerating()) return false;
+    if (mobileSafari && (navigator.onLine === false || waitingForUserTurn())) return false;
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim()) return false;
     const sig = signature();
@@ -286,6 +297,7 @@
     if (!state.running) return idle();
     if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return;
     if (state.composing) return attemptSend();
+    if (mobileSafari && navigator.onLine === false) return stop('Offline – Verbindung prüfen und Start drücken');
     if (!state.endless && state.count >= state.limit) { state.autoBlocked = true; return stop('Limit erreicht'); }
     if (state.count >= MAX_COUNT) return stop('Zähler-Obergrenze erreicht');
     const draft = editor();
@@ -294,6 +306,7 @@
     if (hasResponseError()) return stop('Antwortfehler erkannt', true);
     // Generation counts as progress, so a long answer is not a stall.
     if (isGenerating()) { state.generatingSeen = Date.now(); state.lastChange = Date.now(); status('ChatGPT antwortet …'); return; }
+    if (mobileSafari && waitingForUserTurn()) { state.lastChange = Date.now(); return status('Warte auf Antwort zur neuesten Nachricht …'); }
     const sig = signature();
     if (!sig) return status('Warte auf eine ChatGPT-Antwort …');
     if (state.awaiting) {
@@ -322,6 +335,7 @@
   };
   const begin = manual => {
     if (state.running) return;
+    if (mobileSafari && navigator.onLine === false) return status('Offline – Verbindung prüfen');
     if (key() !== currentKey) { status('Chat gewechselt – bitte erneut Start drücken'); return; }
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return status('Bitte eine bestehende Konversation öffnen');
     if (mobileSafari ? document.hidden : !$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
@@ -408,7 +422,11 @@
   });
   $('.rl-reset').addEventListener('click', () => {
     state.autoBlocked = true; state.retries = 0; state.retryAt = 0;
-    stop('Zurückgesetzt'); state.count = 0; state.awaiting = false; state.submittedSignature = ''; state.lastSubmit = 0;
+    stop('Zurückgesetzt'); state.count = 0;
+    // On Safari a counter reset is not proof that an outstanding submission
+    // was delivered or cancelled. Preserve its duplicate guard.
+    if (!mobileSafari) { state.awaiting = false; state.submittedSignature = ''; }
+    state.lastSubmit = 0;
     persist(); showCounter();
   });
   $('.rl-collapse').addEventListener('click', () => {
@@ -502,6 +520,8 @@
       const checks = [
         /^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname) ? 'Chat erkannt' : 'Keine unterstützte Chat-Adresse – bestehende Konversation öffnen',
         document.hidden ? 'Safari nicht sichtbar' : 'Safari sichtbar',
+        navigator.onLine === false ? 'Offline' : 'Netzwerk nicht als offline gemeldet',
+        waitingForUserTurn() ? 'Benutzernachricht wartet auf Antwort' : 'Keine ausstehende Benutzernachricht erkannt',
         count === 1 ? 'Eingabefeld erkannt' : count > 1 ? 'Mehrere Eingabefelder' : 'Eingabefeld fehlt',
         sendButton() ? 'Sendebutton erkannt' : 'Sendebutton fehlt oder ist nicht eindeutig',
         lastAssistant() ? 'Antwort erkannt' : 'Keine Antwort erkannt',

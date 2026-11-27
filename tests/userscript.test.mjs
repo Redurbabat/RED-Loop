@@ -604,3 +604,27 @@ test('Safari never restarts automatically against an outstanding quota notice',(
   assert.match(f.w.document.querySelector('.rl-status').textContent,/manuell starten/);
   f.advance(610000);assert.equal(f.sends,1);f.dom.window.close();
 });
+
+test('Safari does not send another prompt while a newer user turn awaits its answer',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const user=f.w.document.createElement('div');user.setAttribute('data-message-author-role','user');user.textContent='My new question';
+  f.w.document.querySelector('section').after(user);f.click('.rl-start');f.advance(7000);
+  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/neueste Nachricht/);
+  const answer=f.w.document.createElement('div');answer.setAttribute('data-message-author-role','assistant');answer.textContent='Answer to new question';user.after(answer);
+  f.advance(1500);f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('Safari stops offline and does not automatically restart on connection recovery',()=>{
+  const f=setup(null,{mobile:true,modern:true});const auto=f.w.document.querySelector('#rl-autostart');
+  auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));f.click('.rl-start');
+  Object.defineProperty(f.w.navigator,'onLine',{value:false,configurable:true});f.advance(7000);
+  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Offline/);
+  Object.defineProperty(f.w.navigator,'onLine',{value:true,configurable:true});f.advance(20000);f.advance(20000);
+  assert.equal(f.sends,0);f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('Safari counter reset preserves the outstanding submission guard',()=>{
+  const f=setup(null,{mobile:true,modern:true});f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.click('.rl-reset');assert.match(f.w.document.querySelector('.rl-counter').textContent,/0 \/ 10/);
+  f.click('.rl-start');f.advance(20000);assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';f.advance(1500);f.advance(13000);
+  assert.equal(f.sends,2);f.dom.window.close();
+});
