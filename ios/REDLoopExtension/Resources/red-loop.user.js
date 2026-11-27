@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.5.0
+// @version      0.5.1
 // @description  Opt-in automatic continuation for one ChatGPT conversation: bounded by a step limit or endless until you pause.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -28,6 +28,7 @@
   const hostConfig = window.__RED_LOOP_HOST__;
   const HOSTS = ['ios-webview', 'android-webview'];
   const embedded = !!hostConfig && typeof hostConfig === 'object' && HOSTS.includes(hostConfig.app);
+  const mobileSafari = !embedded && /iPhone|iPad|iPod/.test(navigator.userAgent);
   // WebKit's handler takes an object; the Android interface takes a string.
   const handler = embedded ? window.webkit?.messageHandlers?.redLoop || window.RedLoopHost : null;
   const bridge = handler && typeof handler.postMessage === 'function' ? handler : null;
@@ -58,7 +59,7 @@
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Pause</button><button class="rl-reset" type="button">Reset</button></div>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.5.0 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
+    <small>v0.5.1 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -75,7 +76,7 @@
   const ratio = () => state.count + '/' + (state.endless ? '∞' : state.limit);
   const showCounter = () => { $('.rl-counter').textContent = state.count + ' / ' + (state.endless ? '∞' : state.limit) + ' Fortsetzungen'; };
   const persist = () => {
-    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, endless: state.endless, prompt: state.prompt, background: state.background, autoStart: state.autoStart, autoRetry: state.autoRetry, autoBlocked: state.autoBlocked })); } catch {}
+    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, endless: state.endless, prompt: state.prompt, background: state.background, autoStart: state.autoStart, autoRetry: state.autoRetry, autoBlocked: state.autoBlocked, ...(mobileSafari ? {awaiting: state.awaiting, submittedSignature: state.submittedSignature} : {}) })); } catch {}
   };
   // `recoverable` marks a stop that a later attempt could get past. A draft,
   // a completion, a question and the limit are never recoverable.
@@ -99,6 +100,8 @@
       return status((msg || 'Gestoppt') + ' · Versuch ' + state.retries + '/' + MAX_RETRIES + ' folgt');
     }
     state.retryAt = 0;
+    // A terminal stop must never silently re-arm automatic start.
+    if (wasRunning) state.autoBlocked = true;
     persist();
     status(msg || 'Gestoppt');
   };
@@ -122,6 +125,14 @@
       if (typeof saved.autoStart === 'boolean') state.autoStart = saved.autoStart;
       if (typeof saved.autoRetry === 'boolean') state.autoRetry = saved.autoRetry;
       if (typeof saved.autoBlocked === 'boolean') state.autoBlocked = saved.autoBlocked;
+      // Safari may reload a discarded tab. Require explicit reactivation and
+      // retain the last in-flight fingerprint so an old answer is not resent.
+      if (mobileSafari) {
+        state.autoBlocked = true;
+        if (saved.awaiting === true && typeof saved.submittedSignature === 'string' && /^\d+:[0-9a-f]+$/.test(saved.submittedSignature)) {
+          state.awaiting = true; state.submittedSignature = saved.submittedSignature;
+        }
+      }
       if (typeof saved.prompt === 'string' && saved.prompt.length <= MAX_PROMPT_LENGTH) state.prompt = saved.prompt;
       // A WKWebView is never focused the way a desktop tab is, so the
       // foreground-only mode would stop the run immediately in the app.
@@ -154,7 +165,11 @@
   };
   const lastAssistant = () => messages().at(-1);
   const editor = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].find(el => visible(el) && belongsToChat(el));
-  const sendButton = () => [...(editor()?.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].find(visible);
+  const sendButton = () => {
+    const el = editor(); if (!el) return undefined;
+    const buttons = [...(el.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].filter(button => visible(button) && belongsToChat(button));
+    return buttons.length === 1 ? buttons[0] : undefined;
+  };
   // A used-up quota reads like a failure but needs patience, not a retry.
   const isQuotaMessage = value => {
     const text = value.replace(/\s+/g, ' ').trim();
@@ -180,7 +195,12 @@
   const signature = () => {
     const m = lastAssistant();
     const text = (m?.innerText || '').trim();
-    return text ? String(messages().length) + ':' + text.slice(-400) : '';
+    if (!text) return '';
+    if (!mobileSafari) return String(messages().length) + ':' + text.slice(-400);
+    // Store a fingerprint rather than the actual assistant message in Safari.
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+    return String(messages().length) + ':' + (hash >>> 0).toString(16);
   };
   const insertPrompt = (el, value) => {
     el.focus();
@@ -213,7 +233,7 @@
     if (!el || (el.innerText || el.value || '').trim() !== state.composeText) return stop('Entwurf geändert – nicht gesendet');
     if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen', true);
     const btn = sendButton();
-    if (!btn || btn.disabled) {
+    if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
       if (Date.now() - state.composeStarted >= 6000) return stop('Senden nicht verfügbar – bitte prüfen', true);
       return status('Bereite Fortsetzung vor …');
     }
@@ -230,7 +250,7 @@
   const canAutoStart = () => {
     if (!state.autoStart || state.autoBlocked || state.retryAt) return false;
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return false;
-    if (!state.background && (document.hidden || !document.hasFocus())) return false;
+    if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return false;
     if (hasResponseError() || isGenerating()) return false;
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim()) return false;
@@ -241,6 +261,7 @@
     return Date.now() - state.lastChange >= 6500;
   };
   const idle = () => {
+    if (mobileSafari && document.hidden) return;
     if (state.retryAt) {
       if (Date.now() >= state.retryAt) { state.retryAt = 0; begin(false); }
       return;
@@ -250,7 +271,7 @@
   const tick = () => {
     if (key() !== currentKey) { stop('Gestoppt: Konversation gewechselt'); currentKey = key(); load(); return; }
     if (!state.running) return idle();
-    if (!state.background && (document.hidden || !document.hasFocus())) return;
+    if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return;
     if (state.composing) return attemptSend();
     if (!state.endless && state.count >= state.limit) { state.autoBlocked = true; return stop('Limit erreicht'); }
     if (state.count >= MAX_COUNT) return stop('Zähler-Obergrenze erreicht');
@@ -259,7 +280,7 @@
     if (hasQuotaNotice()) return stop('Kontingent erschöpft', false, true);
     if (hasResponseError()) return stop('Antwortfehler erkannt', true);
     // Generation counts as progress, so a long answer is not a stall.
-    if (isGenerating()) { state.generatingSeen = Date.now(); status('ChatGPT antwortet …'); return; }
+    if (isGenerating()) { state.generatingSeen = Date.now(); state.lastChange = Date.now(); status('ChatGPT antwortet …'); return; }
     const sig = signature();
     if (!sig) return status('Warte auf eine ChatGPT-Antwort …');
     if (state.awaiting) {
@@ -289,7 +310,7 @@
   const begin = manual => {
     if (state.running) return;
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return status('Bitte eine bestehende Konversation öffnen');
-    if (!$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
+    if (mobileSafari ? document.hidden : !$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
     const el = editor();
     if (el && (el.innerText || el.value || '').trim()) return status('Entwurf erkannt – nicht überschrieben');
     const endless = $('#rl-endless').checked;
@@ -433,6 +454,7 @@
   });
   restorePosition();
   document.addEventListener('visibilitychange', () => {
+    if (document.hidden && mobileSafari && (state.running || state.retryAt || state.autoStart)) { state.autoBlocked = true; return stop('Pausiert: Safari nicht sichtbar'); }
     if (document.hidden && state.running && !state.background) return stop('Pausiert: Browser-Tab nicht aktiv');
     // Timers freeze while an app or tab is suspended. Restart the waiting
     // windows on return instead of reporting a stall that never happened.
@@ -442,8 +464,11 @@
       if (state.composing) state.composeStarted = Date.now();
     }
   });
-  window.addEventListener('pagehide', () => { if (state.running) stop('Pausiert: Seite verlassen'); });
-  window.addEventListener('blur', () => { if (state.running && !state.background) stop('Gestoppt: Tab nicht im Fokus'); });
+  window.addEventListener('pagehide', () => {
+    if (mobileSafari) { state.autoBlocked = true; state.retryAt = 0; stop('Pausiert: Seite verlassen'); }
+    else if (state.running) stop('Pausiert: Seite verlassen');
+  });
+  window.addEventListener('blur', () => { if (!mobileSafari && state.running && !state.background) stop('Gestoppt: Tab nicht im Fokus'); });
   load();
   style.textContent += '#red-loop-root{max-height:calc(100dvh - 32px);overflow-y:auto}#red-loop-root .rl-prompt-label{display:block;margin-bottom:5px}#red-loop-root #rl-prompt{display:block;width:100%;resize:vertical;min-height:76px;max-height:160px;padding:8px;border:1px solid #ffffff55;border-radius:8px;background:#12151b;color:#fff;font:inherit;font-size:12px;line-height:1.45}#red-loop-root #rl-prompt:disabled{opacity:.6;resize:none}#red-loop-root #rl-prompt:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}#red-loop-root #rl-prompt-help{font-size:12px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-prompt{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root #rl-prompt-help{color:#65646c}#red-loop-root #rl-prompt:focus-visible{outline-color:#a9233b}}';
   style.textContent += '#red-loop-root button{min-height:44px}#red-loop-root .rl-counter{font-size:12px;color:#d6deeb}#red-loop-root.rl-min .rl-stop{display:block}#red-loop-root.rl-min .rl-body{display:block}#red-loop-root.rl-min .rl-body>*:not(.rl-row){display:none}#red-loop-root.rl-min .rl-row>label,#red-loop-root.rl-min .rl-row>input{display:none}@media(prefers-reduced-motion:reduce){#red-loop-root *{animation:none!important;transition:none!important}}';
@@ -453,6 +478,13 @@
   // touch-action keeps a drag from scrolling the page underneath.
   style.textContent += '#red-loop-root .rl-head{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}#red-loop-root .rl-head:active{cursor:grabbing}#red-loop-root .rl-head button{cursor:pointer;touch-action:auto}';
   style.textContent += '#red-loop-root .rl-work,#red-loop-root .rl-decide{width:100%;margin-top:6px;font-size:12px}#red-loop-root .rl-background-label,#red-loop-root .rl-endless-label{display:flex;align-items:flex-start;gap:8px;font-size:12px}#red-loop-root #rl-background,#red-loop-root #rl-endless{width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#b83c56}#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{font-size:11px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{color:#65646c}}';
+  if (mobileSafari) {
+    root.classList.add('rl-mobile-safari');
+    $('#rl-background').checked = false; state.background = false;
+    style.textContent += '#red-loop-root.rl-mobile-safari{top:calc(env(safe-area-inset-top,0px) + 56px);right:max(10px,env(safe-area-inset-right,0px));bottom:auto;width:min(320px,calc(100vw - 24px));max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 90px);border-radius:22px;overscroll-behavior:contain}#red-loop-root.rl-mobile-safari #rl-prompt{font-size:16px}#red-loop-root.rl-mobile-safari .rl-background-label,#red-loop-root.rl-mobile-safari #rl-background-help{display:none}#red-loop-root.rl-mobile-safari.rl-min{width:min(238px,calc(100vw - 24px))}#red-loop-root.rl-mobile-safari.rl-min .rl-status{display:block;margin:3px 0;font-size:11px;overflow-wrap:anywhere}#red-loop-root.rl-mobile-safari.rl-min .rl-row button{padding:6px 8px;font-size:12px}';
+    if (!root.style.top) { root.classList.add('rl-min'); $('.rl-collapse').textContent = '+'; $('.rl-collapse').setAttribute('aria-label','Panel öffnen'); $('.rl-collapse').setAttribute('aria-expanded','false'); }
+    if (!conversationId()) status('Chat öffnen und erste Antwort abwarten');
+  }
   if (embedded) {
     // In the app the page is always the active view, so the foreground option
     // is meaningless there. The inset keeps the panel above the app toolbar.

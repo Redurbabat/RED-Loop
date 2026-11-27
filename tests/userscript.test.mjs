@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 const source=readFileSync('userscripts/red-loop.user.js','utf8');
-function setup(saved, {modern=false,path='/c/test',paragraphs=false,host=null,android=false}={}) {
+function setup(saved, {modern=false,path='/c/test',paragraphs=false,host=null,android=false,mobile=false}={}) {
   const html=modern ? '<body><section><h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4><div data-markdown-text-style="assistant-message">Done</div></section><form data-chatgpt-composer><div contenteditable="true" role="textbox" data-composer-markdown aria-label="ChatGPT fragen"></div><button type="button" aria-label="Senden">Send</button></form></body>' : '<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>';
   const dom=new JSDOM(html,{url:'https://chatgpt.com'+path,runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window; let tick,now=100000,sends=0; const sent=[];
+  if(mobile) Object.defineProperty(w.navigator,'userAgent',{value:'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 Mobile Safari/604.1'});
   Object.defineProperty(w.HTMLElement.prototype,'innerText',{get(){return this.hasAttribute('data-composer-markdown') && this.children.length && [...this.children].every(el=>el.tagName==='P') ? [...this.children].map(p=>p.textContent || '\n').join('\n\n') : this.textContent;},set(value){this.textContent=value;},configurable:true});
   w.HTMLElement.prototype.getClientRects=function(){return w.getComputedStyle(this).display==='none'?[]:[{width:200,height:40}];};
   w.document.hasFocus=()=>true; w.Date.now=()=>now; w.setInterval=fn=>{tick=fn;return 1;};
@@ -528,4 +529,48 @@ test('a panel the user has dragged keeps its place instead of jumping to the top
   assert.equal(root.style.top,'90px');
   assert.equal(root.classList.contains('rl-min'),false,'a placed panel stays open');
   dom.window.close();
+});
+
+test('iPhone Safari opens a compact top panel and does not start after reload',()=>{
+  const f=setup({autoStart:true,autoBlocked:false},{mobile:true,modern:true});
+  const root=f.w.document.getElementById('red-loop-root');
+  assert.ok(root.classList.contains('rl-mobile-safari'));
+  assert.ok(root.classList.contains('rl-min'));
+  f.advance(20000);f.advance(20000);assert.equal(f.sends,0);
+  f.click('.rl-collapse');assert.equal(root.classList.contains('rl-min'),false);
+  f.w.document.hasFocus=()=>false;
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  const saved=JSON.parse(f.w.sessionStorage.getItem('red-loop:v1:/c/test'));
+  assert.equal(saved.awaiting,true);assert.match(saved.submittedSignature,/^\d+:[0-9a-f]+$/);
+  f.dom.window.close();
+  const restored=setup(saved,{mobile:true,modern:true});restored.click('.rl-start');restored.advance(20000);
+  assert.equal(restored.sends,0,'old response is never resent after reload');restored.dom.window.close();
+});
+
+test('iPhone Safari pauses when hidden and requires a new explicit start',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const auto=f.w.document.querySelector('#rl-autostart');auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  Object.defineProperty(f.w.document,'hidden',{value:true,configurable:true});
+  f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Safari nicht sichtbar/);
+  Object.defineProperty(f.w.document,'hidden',{value:false,configurable:true});
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New response';
+  f.advance(20000);f.advance(20000);assert.equal(f.sends,1);f.dom.window.close();
+});
+
+test('an aria-disabled send button is never clicked',()=>{
+  const f=setup(null,{modern:true});
+  f.w.document.querySelector('button[aria-label="Senden"]').setAttribute('aria-disabled','true');
+  f.click('.rl-start');f.advance(7000);f.advance(7000);assert.equal(f.sends,0);f.dom.window.close();
+});
+
+test('a terminal stop does not re-arm auto-start after the error disappears',()=>{
+  const f=setup(null,{modern:true});const auto=f.w.document.querySelector('#rl-autostart');
+  auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Something went wrong';
+  f.advance(1500);f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';
+  for(let i=0;i<4;i++)f.advance(20000);
+  assert.equal(f.sends,1);f.dom.window.close();
 });
