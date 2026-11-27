@@ -609,7 +609,7 @@ test('Safari does not send another prompt while a newer user turn awaits its ans
   const f=setup(null,{mobile:true,modern:true});
   const user=f.w.document.createElement('div');user.setAttribute('data-message-author-role','user');user.textContent='My new question';
   f.w.document.querySelector('section').after(user);f.click('.rl-start');f.advance(7000);
-  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/neueste Nachricht/);
+  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/neuesten Nachricht/);
   const answer=f.w.document.createElement('div');answer.setAttribute('data-message-author-role','assistant');answer.textContent='Answer to new question';user.after(answer);
   f.advance(1500);f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
 });
@@ -627,4 +627,25 @@ test('Safari counter reset preserves the outstanding submission guard',()=>{
   f.click('.rl-start');f.advance(20000);assert.equal(f.sends,1);
   f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';f.advance(1500);f.advance(13000);
   assert.equal(f.sends,2);f.dom.window.close();
+});
+
+test('a historical quota answer does not stop a recovered conversation',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const old=f.w.document.createElement('div');old.setAttribute('data-message-author-role','assistant');old.textContent='You have reached your GPT-4 limit.';
+  f.w.document.body.prepend(old);
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('Safari clears stale diagnostics when navigating to a different conversation',()=>{
+  const f=setup(null,{mobile:true,modern:true});f.click('.rl-collapse');f.click('.rl-diagnose');
+  assert.equal(f.w.document.querySelector('.rl-diagnostics').hidden,false);
+  f.w.history.pushState({},'', '/c/another');f.advance(1500);
+  assert.equal(f.w.document.querySelector('.rl-diagnostics').hidden,true);
+  assert.equal(f.w.document.querySelector('.rl-diagnostics').textContent,'');f.dom.window.close();
+});
+test('Safari persists a resolved submission before sending another follow-up',()=>{
+  const f=setup(null,{mobile:true,modern:true});f.click('.rl-start');f.advance(7000);
+  assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New response';f.advance(1500);
+  const saved=JSON.parse(f.w.sessionStorage.getItem('red-loop:v1:/c/test'));
+  assert.equal(saved.awaiting,false);assert.equal(f.sends,1);f.dom.window.close();
 });

@@ -111,6 +111,8 @@
   const load = () => {
     state.running = false; state.pending = false; state.composing = false;
     state.lastMessage = ''; state.submittedSignature = ''; state.awaiting = false; state.lastSubmit = 0;
+    state.generatingSeen = 0; state.lastChange = 0; state.composeStarted = 0; state.composeSignature = ''; state.composeText = '';
+    $('.rl-diagnostics').hidden = true; $('.rl-diagnostics').textContent = '';
     // In the app the work preset and endless mode are the defaults, because
     // that is the whole point of the in-app view. Both stay user-editable.
     state.count = 0; state.limit = 10; state.endless = embedded;
@@ -188,9 +190,14 @@
     return /^(?:rate limit(?: exceeded| reached)?|too many requests)[.!…]*/i.test(text) ||
       /(?:you(?:'ve| have) (?:reached|hit) (?:your|the)[^.]{0,40}(?:limit|cap)|sent too many messages|du hast (?:zu viele nachrichten|dein limit)|limit für [^.]{0,40}erreicht|kontingent (?:ist )?(?:erschöpft|aufgebraucht))/i.test(text);
   };
-  const hasQuotaNotice = () => [...document.querySelectorAll('[data-message-author-role="assistant"],[data-markdown-text-style="assistant-message"],[data-testid="conversation-turn-error"],[data-testid="error-message"]')]
-    .filter(el => visible(el) && belongsToChat(el))
-    .some(el => isQuotaMessage(el.innerText || ''));
+  const hasQuotaNotice = () => {
+    // Historical assistant messages may mention a limit that no longer applies.
+    const current = lastAssistant();
+    if (current && isQuotaMessage(current.innerText || '')) return true;
+    return [...document.querySelectorAll('[data-testid="conversation-turn-error"],[data-testid="error-message"]')]
+      .filter(el => visible(el) && belongsToChat(el))
+      .some(el => isQuotaMessage(el.innerText || ''));
+  };
   const isFailureMessage = value => {
     // Match complete service failure messages, not advice or quoted error text
     // inside a normal assistant response.
@@ -315,6 +322,7 @@
         return status('Warte auf neue Antwort …');
       }
       state.awaiting = false; state.pending = false;
+      if (mobileSafari) persist();
     }
     if (sig !== state.lastMessage) { state.lastMessage = sig; state.lastChange = Date.now(); state.pending = false; return; }
     if (Date.now() - state.lastChange < 6500 || Date.now() - state.lastSubmit < 12000) return;
