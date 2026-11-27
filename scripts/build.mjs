@@ -1,8 +1,11 @@
 import {mkdir, cp, copyFile, readFile, writeFile, stat, rm} from 'node:fs/promises';
 import {verifyRelease} from './signed-script.mjs';
 import {zipSync} from 'fflate';
+import {stripTypeScriptTypes} from 'node:module';
 await mkdir('dist', {recursive:true});
 await cp('web', 'dist', {recursive:true});
+// Build the pinned RED identity module into an ordinary browser ES module.
+await writeFile('dist/red-id-browser.js', stripTypeScriptTypes(await readFile('red-id/browser.mts','utf8'),{mode:'strip'}));
 await mkdir('ios/REDLoopExtension/Resources', {recursive:true});
 await copyFile('userscripts/red-loop.user.js', 'ios/REDLoopExtension/Resources/red-loop.user.js');
 await copyFile('userscripts/red-loop.user.js', 'dist/red-loop.user.js');
