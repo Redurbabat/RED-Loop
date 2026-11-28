@@ -12,7 +12,11 @@ key="$dir/red-loop.p12"
 # Do not replace an existing repository signing identity with a new key.
 # Read secret names only, never their values. Abort if listing is unavailable.
 existing="$(gh secret list --repo "$repo" --json name --jq '.[].name')"
-if [[ ! -f "$key" ]] && grep -q '^RED_LOOP_ANDROID_\(KEYSTORE_B64\|KEYSTORE_PASSWORD\|CERT_SHA256\) -rsp "Password for the permanent RED Loop Android key (at least 12 characters): " RED_LOOP_ANDROID_KEYSTORE_PASSWORD
+if grep -Eq '^RED_LOOP_ANDROID_(KEYSTORE_B64|KEYSTORE_PASSWORD|CERT_SHA256)$' <<< "$existing"; then
+  echo "Signing secrets already exist. Do not overwrite the repository signing identity; inspect existing secrets before manual repair." >&2
+  exit 1
+fi
+read -rsp "Password for the permanent RED Loop Android key (at least 12 characters): " RED_LOOP_ANDROID_KEYSTORE_PASSWORD
 printf '\n'
 [[ "${#RED_LOOP_ANDROID_KEYSTORE_PASSWORD}" -ge 12 ]] || { echo "Password too short." >&2; exit 1; }
 export RED_LOOP_ANDROID_KEYSTORE_PASSWORD

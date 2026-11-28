@@ -9,6 +9,7 @@ on:
       - 'scripts/android-sign-release.sh'
       - 'scripts/android-update-test.sh'
       - 'scripts/android-setup-signing.sh'
+      - 'scripts/android-setup-signing.ps1'
       - 'scripts/build.mjs'
       - 'userscripts/red-loop.user.js'
       - 'package.json'
@@ -25,6 +26,7 @@ on:
       - 'scripts/android-sign-release.sh'
       - 'scripts/android-update-test.sh'
       - 'scripts/android-setup-signing.sh'
+      - 'scripts/android-setup-signing.ps1'
       - 'scripts/build.mjs'
       - 'userscripts/red-loop.user.js'
       - 'package.json'
@@ -84,6 +86,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Check signing shell script syntax
+        run: bash -n scripts/android-setup-signing.sh && bash -n scripts/android-sign-release.sh && bash -n scripts/android-update-test.sh
       - name: Verify Android update compatibility with disposable test key
         run: bash scripts/android-update-test.sh
 

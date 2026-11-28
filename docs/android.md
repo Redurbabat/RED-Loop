@@ -36,7 +36,14 @@ Ein Debug-APK ist mit dem Standard-Debug-Schlüssel des jeweiligen Build-Rechner
 
 ### Dauerhafte Updates ohne Deinstallation
 
-Für normale Updates wird ein privater, permanenter Android-Signaturschlüssel benötigt. Auf einem vertrauenswürdigen Rechner mit JDK 17, Git Bash und GitHub CLI ausführen:
+Für normale Updates wird ein privater, permanenter Android-Signaturschlüssel benötigt. Auf einem vertrauenswürdigen Rechner mit JDK 17 und GitHub CLI ausführen. Unter Windows direkt in PowerShell:
+
+```powershell
+gh auth login
+.\scripts\android-setup-signing.ps1
+```
+
+Alternativ mit Git Bash:
 
 ```bash
 gh auth login
