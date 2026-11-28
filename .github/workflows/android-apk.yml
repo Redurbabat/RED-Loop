@@ -7,6 +7,7 @@ on:
       - 'android/**'
       - 'scripts/android-ci.sh'
       - 'scripts/android-sign-release.sh'
+      - 'scripts/android-update-test.sh'
       - 'scripts/android-setup-signing.sh'
       - 'scripts/build.mjs'
       - 'userscripts/red-loop.user.js'
@@ -22,6 +23,7 @@ on:
       - 'android/**'
       - 'scripts/android-ci.sh'
       - 'scripts/android-sign-release.sh'
+      - 'scripts/android-update-test.sh'
       - 'scripts/android-setup-signing.sh'
       - 'scripts/build.mjs'
       - 'userscripts/red-loop.user.js'
@@ -81,6 +83,9 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Verify Android update compatibility with disposable test key
+        run: bash scripts/android-update-test.sh
 
       # Never expose the permanent signing key to PR builds. A signed release
       # is produced only from the reviewed main branch, never from untrusted PRs.
