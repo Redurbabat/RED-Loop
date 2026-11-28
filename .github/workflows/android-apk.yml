@@ -6,6 +6,8 @@ on:
       - '.github/workflows/android-apk.yml'
       - 'android/**'
       - 'scripts/android-ci.sh'
+      - 'scripts/android-sign-release.sh'
+      - 'scripts/android-setup-signing.sh'
       - 'scripts/build.mjs'
       - 'userscripts/red-loop.user.js'
       - 'package.json'
@@ -19,6 +21,8 @@ on:
       - '.github/workflows/android-apk.yml'
       - 'android/**'
       - 'scripts/android-ci.sh'
+      - 'scripts/android-sign-release.sh'
+      - 'scripts/android-setup-signing.sh'
       - 'scripts/build.mjs'
       - 'userscripts/red-loop.user.js'
       - 'package.json'
@@ -77,3 +81,31 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      # Never expose the permanent signing key to PR builds. A signed release
+      # is produced only from the reviewed main branch, never from untrusted PRs.
+      - name: Build permanently signed Android update
+        id: signed
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        shell: bash
+        env:
+          RED_LOOP_ANDROID_KEYSTORE_B64: ${{ secrets.RED_LOOP_ANDROID_KEYSTORE_B64 }}
+          RED_LOOP_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.RED_LOOP_ANDROID_KEYSTORE_PASSWORD }}
+          RED_LOOP_ANDROID_CERT_SHA256: ${{ secrets.RED_LOOP_ANDROID_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$RED_LOOP_ANDROID_KEYSTORE_B64" && -z "$RED_LOOP_ANDROID_KEYSTORE_PASSWORD" && -z "$RED_LOOP_ANDROID_CERT_SHA256" ]]; then
+            echo "No permanent Android signing key configured. Debug APK is for testing only." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          bash scripts/android-sign-release.sh
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Upload update-compatible signed Android APK
+        if: steps.signed.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: RED-Loop-Android-signed-update
+          path: android/app/build/outputs/apk/release/RED-Loop-signed.apk
+          if-no-files-found: error
+          retention-days: 90

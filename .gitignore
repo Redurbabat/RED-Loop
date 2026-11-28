@@ -30,3 +30,8 @@ local.properties
 /release-secrets/
 /red-loop-signed-release/
 *.release-private.pem
+
+# Android permanent signing keys
+*.jks
+*.keystore
+*.pfx

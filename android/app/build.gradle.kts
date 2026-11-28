@@ -12,7 +12,9 @@ android {
         // Android 8 and newer; the foreground service type only matters from 34.
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
+        // Signed GitHub builds supply a monotonically increasing code from the
+        // workflow run number. Local/PR debug builds retain the source default.
+        versionCode = providers.environmentVariable("RED_LOOP_ANDROID_VERSION_CODE").orNull?.toInt() ?: 3
         versionName = "0.5.3"
     }
 
