@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.5.1
+// @version      0.5.2
 // @description  Opt-in automatic continuation for one ChatGPT conversation: bounded by a step limit or endless until you pause.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -28,11 +28,13 @@
   const hostConfig = window.__RED_LOOP_HOST__;
   const HOSTS = ['ios-webview', 'android-webview'];
   const embedded = !!hostConfig && typeof hostConfig === 'object' && HOSTS.includes(hostConfig.app);
+  const androidHost = embedded && hostConfig.app === 'android-webview';
   const mobileSafari = !embedded && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
   // WebKit's handler takes an object; the Android interface takes a string.
   const handler = embedded ? window.webkit?.messageHandlers?.redLoop || window.RedLoopHost : null;
   const bridge = handler && typeof handler.postMessage === 'function' ? handler : null;
   const bridgeWantsText = !!bridge && bridge === window.RedLoopHost;
+  const CONTINUE_PROMPT = 'Weiter';
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
   const WORK_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn du eine Rückfrage, Zugangsdaten oder eine Freigabe von mir brauchst, halte an, erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
   const DECIDE_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn eine Entscheidung ansteht, triff selbst die sinnvollste Wahl, nenne sie in einem Satz mit Begründung und arbeite weiter; frage nicht nach. Halte nur an, wenn du etwas brauchst, das ausschließlich ich liefern kann: Zugangsdaten, eine Freigabe für etwas Unumkehrbares oder eine Information, die du nicht erschließen kannst. Dann erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
@@ -46,7 +48,7 @@
     <div class="rl-body"><p class="rl-status" role="status" aria-live="polite">Bereit</p>
     <label class="rl-prompt-label" for="rl-prompt">Automatischer Folgetext</label>
     <textarea id="rl-prompt" rows="4" maxlength="4000" aria-describedby="rl-prompt-help"></textarea>
-    <button class="rl-work" type="button">Text für offene Aufgaben laden</button>
+    <button class="rl-continue" type="button" hidden>Text: Weiter</button><button class="rl-work" type="button">Text für offene Aufgaben laden</button>
     <button class="rl-decide" type="button">Text: selbst entscheiden</button>
     <p id="rl-prompt-help">Wird nach jeder fertigen Antwort gesendet. Aktivieren mit Start.</p>
     <label class="rl-background-label"><input id="rl-background" type="checkbox" aria-describedby="rl-background-help"> Auch im Hintergrund weiterarbeiten</label>
@@ -60,7 +62,7 @@
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Pause</button><button class="rl-reset" type="button">Reset</button></div>
     <button class="rl-diagnose" type="button" hidden>Verbindung prüfen</button><button class="rl-position-reset" type="button" hidden>Menüposition zurücksetzen</button><p class="rl-diagnostics" role="status" hidden></p>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.5.1 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
+    <small>v0.5.2 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -77,7 +79,10 @@
   const ratio = () => state.count + '/' + (state.endless ? '∞' : state.limit);
   const showCounter = () => { $('.rl-counter').textContent = state.count + ' / ' + (state.endless ? '∞' : state.limit) + ' Fortsetzungen'; };
   const persist = () => {
-    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, endless: state.endless, prompt: state.prompt, background: state.background, autoStart: state.autoStart, autoRetry: state.autoRetry, autoBlocked: state.autoBlocked, ...(mobileSafari ? {awaiting: state.awaiting, submittedSignature: state.submittedSignature} : {}) })); } catch {}
+    if (androidHost && currentKey.startsWith(PREFIX + '/c/') && state.prompt.trim() && state.prompt.length <= MAX_PROMPT_LENGTH) {
+      try { localStorage.setItem(currentKey + ':android-followup', state.prompt); } catch {}
+    }
+    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, endless: state.endless, prompt: state.prompt, background: state.background, autoStart: state.autoStart, autoRetry: state.autoRetry, autoBlocked: state.autoBlocked, ...((mobileSafari || androidHost) ? {awaiting: state.awaiting, submittedSignature: state.submittedSignature} : {}) })); } catch {}
   };
   // `recoverable` marks a stop that a later attempt could get past. A draft,
   // a completion, a question and the limit are never recoverable.
@@ -86,7 +91,7 @@
     state.running = false; state.pending = false; state.composing = false;
     $('.rl-start').disabled = false; $('.rl-stop').disabled = true; $('#rl-limit').disabled = state.endless;
     $('#rl-prompt').disabled = false;
-    $('#rl-background').disabled = false; $('.rl-work').disabled = false; $('.rl-decide').disabled = false; $('#rl-endless').disabled = false;
+    $('#rl-background').disabled = false; $('.rl-continue').disabled = false; $('.rl-work').disabled = false; $('.rl-decide').disabled = false; $('#rl-endless').disabled = false;
     $('#rl-autostart').disabled = false; $('#rl-retry').disabled = false;
     if (wasRunning && state.autoRetry && quota && state.waits < MAX_WAITS) {
       state.waits += 1;
@@ -116,7 +121,7 @@
     // In the app the work preset and endless mode are the defaults, because
     // that is the whole point of the in-app view. Both stay user-editable.
     state.count = 0; state.limit = 10; state.endless = embedded;
-    state.prompt = embedded ? WORK_PROMPT : PROMPT; state.background = embedded;
+    state.prompt = androidHost ? CONTINUE_PROMPT : embedded ? WORK_PROMPT : PROMPT; state.background = embedded;
     // The native host may preselect the automatic options per chat; session
     // storage dies with the view, so the host is what survives a restart.
     state.autoStart = embedded && hostConfig.autoStart === true;
@@ -132,8 +137,8 @@
       if (typeof saved.autoBlocked === 'boolean') state.autoBlocked = saved.autoBlocked;
       // Safari may reload a discarded tab. Require explicit reactivation and
       // retain the last in-flight fingerprint so an old answer is not resent.
-      if (mobileSafari) {
-        state.autoBlocked = true;
+      if (mobileSafari || androidHost) {
+        if (mobileSafari) state.autoBlocked = true;
         if (saved.awaiting === true && typeof saved.submittedSignature === 'string' && /^\d+:[0-9a-f]+$/.test(saved.submittedSignature)) {
           state.awaiting = true; state.submittedSignature = saved.submittedSignature;
         }
@@ -143,6 +148,9 @@
       // foreground-only mode would stop the run immediately in the app.
       state.background = embedded || saved.background === true;
     } catch {}
+    if (androidHost && /^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) {
+      try { const savedPrompt = localStorage.getItem(currentKey + ':android-followup'); if (savedPrompt && savedPrompt.length <= MAX_PROMPT_LENGTH) state.prompt = savedPrompt; } catch {}
+    }
     $('#rl-limit').value = String(state.limit);
     $('#rl-prompt').value = state.prompt;
     $('#rl-background').checked = state.background;
@@ -223,7 +231,7 @@
     const m = lastAssistant();
     const text = (m?.innerText || '').trim();
     if (!text) return '';
-    if (!mobileSafari) return String(messages().length) + ':' + text.slice(-400);
+    if (!mobileSafari && !androidHost) return String(messages().length) + ':' + text.slice(-400);
     // Store a fingerprint rather than the actual assistant message in Safari.
     let hash = 2166136261;
     for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
@@ -257,9 +265,9 @@
   };
   const attemptSend = () => {
     if (key() !== currentKey || (mobileSafari && document.hidden)) return stop('Ansicht geändert – nicht gesendet');
-    if (mobileSafari && navigator.onLine === false) return stop('Offline – nicht gesendet');
-    if (mobileSafari && waitingForUserTurn()) return stop('Neue Benutzernachricht erkannt – nicht gesendet');
-    if (mobileSafari && hasComposerAttachment()) return stop('Anhang im Entwurf erkannt – nicht gesendet');
+    if ((mobileSafari || androidHost) && navigator.onLine === false) return stop('Offline – nicht gesendet');
+    if ((mobileSafari || androidHost) && waitingForUserTurn()) return stop('Neue Benutzernachricht erkannt – nicht gesendet');
+    if ((mobileSafari || androidHost) && hasComposerAttachment()) return stop('Anhang im Entwurf erkannt – nicht gesendet');
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim() !== state.composeText) return stop('Entwurf geändert – nicht gesendet');
     if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen', true);
@@ -270,7 +278,7 @@
     }
     // Record the claim before Safari dispatches the click: a reload or a
     // synchronous navigation during submission must not resend the old answer.
-    if (mobileSafari) { state.submittedSignature = state.composeSignature; state.awaiting = true; persist(); }
+    if (mobileSafari || androidHost) { state.submittedSignature = state.composeSignature; state.awaiting = true; persist(); }
     btn.click();
     state.composing = false; state.count += 1;
     state.submittedSignature = state.composeSignature; state.awaiting = true;
@@ -286,7 +294,7 @@
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return false;
     if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return false;
     if (hasQuotaNotice() || hasResponseError() || isGenerating()) return false;
-    if (mobileSafari && (navigator.onLine === false || waitingForUserTurn() || hasComposerAttachment())) return false;
+    if ((mobileSafari || androidHost) && (navigator.onLine === false || waitingForUserTurn() || hasComposerAttachment())) return false;
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim()) return false;
     const sig = signature();
@@ -314,25 +322,29 @@
     if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return;
     if (state.composing) return attemptSend();
     if (mobileSafari && navigator.onLine === false) return stop('Offline – Verbindung prüfen und Start drücken');
+    if (androidHost && navigator.onLine === false) { state.lastChange = Date.now(); return status('Offline – warte auf Verbindung …'); }
     if (!state.endless && state.count >= state.limit) { state.autoBlocked = true; return stop('Limit erreicht'); }
     if (state.count >= MAX_COUNT) return stop('Zähler-Obergrenze erreicht');
-    if (mobileSafari && hasComposerAttachment()) return stop('Anhang im Entwurf erkannt – nicht gesendet');
+    if ((mobileSafari || androidHost) && hasComposerAttachment()) return stop('Anhang im Entwurf erkannt – nicht gesendet');
     const draft = editor();
     if (draft && (draft.innerText || draft.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
-    if (hasQuotaNotice()) return stop('Kontingent erschöpft', false, true);
+    if (hasQuotaNotice()) return stop('Kontingent erschöpft – bitte später manuell starten', false, !androidHost);
     if (hasResponseError()) return stop('Antwortfehler erkannt', true);
     // Generation counts as progress, so a long answer is not a stall.
     if (isGenerating()) { state.generatingSeen = Date.now(); state.lastChange = Date.now(); status('ChatGPT antwortet …'); return; }
-    if (mobileSafari && waitingForUserTurn()) { state.lastChange = Date.now(); return status('Warte auf Antwort zur neuesten Nachricht …'); }
+    if ((mobileSafari || androidHost) && waitingForUserTurn()) { state.lastChange = Date.now(); return status('Warte auf Antwort zur neuesten Nachricht …'); }
     const sig = signature();
     if (!sig) return status('Warte auf eine ChatGPT-Antwort …');
     if (state.awaiting) {
       if (sig === state.submittedSignature) {
-        if (Date.now() - Math.max(state.lastSubmit, state.generatingSeen) > 90000) return stop('Keine neue Antwort – bitte ChatGPT prüfen', true);
+        if (Date.now() - Math.max(state.lastSubmit, state.generatingSeen) > 90000) {
+          if (androidHost && state.endless) return status('Warte weiter auf neue Antwort – kein erneutes Senden');
+          return stop('Keine neue Antwort – bitte ChatGPT prüfen', true);
+        }
         return status('Warte auf neue Antwort …');
       }
       state.awaiting = false; state.pending = false;
-      if (mobileSafari) persist();
+      if (mobileSafari || androidHost) persist();
     }
     if (sig !== state.lastMessage) { state.lastMessage = sig; state.lastChange = Date.now(); state.pending = false; return; }
     if (Date.now() - state.lastChange < 6500 || Date.now() - state.lastSubmit < 12000) return;
@@ -359,7 +371,7 @@
     if (mobileSafari ? document.hidden : !$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
     const el = editor();
     if (editors().length > 1) return status('Mehrere Eingabefelder – bitte nur einen Chat öffnen');
-    if (mobileSafari && hasComposerAttachment()) return status('Anhang im Entwurf erkannt – nicht gesendet');
+    if ((mobileSafari || androidHost) && hasComposerAttachment()) return status('Anhang im Entwurf erkannt – nicht gesendet');
     if (el && (el.innerText || el.value || '').trim()) return status('Entwurf erkannt – nicht überschrieben');
     const endless = $('#rl-endless').checked;
     const n = Number($('#rl-limit').value);
@@ -374,7 +386,7 @@
     state.prompt = prompt; state.running = true; state.pending = false;
     state.background = $('#rl-background').checked;
     $('#rl-prompt').value = prompt; $('#rl-prompt').disabled = true;
-    $('#rl-background').disabled = true; $('.rl-work').disabled = true; $('.rl-decide').disabled = true; $('#rl-endless').disabled = true;
+    $('#rl-background').disabled = true; $('.rl-continue').disabled = true; $('.rl-work').disabled = true; $('.rl-decide').disabled = true; $('#rl-endless').disabled = true;
     showCounter();
     state.lastMessage = signature(); state.lastChange = Date.now();
     $('.rl-start').disabled = true; $('.rl-stop').disabled = false; $('#rl-limit').disabled = true;
@@ -387,6 +399,14 @@
     persist(); status((state.endless ? 'Endlos aktiv · ' : state.background ? 'Hintergrund aktiv · ' : 'Aktiv · ') + ratio());
   };
   $('.rl-start').addEventListener('click', () => begin(true));
+  if (androidHost) {
+    $('.rl-continue').hidden = false;
+    $('.rl-continue').addEventListener('click', () => {
+      if (state.running) return;
+      state.prompt = CONTINUE_PROMPT; $('#rl-prompt').value = CONTINUE_PROMPT; persist(); status('Weiter-Text geladen · Start drücken');
+    });
+    $('#rl-prompt-help').textContent = 'Dein Text wird nach jeder fertigen Antwort gesendet. Endlos bis Pause, Fehler oder Nutzungslimit. Einstellungen bleiben lokal gespeichert.';
+  }
   $('.rl-work').addEventListener('click', () => {
     if (state.running) return;
     state.prompt = WORK_PROMPT; $('#rl-prompt').value = WORK_PROMPT; persist();
@@ -444,7 +464,7 @@
     stop('Zurückgesetzt'); state.count = 0;
     // On Safari a counter reset is not proof that an outstanding submission
     // was delivered or cancelled. Preserve its duplicate guard.
-    if (!mobileSafari) { state.awaiting = false; state.submittedSignature = ''; }
+    if (!mobileSafari && !androidHost) { state.awaiting = false; state.submittedSignature = ''; }
     state.lastSubmit = 0;
     persist(); showCounter();
   });

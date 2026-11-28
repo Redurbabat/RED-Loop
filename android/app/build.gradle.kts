@@ -12,8 +12,8 @@ android {
         // Android 8 and newer; the foreground service type only matters from 34.
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.5.0"
+        versionCode = 2
+        versionName = "0.5.2"
     }
 
     buildTypes {

@@ -675,3 +675,41 @@ test('Safari menu position reset removes the stored coordinates without changing
   assert.equal(root.style.left,'');assert.equal(root.style.top,'');assert.equal(f.w.localStorage.getItem('red-loop:v1:panel-position'),null);
   assert.equal(f.sends,0);f.dom.window.close();
 });
+
+test('Android endless mode defaults to Weiter and repeats the exact editable text',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  const field=f.w.document.querySelector('#rl-prompt');assert.equal(field.value,'Weiter');
+  assert.equal(f.w.document.querySelector('#rl-endless').checked,true);
+  field.value='Weiter mit allen offenen Aufgaben';f.click('.rl-start');f.advance(7000);
+  assert.deepEqual(f.sent,['Weiter mit allen offenen Aufgaben']);
+  for(let i=0;i<8;i++)f.advance(60000);
+  assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/Warte weiter/);
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,false);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New completed response';
+  f.advance(1500);f.advance(7000);
+  assert.deepEqual(f.sent,['Weiter mit allen offenen Aufgaben','Weiter mit allen offenen Aufgaben']);
+  f.click('.rl-stop');f.advance(60000);assert.equal(f.sends,2);f.dom.window.close();
+});
+test('Android keeps a custom follow-up per conversation across view recreation',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  const field=f.w.document.querySelector('#rl-prompt');field.value='Mach weiter';field.dispatchEvent(new f.w.Event('input'));
+  assert.equal(f.w.localStorage.getItem('red-loop:v1:/c/test:android-followup'),'Mach weiter');
+  f.w.history.pushState({},'', '/c/other');f.advance(1500);assert.equal(field.value,'Weiter');
+  f.w.sessionStorage.removeItem('red-loop:v1:/c/test');f.w.history.pushState({},'', '/c/test');f.advance(1500);
+  assert.equal(field.value,'Mach weiter');assert.equal(f.sends,0);f.dom.window.close();
+});
+test('Android waits through an offline interval, then continues when the response completes',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  Object.defineProperty(f.w.navigator,'onLine',{value:false,configurable:true});f.advance(200000);assert.equal(f.sends,1);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Offline/);
+  Object.defineProperty(f.w.navigator,'onLine',{value:true,configurable:true});f.w.document.querySelector('[data-markdown-text-style]').textContent='New response';
+  f.advance(1500);f.advance(7000);assert.equal(f.sends,2);f.dom.window.close();
+});
+test('Android pauses at an actual quota notice even in endless mode',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview',autoRetry:true},android:true});
+  f.click('.rl-start');f.advance(7000);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='You have reached your GPT-4 limit.';
+  f.advance(1500);f.advance(700000);assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/manuell starten/);
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);f.dom.window.close();
+});

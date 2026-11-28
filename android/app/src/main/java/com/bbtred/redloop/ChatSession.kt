@@ -218,7 +218,15 @@ class ChatSession(
     }
 
     /** The panel's own Pause button, reachable from the app and the notification. */
-    fun pause() = webView?.evaluateJavascript(PAUSE_JS, null)
+    fun pause() {
+        // A manual pause also disarms the native restart preference, including
+        // when the page is between responses or has not built its panel yet.
+        resumeNow = false
+        autoStart = false
+        webView?.evaluateJavascript(PAUSE_JS, null)
+        syncAutomaticOptions()
+        listener.onDetails(this)
+    }
 
     /** Opens the panel and puts it back in its default corner. */
     fun revealPanel() = webView?.evaluateJavascript(REVEAL_JS, null)

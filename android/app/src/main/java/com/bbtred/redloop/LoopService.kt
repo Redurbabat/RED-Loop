@@ -190,6 +190,7 @@ class LoopService : Service(), SessionListener {
         refreshWakeLock()
         preferences().edit().putInt(RUNNING_BEFORE, runningCount).apply()
         if (previous.running != current.running) {
+            persistSessions()
             note(session.title, if (current.running) "Gestartet" else "${current.status} · ${current.progress}")
         }
         StopClassifier.notice(previous, current, session.title)?.let { announce(session.id, it) }
