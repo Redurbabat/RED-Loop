@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.5.2
+// @version      0.5.3
 // @description  Opt-in automatic continuation for one ChatGPT conversation: bounded by a step limit or endless until you pause.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -62,7 +62,7 @@
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Pause</button><button class="rl-reset" type="button">Reset</button></div>
     <button class="rl-diagnose" type="button" hidden>Verbindung prüfen</button><button class="rl-position-reset" type="button" hidden>Menüposition zurücksetzen</button><p class="rl-diagnostics" role="status" hidden></p>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.5.2 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
+    <small>v0.5.3 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -96,14 +96,14 @@
     if (wasRunning && state.autoRetry && quota && state.waits < MAX_WAITS) {
       state.waits += 1;
       state.retryAt = Date.now() + WAIT_DELAY;
-      if (mobileSafari) $('.rl-stop').disabled = false;
+      if (mobileSafari || androidHost) $('.rl-stop').disabled = false;
       persist();
       return status((msg || 'Gestoppt') + ' · wartet 10 Min (' + state.waits + '/' + MAX_WAITS + ')');
     }
     if (wasRunning && state.autoRetry && recoverable && state.retries < MAX_RETRIES) {
       state.retries += 1;
       state.retryAt = Date.now() + RETRY_DELAY;
-      if (mobileSafari) $('.rl-stop').disabled = false;
+      if (mobileSafari || androidHost) $('.rl-stop').disabled = false;
       persist();
       return status((msg || 'Gestoppt') + ' · Versuch ' + state.retries + '/' + MAX_RETRIES + ' folgt');
     }
@@ -546,7 +546,25 @@
   style.textContent += '#red-loop-root{max-height:calc(100dvh - 32px);overflow-y:auto}#red-loop-root .rl-prompt-label{display:block;margin-bottom:5px}#red-loop-root #rl-prompt{display:block;width:100%;resize:vertical;min-height:76px;max-height:160px;padding:8px;border:1px solid #ffffff55;border-radius:8px;background:#12151b;color:#fff;font:inherit;font-size:12px;line-height:1.45}#red-loop-root #rl-prompt:disabled{opacity:.6;resize:none}#red-loop-root #rl-prompt:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}#red-loop-root #rl-prompt-help{font-size:12px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-prompt{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root #rl-prompt-help{color:#65646c}#red-loop-root #rl-prompt:focus-visible{outline-color:#a9233b}}';
   style.textContent += '#red-loop-root button{min-height:44px}#red-loop-root .rl-counter{font-size:12px;color:#d6deeb}#red-loop-root.rl-min .rl-stop{display:block}#red-loop-root.rl-min .rl-body{display:block}#red-loop-root.rl-min .rl-body>*:not(.rl-row){display:none}#red-loop-root.rl-min .rl-row>label,#red-loop-root.rl-min .rl-row>input{display:none}@media(prefers-reduced-motion:reduce){#red-loop-root *{animation:none!important;transition:none!important}}';
   style.textContent += '@media(prefers-color-scheme:light){#red-loop-root{background:rgba(250,249,247,.97);color:#27282d;border-color:#bfb6ba;box-shadow:0 12px 40px #38312a18;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}#red-loop-root .rl-head span{color:#a9233b}#red-loop-root button{background:#f4f2ee;color:#27282d;border-color:#c7bfc2}#red-loop-root .rl-start{background:#a9233b;color:#fff;border-color:#a9233b}#red-loop-root input{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root .rl-status,#red-loop-root .rl-counter{color:#45434b}#red-loop-root small{color:#65646c}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline-color:#a9233b}}';
-  window.setInterval(tick, 1500);
+  // Android's service may request a check when a parked WebView's own
+  // interval is delayed. It uses exactly the same state machine and guards.
+  let lastTickAt = -Infinity;
+  const runTick = () => {
+    const now = Date.now();
+    if (androidHost && now >= lastTickAt && now - lastTickAt < 1000) return;
+    lastTickAt = now;
+    tick();
+  };
+  if (androidHost) {
+    window.addEventListener('red-loop-native-check', runTick);
+    window.addEventListener('red-loop-native-pause', () => {
+      state.autoBlocked = true; state.autoStart = false;
+      $('#rl-autostart').checked = false;
+      state.retries = 0; state.waits = 0; state.retryAt = 0;
+      stop('Pausiert · Start setzt fort');
+    });
+  }
+  window.setInterval(runTick, 1500);
   style.textContent += '#red-loop-root.rl-min #rl-prompt{display:none}';
   // touch-action keeps a drag from scrolling the page underneath.
   style.textContent += '#red-loop-root .rl-head{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}#red-loop-root .rl-head:active{cursor:grabbing}#red-loop-root .rl-head button{cursor:pointer;touch-action:auto}';

@@ -713,3 +713,36 @@ test('Android pauses at an actual quota notice even in endless mode',()=>{
   f.advance(1500);f.advance(700000);assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/manuell starten/);
   assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);f.dom.window.close();
 });
+
+test('Android native service checks continue an opted-in chat without relying on its own interval',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  f.click('.rl-start');
+  f.warp(7000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';
+  f.warp(2000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  f.warp(13000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,2);
+  f.advance(0);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,2,'both timer paths share the same duplicate guard');
+  f.dom.window.close();
+});
+test('Android native check cannot start an unarmed or explicitly paused chat',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  f.warp(20000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,0);
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.w.dispatchEvent(new f.w.Event('red-loop-native-pause'));
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';
+  f.warp(20000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/Pausiert/);f.dom.window.close();
+});
+test('Android native checks are isolated between two independent conversations',()=>{
+  const a=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  const b=setup(null,{modern:true,path:'/c/other',host:{app:'android-webview'},android:true});
+  a.click('.rl-start');b.click('.rl-start');
+  for(const f of [a,b]){f.warp(7000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));assert.equal(f.sends,1);}
+  b.w.document.querySelector('[data-markdown-text-style]').textContent='Other response';
+  for(const f of [a,b]){f.warp(2000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));f.warp(13000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));}
+  assert.equal(a.sends,1);assert.equal(b.sends,2);a.dom.window.close();b.dom.window.close();
+});

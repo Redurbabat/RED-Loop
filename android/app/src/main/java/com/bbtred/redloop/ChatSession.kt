@@ -54,6 +54,12 @@ class ChatSession(
 
     /** Where the view lives while no activity shows it. */
     var parkingLot: ViewGroup? = null
+        set(value) {
+            field = value
+            // The service assigns the container after construction. Attach a
+            // newly created/restored view now, not only when its tab is opened.
+            if (value != null && webView?.parent == null) detachAndLayout()
+        }
 
     /** Replaced when a newer script is fetched; used on the next injection. */
     var script: LoopScript = script
@@ -83,6 +89,7 @@ class ChatSession(
     val loaded: Boolean get() = webView != null
 
     private val main = Handler(Looper.getMainLooper())
+    private var checkInFlight = false;
 
     init {
         build(startUrl)
@@ -90,6 +97,7 @@ class ChatSession(
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun build(url: String) {
+        checkInFlight = false
         val view = WebView(context)
         view.settings.javaScriptEnabled = true
         view.settings.domStorageEnabled = true
@@ -120,6 +128,7 @@ class ChatSession(
             }
 
             override fun onPageFinished(target: WebView, address: String?) {
+                checkInFlight = false
                 rememberUrl(address)
                 if (!ChatHosts.isChat(Uri.parse(address ?: "").host)) return
                 // Document-end injection. The script itself refuses a second
@@ -152,7 +161,7 @@ class ChatSession(
      * because that would end its run without being asked to.
      */
     fun unload(): Boolean {
-        if (state.running) return false
+        if (state.running || autoStart || resumeNow) return false
         val view = webView ?: return false
         webView = null
         resumeNow = false
@@ -217,13 +226,28 @@ class ChatSession(
         view.layout(0, 0, OFFSCREEN_WIDTH, OFFSCREEN_HEIGHT)
     }
 
+    /** A native heartbeat checks only an existing, opted-in chat. It never
+     *  changes document visibility or submits independently of the script. */
+    fun checkContinuation() {
+        if (!state.running && !autoStart && !resumeNow) return
+        val view = webView ?: return
+        if (!view.isAttachedToWindow || checkInFlight) return
+        if (!ChatHosts.isChat(Uri.parse(view.url.orEmpty()).host)) return
+        checkInFlight = true
+        runCatching {
+            view.evaluateJavascript("window.dispatchEvent(new Event('red-loop-native-check'));") {
+                if (webView === view) checkInFlight = false
+            }
+        }.onFailure { checkInFlight = false }
+    }
+
     /** The panel's own Pause button, reachable from the app and the notification. */
     fun pause() {
         // A manual pause also disarms the native restart preference, including
         // when the page is between responses or has not built its panel yet.
         resumeNow = false
         autoStart = false
-        webView?.evaluateJavascript(PAUSE_JS, null)
+        webView?.evaluateJavascript("window.dispatchEvent(new Event('red-loop-native-pause'));" + PAUSE_JS, null)
         syncAutomaticOptions()
         listener.onDetails(this)
     }

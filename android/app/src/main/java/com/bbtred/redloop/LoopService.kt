@@ -64,7 +64,7 @@ class LoopService : Service(), SessionListener {
     private var listener: (() -> Unit)? = null
 
     /** False while chats that nobody looks at cannot be parked in a window. */
-    val backgroundLayoutReady: Boolean get() = overlay.permitted
+    val backgroundLayoutReady: Boolean get() = overlay.permitted && overlay.ensure() != null
 
     /** Newest last. */
     val log: List<LogEntry> get() = events
@@ -72,10 +72,20 @@ class LoopService : Service(), SessionListener {
     val runningCount: Int get() = _sessions.count { it.state.running }
     val totalContinuations: Int get() = _sessions.sumOf { it.state.count }
 
+    private val continuationCheck = object : Runnable {
+        override fun run() {
+            // Work on the service main thread, not on the selected activity tab.
+            refreshParking()
+            _sessions.toList().forEach { it.checkContinuation() }
+            main.postDelayed(this, 2500L)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         createChannels()
         startForegroundNotice()
+        main.post(continuationCheck)
         Thread {
             val preferences = getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             val server = preferences.getString("server", ScriptSource.DEFAULT_SERVER)
@@ -126,6 +136,7 @@ class LoopService : Service(), SessionListener {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        main.removeCallbacks(continuationCheck)
         // A deliberate stop is not something to recover from.
         persistSessions(running = false)
         preferences().edit().putBoolean(CLEAN_SHUTDOWN, true).putInt(RUNNING_BEFORE, 0).apply()
@@ -175,15 +186,14 @@ class LoopService : Service(), SessionListener {
     /** Called after the user grants the overlay permission. */
     fun refreshParking() {
         // Cheap and self-terminating, so the UI may call it on every render.
-        if (_sessions.none { it.parkingLot == null }) return
+        if (_sessions.none { it.parkingLot == null || (it.webView != null && it.webView?.parent == null) }) return
         val lot = overlay.ensure() ?: return
+        var changed = false
         _sessions.forEach { session ->
-            if (session.parkingLot == null) {
-                session.parkingLot = lot
-                session.webView?.let { if (it.parent == null) session.detachAndLayout() }
-            }
+            if (session.parkingLot !== lot) { session.parkingLot = lot; changed = true }
+            if (session.webView != null && session.webView?.parent == null) { session.detachAndLayout(); changed = true }
         }
-        notifyListener()
+        if (changed) notifyListener()
     }
 
     override fun onState(session: ChatSession, previous: LoopState, current: LoopState) {
