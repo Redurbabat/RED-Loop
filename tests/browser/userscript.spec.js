@@ -5,6 +5,15 @@ test('real editor insertion, bounded send and duplicate guard on a local fixture
   await page.route('https://chatgpt.com/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><body><p id="untouched">Unrelated content</p><div data-message-author-role="assistant">An initial answer.</div><div id="prompt-textarea" contenteditable="true"></div><button data-testid="send-button">Send</button><script>window.sends=0;document.querySelector("button").onclick=()=>{window.sends++;document.querySelector("#prompt-textarea").textContent="";};</script></body></html>'}));
   await page.goto('https://chatgpt.com/c/red-loop-fixture');await page.clock.install();
   await page.addScriptTag({content:source});await page.addScriptTag({content:source});await expect(page.locator('#red-loop-root')).toHaveCount(1);
+  const mobile = await page.locator('#red-loop-root').evaluate(el=>el.classList.contains('rl-mobile-safari'));
+  if(mobile){
+    await expect(page.locator('#red-loop-root')).toHaveClass(/rl-min/);
+    await expect(page.locator('#rl-prompt')).toBeHidden();
+    await expect(page.locator('.rl-stop')).toBeVisible();
+    await page.locator('.rl-collapse').click();
+    await page.locator('.rl-diagnose').click();
+    await expect(page.locator('.rl-diagnostics')).toContainText('Chat erkannt');
+  }
   await expect(page.getByRole('textbox',{name:'Automatischer Folgetext'})).toBeVisible();
   await page.locator('.rl-collapse').click();await expect(page.locator('#rl-prompt')).toBeHidden();await expect(page.locator('.rl-stop')).toBeVisible();
   await page.locator('.rl-collapse').click();await expect(page.locator('#rl-prompt')).toBeVisible();

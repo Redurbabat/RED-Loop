@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 const source=readFileSync('userscripts/red-loop.user.js','utf8');
-function setup(saved, {modern=false,path='/c/test',paragraphs=false,host=null,android=false}={}) {
+function setup(saved, {modern=false,path='/c/test',paragraphs=false,host=null,android=false,mobile=false}={}) {
   const html=modern ? '<body><section><h4 data-conversation-role="assistant">ChatGPT hat gesagt:</h4><div data-markdown-text-style="assistant-message">Done</div></section><form data-chatgpt-composer><div contenteditable="true" role="textbox" data-composer-markdown aria-label="ChatGPT fragen"></div><button type="button" aria-label="Senden">Send</button></form></body>' : '<body><div data-message-author-role="assistant">Done</div><textarea id="prompt-textarea"></textarea><button data-testid="send-button">Send</button></body>';
   const dom=new JSDOM(html,{url:'https://chatgpt.com'+path,runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window; let tick,now=100000,sends=0; const sent=[];
+  if(mobile) Object.defineProperty(w.navigator,'userAgent',{value:'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 Mobile Safari/604.1'});
   Object.defineProperty(w.HTMLElement.prototype,'innerText',{get(){return this.hasAttribute('data-composer-markdown') && this.children.length && [...this.children].every(el=>el.tagName==='P') ? [...this.children].map(p=>p.textContent || '\n').join('\n\n') : this.textContent;},set(value){this.textContent=value;},configurable:true});
   w.HTMLElement.prototype.getClientRects=function(){return w.getComputedStyle(this).display==='none'?[]:[{width:200,height:40}];};
   w.document.hasFocus=()=>true; w.Date.now=()=>now; w.setInterval=fn=>{tick=fn;return 1;};
@@ -528,4 +529,220 @@ test('a panel the user has dragged keeps its place instead of jumping to the top
   assert.equal(root.style.top,'90px');
   assert.equal(root.classList.contains('rl-min'),false,'a placed panel stays open');
   dom.window.close();
+});
+
+test('iPhone Safari opens a compact top panel and does not start after reload',()=>{
+  const f=setup({autoStart:true,autoBlocked:false},{mobile:true,modern:true});
+  const root=f.w.document.getElementById('red-loop-root');
+  assert.ok(root.classList.contains('rl-mobile-safari'));
+  assert.ok(root.classList.contains('rl-min'));
+  f.advance(20000);f.advance(20000);assert.equal(f.sends,0);
+  f.click('.rl-collapse');assert.equal(root.classList.contains('rl-min'),false);
+  f.w.document.hasFocus=()=>false;
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  const saved=JSON.parse(f.w.sessionStorage.getItem('red-loop:v1:/c/test'));
+  assert.equal(saved.awaiting,true);assert.match(saved.submittedSignature,/^\d+:[0-9a-f]+$/);
+  f.dom.window.close();
+  const restored=setup(saved,{mobile:true,modern:true});restored.click('.rl-start');restored.advance(20000);
+  assert.equal(restored.sends,0,'old response is never resent after reload');restored.dom.window.close();
+});
+
+test('iPhone Safari pauses when hidden and requires a new explicit start',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const auto=f.w.document.querySelector('#rl-autostart');auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  Object.defineProperty(f.w.document,'hidden',{value:true,configurable:true});
+  f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Safari nicht sichtbar/);
+  Object.defineProperty(f.w.document,'hidden',{value:false,configurable:true});
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New response';
+  f.advance(20000);f.advance(20000);assert.equal(f.sends,1);f.dom.window.close();
+});
+
+test('an aria-disabled send button is never clicked',()=>{
+  const f=setup(null,{modern:true});
+  f.w.document.querySelector('button[aria-label="Senden"]').setAttribute('aria-disabled','true');
+  f.click('.rl-start');f.advance(7000);f.advance(7000);assert.equal(f.sends,0);f.dom.window.close();
+});
+
+test('a terminal stop does not re-arm auto-start after the error disappears',()=>{
+  const f=setup(null,{modern:true});const auto=f.w.document.querySelector('#rl-autostart');
+  auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Something went wrong';
+  f.advance(1500);f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';
+  for(let i=0;i<4;i++)f.advance(20000);
+  assert.equal(f.sends,1);f.dom.window.close();
+});
+
+test('Safari diagnostic checks the current page without submitting or revealing message text',()=>{
+  const f=setup(null,{mobile:true,modern:true});f.click('.rl-collapse');
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='Secret answer';
+  f.click('.rl-diagnose');
+  const result=f.w.document.querySelector('.rl-diagnostics');
+  assert.equal(result.hidden,false);assert.match(result.textContent,/Chat erkannt/);assert.match(result.textContent,/Eingabefeld erkannt/);assert.doesNotMatch(result.textContent,/Secret answer/);
+  assert.equal(f.sends,0);f.dom.window.close();
+});
+test('two visible composers fail closed without writing into either',()=>{
+  const f=setup(null,{mobile:true,modern:true});const duplicate=f.w.document.querySelector('form').cloneNode(true);f.w.document.body.append(duplicate);
+  f.click('.rl-start');f.advance(20000);assert.equal(f.sends,0);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Mehrere Eingabefelder/);
+  assert.equal(duplicate.querySelector('[data-composer-markdown]').textContent,'');f.dom.window.close();
+});
+test('Safari can cancel a scheduled retry with Pause',()=>{
+  const f=setup(null,{mobile:true,modern:true});const retry=f.w.document.querySelector('#rl-retry');
+  retry.checked=true;retry.dispatchEvent(new f.w.Event('change'));f.click('.rl-start');f.advance(7000);
+  f.advance(95000);assert.equal(f.w.document.querySelector('.rl-stop').disabled,false);
+  f.click('.rl-stop');f.w.document.querySelector('[data-markdown-text-style]').textContent='Recovered';
+  f.advance(30000);f.advance(30000);assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/Pausiert/);f.dom.window.close();
+});
+test('Safari never restarts automatically against an outstanding quota notice',()=>{
+  const f=setup(null,{mobile:true,modern:true});const retry=f.w.document.querySelector('#rl-retry');
+  retry.checked=true;retry.dispatchEvent(new f.w.Event('change'));f.click('.rl-start');f.advance(7000);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='You have reached your GPT-4 limit.';
+  f.advance(1500);f.advance(610000);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/manuell starten/);
+  f.advance(610000);assert.equal(f.sends,1);f.dom.window.close();
+});
+
+test('Safari does not send another prompt while a newer user turn awaits its answer',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const user=f.w.document.createElement('div');user.setAttribute('data-message-author-role','user');user.textContent='My new question';
+  f.w.document.querySelector('section').after(user);f.click('.rl-start');f.advance(7000);
+  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/neuesten Nachricht/);
+  const answer=f.w.document.createElement('div');answer.setAttribute('data-message-author-role','assistant');answer.textContent='Answer to new question';user.after(answer);
+  f.advance(1500);f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('Safari stops offline and does not automatically restart on connection recovery',()=>{
+  const f=setup(null,{mobile:true,modern:true});const auto=f.w.document.querySelector('#rl-autostart');
+  auto.checked=true;auto.dispatchEvent(new f.w.Event('change'));f.click('.rl-start');
+  Object.defineProperty(f.w.navigator,'onLine',{value:false,configurable:true});f.advance(7000);
+  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Offline/);
+  Object.defineProperty(f.w.navigator,'onLine',{value:true,configurable:true});f.advance(20000);f.advance(20000);
+  assert.equal(f.sends,0);f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('Safari counter reset preserves the outstanding submission guard',()=>{
+  const f=setup(null,{mobile:true,modern:true});f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.click('.rl-reset');assert.match(f.w.document.querySelector('.rl-counter').textContent,/0 \/ 10/);
+  f.click('.rl-start');f.advance(20000);assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';f.advance(1500);f.advance(13000);
+  assert.equal(f.sends,2);f.dom.window.close();
+});
+
+test('a historical quota answer does not stop a recovered conversation',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const old=f.w.document.createElement('div');old.setAttribute('data-message-author-role','assistant');old.textContent='You have reached your GPT-4 limit.';
+  f.w.document.body.prepend(old);
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('Safari clears stale diagnostics when navigating to a different conversation',()=>{
+  const f=setup(null,{mobile:true,modern:true});f.click('.rl-collapse');f.click('.rl-diagnose');
+  assert.equal(f.w.document.querySelector('.rl-diagnostics').hidden,false);
+  f.w.history.pushState({},'', '/c/another');f.advance(1500);
+  assert.equal(f.w.document.querySelector('.rl-diagnostics').hidden,true);
+  assert.equal(f.w.document.querySelector('.rl-diagnostics').textContent,'');f.dom.window.close();
+});
+test('Safari persists a resolved submission before sending another follow-up',()=>{
+  const f=setup(null,{mobile:true,modern:true});f.click('.rl-start');f.advance(7000);
+  assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New response';f.advance(1500);
+  const saved=JSON.parse(f.w.sessionStorage.getItem('red-loop:v1:/c/test'));
+  assert.equal(saved.awaiting,false);assert.equal(f.sends,1);f.dom.window.close();
+});
+
+test('Safari refuses to start with an attachment and an otherwise empty composer',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const form=f.w.document.querySelector('form');
+  const attachment=f.w.document.createElement('button');
+  attachment.type='button';attachment.setAttribute('aria-label','Remove attachment');form.append(attachment);
+  f.click('.rl-start');f.advance(20000);
+  assert.equal(f.sends,0);assert.match(f.w.document.querySelector('.rl-status').textContent,/Anhang/);
+  attachment.remove();f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);f.dom.window.close();
+});
+test('Safari stops if a file attachment appears while the send button is disabled',()=>{
+  const f=setup(null,{mobile:true,modern:true});
+  const send=f.w.document.querySelector('button[aria-label="Senden"]');send.disabled=true;
+  f.click('.rl-start');f.advance(7000);
+  const attachment=f.w.document.createElement('button');attachment.type='button';attachment.setAttribute('data-testid','remove-attachment');send.after(attachment);
+  send.disabled=false;f.advance(1500);assert.equal(f.sends,0);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Anhang/);assert.ok(attachment.isConnected);f.dom.window.close();
+});
+test('Safari menu position reset removes the stored coordinates without changing chat settings',()=>{
+  const f=setup(null,{mobile:true,modern:true});const root=f.w.document.getElementById('red-loop-root');
+  root.style.left='10px';root.style.top='100px';root.style.right='auto';root.style.bottom='auto';
+  f.w.localStorage.setItem('red-loop:v1:panel-position',JSON.stringify({left:10,top:100}));
+  f.click('.rl-collapse');f.click('.rl-position-reset');
+  assert.equal(root.style.left,'');assert.equal(root.style.top,'');assert.equal(f.w.localStorage.getItem('red-loop:v1:panel-position'),null);
+  assert.equal(f.sends,0);f.dom.window.close();
+});
+
+test('Android endless mode defaults to Weiter and repeats the exact editable text',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  const field=f.w.document.querySelector('#rl-prompt');assert.equal(field.value,'Weiter');
+  assert.equal(f.w.document.querySelector('#rl-endless').checked,true);
+  field.value='Weiter mit allen offenen Aufgaben';f.click('.rl-start');f.advance(7000);
+  assert.deepEqual(f.sent,['Weiter mit allen offenen Aufgaben']);
+  for(let i=0;i<8;i++)f.advance(60000);
+  assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/Warte weiter/);
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,false);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New completed response';
+  f.advance(1500);f.advance(7000);
+  assert.deepEqual(f.sent,['Weiter mit allen offenen Aufgaben','Weiter mit allen offenen Aufgaben']);
+  f.click('.rl-stop');f.advance(60000);assert.equal(f.sends,2);f.dom.window.close();
+});
+test('Android keeps a custom follow-up per conversation across view recreation',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  const field=f.w.document.querySelector('#rl-prompt');field.value='Mach weiter';field.dispatchEvent(new f.w.Event('input'));
+  assert.equal(f.w.localStorage.getItem('red-loop:v1:/c/test:android-followup'),'Mach weiter');
+  f.w.history.pushState({},'', '/c/other');f.advance(1500);assert.equal(field.value,'Weiter');
+  f.w.sessionStorage.removeItem('red-loop:v1:/c/test');f.w.history.pushState({},'', '/c/test');f.advance(1500);
+  assert.equal(field.value,'Mach weiter');assert.equal(f.sends,0);f.dom.window.close();
+});
+test('Android waits through an offline interval, then continues when the response completes',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  Object.defineProperty(f.w.navigator,'onLine',{value:false,configurable:true});f.advance(200000);assert.equal(f.sends,1);
+  assert.match(f.w.document.querySelector('.rl-status').textContent,/Offline/);
+  Object.defineProperty(f.w.navigator,'onLine',{value:true,configurable:true});f.w.document.querySelector('[data-markdown-text-style]').textContent='New response';
+  f.advance(1500);f.advance(7000);assert.equal(f.sends,2);f.dom.window.close();
+});
+test('Android pauses at an actual quota notice even in endless mode',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview',autoRetry:true},android:true});
+  f.click('.rl-start');f.advance(7000);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='You have reached your GPT-4 limit.';
+  f.advance(1500);f.advance(700000);assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/manuell starten/);
+  assert.equal(f.w.document.querySelector('.rl-stop').disabled,true);f.dom.window.close();
+});
+
+test('Android native service checks continue an opted-in chat without relying on its own interval',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  f.click('.rl-start');
+  f.warp(7000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,1);
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';
+  f.warp(2000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  f.warp(13000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,2);
+  f.advance(0);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,2,'both timer paths share the same duplicate guard');
+  f.dom.window.close();
+});
+test('Android native check cannot start an unarmed or explicitly paused chat',()=>{
+  const f=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  f.warp(20000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,0);
+  f.click('.rl-start');f.advance(7000);assert.equal(f.sends,1);
+  f.w.dispatchEvent(new f.w.Event('red-loop-native-pause'));
+  f.w.document.querySelector('[data-markdown-text-style]').textContent='New answer';
+  f.warp(20000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));
+  assert.equal(f.sends,1);assert.match(f.w.document.querySelector('.rl-status').textContent,/Pausiert/);f.dom.window.close();
+});
+test('Android native checks are isolated between two independent conversations',()=>{
+  const a=setup(null,{modern:true,host:{app:'android-webview'},android:true});
+  const b=setup(null,{modern:true,path:'/c/other',host:{app:'android-webview'},android:true});
+  a.click('.rl-start');b.click('.rl-start');
+  for(const f of [a,b]){f.warp(7000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));assert.equal(f.sends,1);}
+  b.w.document.querySelector('[data-markdown-text-style]').textContent='Other response';
+  for(const f of [a,b]){f.warp(2000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));f.warp(13000);f.w.dispatchEvent(new f.w.Event('red-loop-native-check'));}
+  assert.equal(a.sends,1);assert.equal(b.sends,2);a.dom.window.close();b.dom.window.close();
 });

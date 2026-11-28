@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RED Loop — ChatGPT Auto Continue
 // @namespace    https://github.com/Redurbabat/RED-Loop
-// @version      0.5.0
+// @version      0.5.3
 // @description  Opt-in automatic continuation for one ChatGPT conversation: bounded by a step limit or endless until you pause.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -28,10 +28,13 @@
   const hostConfig = window.__RED_LOOP_HOST__;
   const HOSTS = ['ios-webview', 'android-webview'];
   const embedded = !!hostConfig && typeof hostConfig === 'object' && HOSTS.includes(hostConfig.app);
+  const androidHost = embedded && hostConfig.app === 'android-webview';
+  const mobileSafari = !embedded && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
   // WebKit's handler takes an object; the Android interface takes a string.
   const handler = embedded ? window.webkit?.messageHandlers?.redLoop || window.RedLoopHost : null;
   const bridge = handler && typeof handler.postMessage === 'function' ? handler : null;
   const bridgeWantsText = !!bridge && bridge === window.RedLoopHost;
+  const CONTINUE_PROMPT = 'Weiter';
   const PROMPT = 'Fahre mit dem bisherigen Auftrag fort. Prüfe den bisherigen Stand, erledige den nächsten sinnvollen Arbeitsschritt und berichte konkret über das Ergebnis. Wiederhole keine bereits erledigten Schritte.';
   const WORK_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn du eine Rückfrage, Zugangsdaten oder eine Freigabe von mir brauchst, halte an, erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
   const DECIDE_PROMPT = 'Arbeite am bisherigen Auftrag weiter. Prüfe zuerst, welche Aufgaben noch offen sind. Führe den nächsten sinnvollen Arbeitsschritt tatsächlich aus, prüfe das Ergebnis und berichte kurz über Fortschritt und verbleibende Aufgaben. Wiederhole keine erledigten Schritte und erfinde keine Ergebnisse. Wenn eine Entscheidung ansteht, triff selbst die sinnvollste Wahl, nenne sie in einem Satz mit Begründung und arbeite weiter; frage nicht nach. Halte nur an, wenn du etwas brauchst, das ausschließlich ich liefern kann: Zugangsdaten, eine Freigabe für etwas Unumkehrbares oder eine Information, die du nicht erschließen kannst. Dann erkläre konkret was fehlt und beende die Antwort mit [RED_LOOP_RUECKFRAGE] als eigener Zeile. Wenn alle Aufgaben des Auftrags erledigt und überprüft sind, fasse das Ergebnis zusammen und beende die Antwort mit [RED_LOOP_FERTIG] als eigener Zeile. Andernfalls arbeite an den offenen Aufgaben weiter.';
@@ -45,7 +48,7 @@
     <div class="rl-body"><p class="rl-status" role="status" aria-live="polite">Bereit</p>
     <label class="rl-prompt-label" for="rl-prompt">Automatischer Folgetext</label>
     <textarea id="rl-prompt" rows="4" maxlength="4000" aria-describedby="rl-prompt-help"></textarea>
-    <button class="rl-work" type="button">Text für offene Aufgaben laden</button>
+    <button class="rl-continue" type="button" hidden>Text: Weiter</button><button class="rl-work" type="button">Text für offene Aufgaben laden</button>
     <button class="rl-decide" type="button">Text: selbst entscheiden</button>
     <p id="rl-prompt-help">Wird nach jeder fertigen Antwort gesendet. Aktivieren mit Start.</p>
     <label class="rl-background-label"><input id="rl-background" type="checkbox" aria-describedby="rl-background-help"> Auch im Hintergrund weiterarbeiten</label>
@@ -57,8 +60,9 @@
     <p id="rl-endless-help">Ohne Zahlenlimit fortsetzen. Ende nur durch Pause, Fertigmeldung, Rückfrage oder Fehler. Verbraucht laufend ChatGPT-Kontingent.</p>
     <div class="rl-row"><label for="rl-limit">Max. Fortsetzungen</label><input id="rl-limit" type="number" min="1" max="50" value="10"></div>
     <div class="rl-row"><button class="rl-start" type="button">Start</button><button class="rl-stop" type="button" disabled>Pause</button><button class="rl-reset" type="button">Reset</button></div>
+    <button class="rl-diagnose" type="button" hidden>Verbindung prüfen</button><button class="rl-position-reset" type="button" hidden>Menüposition zurücksetzen</button><p class="rl-diagnostics" role="status" hidden></p>
     <p class="rl-counter" aria-live="polite">0 / 10 Fortsetzungen</p>
-    <small>v0.5.0 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
+    <small>v0.5.3 · Nur dieser Chat · Limit 1–50 oder endlos · Kein automatischer Neustart nach Neuladen</small></div>`;
   const style = document.createElement('style');
   style.textContent = `#red-loop-root{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:2147483646;width:min(290px,calc(100vw - 24px));font:14px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:rgba(24,27,34,.94);color:#f7f7f9;border:1px solid #ffffff50;border-radius:18px;box-shadow:0 12px 40px #0007;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding:12px}#red-loop-root *{box-sizing:border-box}#red-loop-root .rl-head,#red-loop-root .rl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}#red-loop-root .rl-head span{color:#ff7181}#red-loop-root button{cursor:pointer;border:1px solid #ffffff42;background:#ffffff20;color:#fff;border-radius:10px;padding:8px 12px;min-height:36px}#red-loop-root button:disabled{opacity:.4;cursor:default}#red-loop-root .rl-start{background:#9c3349}#red-loop-root .rl-status{margin:12px 0;color:#d6deeb}#red-loop-root input{width:64px;padding:6px;background:#12151b;border:1px solid #ffffff55;border-radius:7px;color:#fff}#red-loop-root small{display:block;margin-top:9px;color:#bac2d0}#red-loop-root.rl-min .rl-body{display:none}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}`;
   document.documentElement.append(style);
@@ -75,7 +79,10 @@
   const ratio = () => state.count + '/' + (state.endless ? '∞' : state.limit);
   const showCounter = () => { $('.rl-counter').textContent = state.count + ' / ' + (state.endless ? '∞' : state.limit) + ' Fortsetzungen'; };
   const persist = () => {
-    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, endless: state.endless, prompt: state.prompt, background: state.background, autoStart: state.autoStart, autoRetry: state.autoRetry, autoBlocked: state.autoBlocked })); } catch {}
+    if (androidHost && currentKey.startsWith(PREFIX + '/c/') && state.prompt.trim() && state.prompt.length <= MAX_PROMPT_LENGTH) {
+      try { localStorage.setItem(currentKey + ':android-followup', state.prompt); } catch {}
+    }
+    try { sessionStorage.setItem(currentKey, JSON.stringify({ count: state.count, limit: state.limit, endless: state.endless, prompt: state.prompt, background: state.background, autoStart: state.autoStart, autoRetry: state.autoRetry, autoBlocked: state.autoBlocked, ...((mobileSafari || androidHost) ? {awaiting: state.awaiting, submittedSignature: state.submittedSignature} : {}) })); } catch {}
   };
   // `recoverable` marks a stop that a later attempt could get past. A draft,
   // a completion, a question and the limit are never recoverable.
@@ -84,36 +91,42 @@
     state.running = false; state.pending = false; state.composing = false;
     $('.rl-start').disabled = false; $('.rl-stop').disabled = true; $('#rl-limit').disabled = state.endless;
     $('#rl-prompt').disabled = false;
-    $('#rl-background').disabled = false; $('.rl-work').disabled = false; $('.rl-decide').disabled = false; $('#rl-endless').disabled = false;
+    $('#rl-background').disabled = false; $('.rl-continue').disabled = false; $('.rl-work').disabled = false; $('.rl-decide').disabled = false; $('#rl-endless').disabled = false;
     $('#rl-autostart').disabled = false; $('#rl-retry').disabled = false;
     if (wasRunning && state.autoRetry && quota && state.waits < MAX_WAITS) {
       state.waits += 1;
       state.retryAt = Date.now() + WAIT_DELAY;
+      if (mobileSafari || androidHost) $('.rl-stop').disabled = false;
       persist();
       return status((msg || 'Gestoppt') + ' · wartet 10 Min (' + state.waits + '/' + MAX_WAITS + ')');
     }
     if (wasRunning && state.autoRetry && recoverable && state.retries < MAX_RETRIES) {
       state.retries += 1;
       state.retryAt = Date.now() + RETRY_DELAY;
+      if (mobileSafari || androidHost) $('.rl-stop').disabled = false;
       persist();
       return status((msg || 'Gestoppt') + ' · Versuch ' + state.retries + '/' + MAX_RETRIES + ' folgt');
     }
     state.retryAt = 0;
+    // A terminal stop must never silently re-arm automatic start.
+    if (wasRunning) state.autoBlocked = true;
     persist();
     status(msg || 'Gestoppt');
   };
   const load = () => {
     state.running = false; state.pending = false; state.composing = false;
     state.lastMessage = ''; state.submittedSignature = ''; state.awaiting = false; state.lastSubmit = 0;
+    state.generatingSeen = 0; state.lastChange = 0; state.composeStarted = 0; state.composeSignature = ''; state.composeText = '';
+    $('.rl-diagnostics').hidden = true; $('.rl-diagnostics').textContent = '';
     // In the app the work preset and endless mode are the defaults, because
     // that is the whole point of the in-app view. Both stay user-editable.
     state.count = 0; state.limit = 10; state.endless = embedded;
-    state.prompt = embedded ? WORK_PROMPT : PROMPT; state.background = embedded;
+    state.prompt = androidHost ? CONTINUE_PROMPT : embedded ? WORK_PROMPT : PROMPT; state.background = embedded;
     // The native host may preselect the automatic options per chat; session
     // storage dies with the view, so the host is what survives a restart.
     state.autoStart = embedded && hostConfig.autoStart === true;
     state.autoRetry = embedded && hostConfig.autoRetry === true;
-    state.autoBlocked = false; state.retries = 0; state.retryAt = 0;
+    state.autoBlocked = false; state.retries = 0; state.waits = 0; state.retryAt = 0;
     try {
       const saved = JSON.parse(sessionStorage.getItem(currentKey) || '{}');
       state.count = Number.isInteger(saved.count) ? Math.max(0, Math.min(MAX_COUNT, saved.count)) : 0;
@@ -122,11 +135,22 @@
       if (typeof saved.autoStart === 'boolean') state.autoStart = saved.autoStart;
       if (typeof saved.autoRetry === 'boolean') state.autoRetry = saved.autoRetry;
       if (typeof saved.autoBlocked === 'boolean') state.autoBlocked = saved.autoBlocked;
+      // Safari may reload a discarded tab. Require explicit reactivation and
+      // retain the last in-flight fingerprint so an old answer is not resent.
+      if (mobileSafari || androidHost) {
+        if (mobileSafari) state.autoBlocked = true;
+        if (saved.awaiting === true && typeof saved.submittedSignature === 'string' && /^\d+:[0-9a-f]+$/.test(saved.submittedSignature)) {
+          state.awaiting = true; state.submittedSignature = saved.submittedSignature;
+        }
+      }
       if (typeof saved.prompt === 'string' && saved.prompt.length <= MAX_PROMPT_LENGTH) state.prompt = saved.prompt;
       // A WKWebView is never focused the way a desktop tab is, so the
       // foreground-only mode would stop the run immediately in the app.
       state.background = embedded || saved.background === true;
     } catch {}
+    if (androidHost && /^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) {
+      try { const savedPrompt = localStorage.getItem(currentKey + ':android-followup'); if (savedPrompt && savedPrompt.length <= MAX_PROMPT_LENGTH) state.prompt = savedPrompt; } catch {}
+    }
     $('#rl-limit').value = String(state.limit);
     $('#rl-prompt').value = state.prompt;
     $('#rl-background').checked = state.background;
@@ -153,17 +177,43 @@
     return nodes.filter(node => !nodes.some(parent => parent !== node && parent.contains(node)));
   };
   const lastAssistant = () => messages().at(-1);
-  const editor = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].find(el => visible(el) && belongsToChat(el));
-  const sendButton = () => [...(editor()?.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].find(visible);
+  // A manual user turn after the latest assistant means a response is still
+  // outstanding, even if the stop control has not appeared yet.
+  const waitingForUserTurn = () => {
+    const answer = lastAssistant();
+    const users = [...document.querySelectorAll('[data-message-author-role="user"],[data-markdown-text-style="user-message"]')].filter(el => visible(el) && belongsToChat(el));
+    const user = users.at(-1);
+    return !!user && (!answer || !!(answer.compareDocumentPosition(user) & Node.DOCUMENT_POSITION_FOLLOWING));
+  };
+  const editors = () => [...document.querySelectorAll('form[data-chatgpt-composer] [data-composer-markdown][contenteditable="true"],#prompt-textarea[contenteditable="true"],[data-testid="composer-input"][contenteditable="true"],textarea#prompt-textarea')].filter(el => visible(el) && belongsToChat(el));
+  const editor = () => { const candidates = editors(); return candidates.length === 1 ? candidates[0] : undefined; };
+  // A composer may hold an attachment without any typed text. Do not
+  // submit a user's selected files as part of an automatic continuation.
+  const hasComposerAttachment = () => {
+    const form = editor()?.closest('form[data-chatgpt-composer]');
+    if (!form) return false;
+    return [...form.querySelectorAll('input[type="file"]')].some(input => input.files?.length > 0) ||
+      [...form.querySelectorAll('button[data-testid="remove-attachment"],button[data-testid="remove-file"],button[aria-label="Remove attachment"],button[aria-label="Remove file"],button[aria-label="Anhang entfernen"],button[aria-label="Datei entfernen"]')].some(visible);
+  };
+  const sendButton = () => {
+    const el = editor(); if (!el) return undefined;
+    const buttons = [...(el.closest('form[data-chatgpt-composer]') || document).querySelectorAll('button[data-testid="send-button"],button[aria-label="Send prompt"],button[aria-label="Nachricht senden"],button[aria-label="Senden"],button[aria-label="Send"]')].filter(button => visible(button) && belongsToChat(button));
+    return buttons.length === 1 ? buttons[0] : undefined;
+  };
   // A used-up quota reads like a failure but needs patience, not a retry.
   const isQuotaMessage = value => {
     const text = value.replace(/\s+/g, ' ').trim();
     return /^(?:rate limit(?: exceeded| reached)?|too many requests)[.!…]*/i.test(text) ||
       /(?:you(?:'ve| have) (?:reached|hit) (?:your|the)[^.]{0,40}(?:limit|cap)|sent too many messages|du hast (?:zu viele nachrichten|dein limit)|limit für [^.]{0,40}erreicht|kontingent (?:ist )?(?:erschöpft|aufgebraucht))/i.test(text);
   };
-  const hasQuotaNotice = () => [...document.querySelectorAll('[data-message-author-role="assistant"],[data-markdown-text-style="assistant-message"],[data-testid="conversation-turn-error"],[data-testid="error-message"]')]
-    .filter(el => visible(el) && belongsToChat(el))
-    .some(el => isQuotaMessage(el.innerText || ''));
+  const hasQuotaNotice = () => {
+    // Historical assistant messages may mention a limit that no longer applies.
+    const current = lastAssistant();
+    if (current && isQuotaMessage(current.innerText || '')) return true;
+    return [...document.querySelectorAll('[data-testid="conversation-turn-error"],[data-testid="error-message"]')]
+      .filter(el => visible(el) && belongsToChat(el))
+      .some(el => isQuotaMessage(el.innerText || ''));
+  };
   const isFailureMessage = value => {
     // Match complete service failure messages, not advice or quoted error text
     // inside a normal assistant response.
@@ -180,7 +230,12 @@
   const signature = () => {
     const m = lastAssistant();
     const text = (m?.innerText || '').trim();
-    return text ? String(messages().length) + ':' + text.slice(-400) : '';
+    if (!text) return '';
+    if (!mobileSafari && !androidHost) return String(messages().length) + ':' + text.slice(-400);
+    // Store a fingerprint rather than the actual assistant message in Safari.
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+    return String(messages().length) + ':' + (hash >>> 0).toString(16);
   };
   const insertPrompt = (el, value) => {
     el.focus();
@@ -209,14 +264,21 @@
     return blocks.map(p => { const text = inlineText(p); return text === '\n' && !p.textContent ? '' : text; }).join('\n').trim() === value;
   };
   const attemptSend = () => {
+    if (key() !== currentKey || (mobileSafari && document.hidden)) return stop('Ansicht geändert – nicht gesendet');
+    if ((mobileSafari || androidHost) && navigator.onLine === false) return stop('Offline – nicht gesendet');
+    if ((mobileSafari || androidHost) && waitingForUserTurn()) return stop('Neue Benutzernachricht erkannt – nicht gesendet');
+    if ((mobileSafari || androidHost) && hasComposerAttachment()) return stop('Anhang im Entwurf erkannt – nicht gesendet');
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim() !== state.composeText) return stop('Entwurf geändert – nicht gesendet');
     if (hasResponseError() || isGenerating() || signature() !== state.composeSignature) return stop('Antwortzustand geändert – bitte prüfen', true);
     const btn = sendButton();
-    if (!btn || btn.disabled) {
+    if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
       if (Date.now() - state.composeStarted >= 6000) return stop('Senden nicht verfügbar – bitte prüfen', true);
       return status('Bereite Fortsetzung vor …');
     }
+    // Record the claim before Safari dispatches the click: a reload or a
+    // synchronous navigation during submission must not resend the old answer.
+    if (mobileSafari || androidHost) { state.submittedSignature = state.composeSignature; state.awaiting = true; persist(); }
     btn.click();
     state.composing = false; state.count += 1;
     state.submittedSignature = state.composeSignature; state.awaiting = true;
@@ -230,8 +292,9 @@
   const canAutoStart = () => {
     if (!state.autoStart || state.autoBlocked || state.retryAt) return false;
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return false;
-    if (!state.background && (document.hidden || !document.hasFocus())) return false;
-    if (hasResponseError() || isGenerating()) return false;
+    if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return false;
+    if (hasQuotaNotice() || hasResponseError() || isGenerating()) return false;
+    if ((mobileSafari || androidHost) && (navigator.onLine === false || waitingForUserTurn() || hasComposerAttachment())) return false;
     const el = editor();
     if (!el || (el.innerText || el.value || '').trim()) return false;
     const sig = signature();
@@ -241,8 +304,14 @@
     return Date.now() - state.lastChange >= 6500;
   };
   const idle = () => {
+    if (mobileSafari && document.hidden) return;
     if (state.retryAt) {
-      if (Date.now() >= state.retryAt) { state.retryAt = 0; begin(false); }
+      if (Date.now() >= state.retryAt) {
+        // Never send while a quota notice is still active on mobile Safari.
+        if (mobileSafari && hasQuotaNotice()) { state.retryAt = 0; state.autoBlocked = true; stop('Kontingent weiterhin erschöpft – bitte später manuell starten'); return; }
+        state.retryAt = 0; begin(false);
+        if (mobileSafari && !state.running) { state.autoBlocked = true; $('.rl-stop').disabled = true; persist(); }
+      }
       return;
     }
     if (canAutoStart()) begin(false);
@@ -250,24 +319,32 @@
   const tick = () => {
     if (key() !== currentKey) { stop('Gestoppt: Konversation gewechselt'); currentKey = key(); load(); return; }
     if (!state.running) return idle();
-    if (!state.background && (document.hidden || !document.hasFocus())) return;
+    if (mobileSafari ? document.hidden : !state.background && (document.hidden || !document.hasFocus())) return;
     if (state.composing) return attemptSend();
+    if (mobileSafari && navigator.onLine === false) return stop('Offline – Verbindung prüfen und Start drücken');
+    if (androidHost && navigator.onLine === false) { state.lastChange = Date.now(); return status('Offline – warte auf Verbindung …'); }
     if (!state.endless && state.count >= state.limit) { state.autoBlocked = true; return stop('Limit erreicht'); }
     if (state.count >= MAX_COUNT) return stop('Zähler-Obergrenze erreicht');
+    if ((mobileSafari || androidHost) && hasComposerAttachment()) return stop('Anhang im Entwurf erkannt – nicht gesendet');
     const draft = editor();
     if (draft && (draft.innerText || draft.value || '').trim()) return stop('Entwurf erkannt – nicht überschrieben');
-    if (hasQuotaNotice()) return stop('Kontingent erschöpft', false, true);
+    if (hasQuotaNotice()) return stop('Kontingent erschöpft – bitte später manuell starten', false, !androidHost);
     if (hasResponseError()) return stop('Antwortfehler erkannt', true);
     // Generation counts as progress, so a long answer is not a stall.
-    if (isGenerating()) { state.generatingSeen = Date.now(); status('ChatGPT antwortet …'); return; }
+    if (isGenerating()) { state.generatingSeen = Date.now(); state.lastChange = Date.now(); status('ChatGPT antwortet …'); return; }
+    if ((mobileSafari || androidHost) && waitingForUserTurn()) { state.lastChange = Date.now(); return status('Warte auf Antwort zur neuesten Nachricht …'); }
     const sig = signature();
     if (!sig) return status('Warte auf eine ChatGPT-Antwort …');
     if (state.awaiting) {
       if (sig === state.submittedSignature) {
-        if (Date.now() - Math.max(state.lastSubmit, state.generatingSeen) > 90000) return stop('Keine neue Antwort – bitte ChatGPT prüfen', true);
+        if (Date.now() - Math.max(state.lastSubmit, state.generatingSeen) > 90000) {
+          if (androidHost && state.endless) return status('Warte weiter auf neue Antwort – kein erneutes Senden');
+          return stop('Keine neue Antwort – bitte ChatGPT prüfen', true);
+        }
         return status('Warte auf neue Antwort …');
       }
       state.awaiting = false; state.pending = false;
+      if (mobileSafari || androidHost) persist();
     }
     if (sig !== state.lastMessage) { state.lastMessage = sig; state.lastChange = Date.now(); state.pending = false; return; }
     if (Date.now() - state.lastChange < 6500 || Date.now() - state.lastSubmit < 12000) return;
@@ -288,9 +365,13 @@
   };
   const begin = manual => {
     if (state.running) return;
+    if (mobileSafari && navigator.onLine === false) return status('Offline – Verbindung prüfen');
+    if (key() !== currentKey) { status('Chat gewechselt – bitte erneut Start drücken'); return; }
     if (!/^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname)) return status('Bitte eine bestehende Konversation öffnen');
-    if (!$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
+    if (mobileSafari ? document.hidden : !$('#rl-background').checked && (document.hidden || !document.hasFocus())) return status('Bitte diesen Tab aktivieren');
     const el = editor();
+    if (editors().length > 1) return status('Mehrere Eingabefelder – bitte nur einen Chat öffnen');
+    if ((mobileSafari || androidHost) && hasComposerAttachment()) return status('Anhang im Entwurf erkannt – nicht gesendet');
     if (el && (el.innerText || el.value || '').trim()) return status('Entwurf erkannt – nicht überschrieben');
     const endless = $('#rl-endless').checked;
     const n = Number($('#rl-limit').value);
@@ -305,7 +386,7 @@
     state.prompt = prompt; state.running = true; state.pending = false;
     state.background = $('#rl-background').checked;
     $('#rl-prompt').value = prompt; $('#rl-prompt').disabled = true;
-    $('#rl-background').disabled = true; $('.rl-work').disabled = true; $('.rl-decide').disabled = true; $('#rl-endless').disabled = true;
+    $('#rl-background').disabled = true; $('.rl-continue').disabled = true; $('.rl-work').disabled = true; $('.rl-decide').disabled = true; $('#rl-endless').disabled = true;
     showCounter();
     state.lastMessage = signature(); state.lastChange = Date.now();
     $('.rl-start').disabled = true; $('.rl-stop').disabled = false; $('#rl-limit').disabled = true;
@@ -318,6 +399,14 @@
     persist(); status((state.endless ? 'Endlos aktiv · ' : state.background ? 'Hintergrund aktiv · ' : 'Aktiv · ') + ratio());
   };
   $('.rl-start').addEventListener('click', () => begin(true));
+  if (androidHost) {
+    $('.rl-continue').hidden = false;
+    $('.rl-continue').addEventListener('click', () => {
+      if (state.running) return;
+      state.prompt = CONTINUE_PROMPT; $('#rl-prompt').value = CONTINUE_PROMPT; persist(); status('Weiter-Text geladen · Start drücken');
+    });
+    $('#rl-prompt-help').textContent = 'Dein Text wird nach jeder fertigen Antwort gesendet. Endlos bis Pause, Fehler oder Nutzungslimit. Einstellungen bleiben lokal gespeichert.';
+  }
   $('.rl-work').addEventListener('click', () => {
     if (state.running) return;
     state.prompt = WORK_PROMPT; $('#rl-prompt').value = WORK_PROMPT; persist();
@@ -372,7 +461,11 @@
   });
   $('.rl-reset').addEventListener('click', () => {
     state.autoBlocked = true; state.retries = 0; state.retryAt = 0;
-    stop('Zurückgesetzt'); state.count = 0; state.awaiting = false; state.submittedSignature = ''; state.lastSubmit = 0;
+    stop('Zurückgesetzt'); state.count = 0;
+    // On Safari a counter reset is not proof that an outstanding submission
+    // was delivered or cancelled. Preserve its duplicate guard.
+    if (!mobileSafari && !androidHost) { state.awaiting = false; state.submittedSignature = ''; }
+    state.lastSubmit = 0;
     persist(); showCounter();
   });
   $('.rl-collapse').addEventListener('click', () => {
@@ -380,6 +473,7 @@
     $('.rl-collapse').textContent = collapsed ? '+' : '−';
     $('.rl-collapse').setAttribute('aria-label', collapsed ? 'Panel öffnen' : 'Panel minimieren');
     $('.rl-collapse').setAttribute('aria-expanded', String(!collapsed));
+    if (mobileSafari && root.style.left) place(parseFloat(root.style.left) || 0, parseFloat(root.style.top) || 0);
   });
   // Dragging the panel out of the way. The position is one setting for every
   // chat, kept in local storage so it survives reloads; everything else stays
@@ -433,6 +527,7 @@
   });
   restorePosition();
   document.addEventListener('visibilitychange', () => {
+    if (document.hidden && mobileSafari && (state.running || state.retryAt || state.autoStart)) { state.autoBlocked = true; return stop('Pausiert: Safari nicht sichtbar'); }
     if (document.hidden && state.running && !state.background) return stop('Pausiert: Browser-Tab nicht aktiv');
     // Timers freeze while an app or tab is suspended. Restart the waiting
     // windows on return instead of reporting a stall that never happened.
@@ -442,17 +537,69 @@
       if (state.composing) state.composeStarted = Date.now();
     }
   });
-  window.addEventListener('pagehide', () => { if (state.running) stop('Pausiert: Seite verlassen'); });
-  window.addEventListener('blur', () => { if (state.running && !state.background) stop('Gestoppt: Tab nicht im Fokus'); });
+  window.addEventListener('pagehide', () => {
+    if (mobileSafari) { state.autoBlocked = true; state.retryAt = 0; stop('Pausiert: Seite verlassen'); }
+    else if (state.running) stop('Pausiert: Seite verlassen');
+  });
+  window.addEventListener('blur', () => { if (!mobileSafari && state.running && !state.background) stop('Gestoppt: Tab nicht im Fokus'); });
   load();
   style.textContent += '#red-loop-root{max-height:calc(100dvh - 32px);overflow-y:auto}#red-loop-root .rl-prompt-label{display:block;margin-bottom:5px}#red-loop-root #rl-prompt{display:block;width:100%;resize:vertical;min-height:76px;max-height:160px;padding:8px;border:1px solid #ffffff55;border-radius:8px;background:#12151b;color:#fff;font:inherit;font-size:12px;line-height:1.45}#red-loop-root #rl-prompt:disabled{opacity:.6;resize:none}#red-loop-root #rl-prompt:focus-visible{outline:2px solid #a7d6ff;outline-offset:2px}#red-loop-root #rl-prompt-help{font-size:12px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-prompt{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root #rl-prompt-help{color:#65646c}#red-loop-root #rl-prompt:focus-visible{outline-color:#a9233b}}';
   style.textContent += '#red-loop-root button{min-height:44px}#red-loop-root .rl-counter{font-size:12px;color:#d6deeb}#red-loop-root.rl-min .rl-stop{display:block}#red-loop-root.rl-min .rl-body{display:block}#red-loop-root.rl-min .rl-body>*:not(.rl-row){display:none}#red-loop-root.rl-min .rl-row>label,#red-loop-root.rl-min .rl-row>input{display:none}@media(prefers-reduced-motion:reduce){#red-loop-root *{animation:none!important;transition:none!important}}';
   style.textContent += '@media(prefers-color-scheme:light){#red-loop-root{background:rgba(250,249,247,.97);color:#27282d;border-color:#bfb6ba;box-shadow:0 12px 40px #38312a18;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}#red-loop-root .rl-head span{color:#a9233b}#red-loop-root button{background:#f4f2ee;color:#27282d;border-color:#c7bfc2}#red-loop-root .rl-start{background:#a9233b;color:#fff;border-color:#a9233b}#red-loop-root input{background:#fff;color:#27282d;border-color:#bfb6ba}#red-loop-root .rl-status,#red-loop-root .rl-counter{color:#45434b}#red-loop-root small{color:#65646c}#red-loop-root button:focus-visible,#red-loop-root input:focus-visible{outline-color:#a9233b}}';
-  window.setInterval(tick, 1500);
+  // Android's service may request a check when a parked WebView's own
+  // interval is delayed. It uses exactly the same state machine and guards.
+  let lastTickAt = -Infinity;
+  const runTick = () => {
+    const now = Date.now();
+    if (androidHost && now >= lastTickAt && now - lastTickAt < 1000) return;
+    lastTickAt = now;
+    tick();
+  };
+  if (androidHost) {
+    window.addEventListener('red-loop-native-check', runTick);
+    window.addEventListener('red-loop-native-pause', () => {
+      state.autoBlocked = true; state.autoStart = false;
+      $('#rl-autostart').checked = false;
+      state.retries = 0; state.waits = 0; state.retryAt = 0;
+      stop('Pausiert · Start setzt fort');
+    });
+  }
+  window.setInterval(runTick, 1500);
   style.textContent += '#red-loop-root.rl-min #rl-prompt{display:none}';
   // touch-action keeps a drag from scrolling the page underneath.
   style.textContent += '#red-loop-root .rl-head{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}#red-loop-root .rl-head:active{cursor:grabbing}#red-loop-root .rl-head button{cursor:pointer;touch-action:auto}';
   style.textContent += '#red-loop-root .rl-work,#red-loop-root .rl-decide{width:100%;margin-top:6px;font-size:12px}#red-loop-root .rl-background-label,#red-loop-root .rl-endless-label{display:flex;align-items:flex-start;gap:8px;font-size:12px}#red-loop-root #rl-background,#red-loop-root #rl-endless{width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#b83c56}#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{font-size:11px;color:#bac2d0;margin:5px 0 12px}@media(prefers-color-scheme:light){#red-loop-root #rl-background-help,#red-loop-root #rl-endless-help{color:#65646c}}';
+  if (mobileSafari) {
+    root.classList.add('rl-mobile-safari');
+    $('.rl-diagnose').hidden = false;
+    $('.rl-position-reset').hidden = false;
+    $('.rl-position-reset').addEventListener('click', () => {
+      for (const prop of ['left','top','right','bottom']) root.style.removeProperty(prop);
+      try { localStorage.removeItem(POSITION_KEY); } catch {}
+    });
+    $('.rl-diagnose').addEventListener('click', () => {
+      const result = $('.rl-diagnostics');
+      const count = editors().length;
+      const checks = [
+        /^\/(?:g\/[^/]+\/)?c\/[^/]+/.test(location.pathname) ? 'Chat erkannt' : 'Keine unterstützte Chat-Adresse – bestehende Konversation öffnen',
+        document.hidden ? 'Safari nicht sichtbar' : 'Safari sichtbar',
+        navigator.onLine === false ? 'Offline' : 'Netzwerk nicht als offline gemeldet',
+        waitingForUserTurn() ? 'Benutzernachricht wartet auf Antwort' : 'Keine ausstehende Benutzernachricht erkannt',
+        count === 1 ? 'Eingabefeld erkannt' : count > 1 ? 'Mehrere Eingabefelder' : 'Eingabefeld fehlt',
+        sendButton() ? 'Sendebutton erkannt' : 'Sendebutton fehlt oder ist nicht eindeutig',
+        hasComposerAttachment() ? 'Anhang im Entwurf erkannt' : 'Kein bekannter Anhang erkannt',
+        lastAssistant() ? 'Antwort erkannt' : 'Keine Antwort erkannt',
+        isGenerating() ? 'Antwort wird erstellt' : 'Keine laufende Antwort erkannt',
+        hasQuotaNotice() ? 'Kontingentmeldung erkannt' : hasResponseError() ? 'Fehler erkannt' : 'Keine bekannte Fehlermeldung'
+      ];
+      result.textContent = checks.join(' · '); result.hidden = false;
+    });
+    $('#rl-background').checked = false; state.background = false;
+    style.textContent += '#red-loop-root.rl-mobile-safari{top:calc(env(safe-area-inset-top,0px) + 56px);right:max(10px,env(safe-area-inset-right,0px));bottom:auto;width:min(320px,calc(100vw - 24px));max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 90px);border-radius:22px;overscroll-behavior:contain}#red-loop-root.rl-mobile-safari #rl-prompt{font-size:16px}#red-loop-root.rl-mobile-safari .rl-background-label,#red-loop-root.rl-mobile-safari #rl-background-help{display:none}#red-loop-root.rl-mobile-safari.rl-min{width:min(238px,calc(100vw - 24px))}#red-loop-root.rl-mobile-safari.rl-min .rl-counter{display:block;margin:3px 0;font-size:11px}#red-loop-root.rl-mobile-safari.rl-min .rl-status{display:block;margin:3px 0;font-size:11px;overflow-wrap:anywhere}#red-loop-root.rl-mobile-safari.rl-min .rl-row button{padding:6px 8px;font-size:12px}';
+    if (!root.style.top) { root.classList.add('rl-min'); $('.rl-collapse').textContent = '+'; $('.rl-collapse').setAttribute('aria-label','Panel öffnen'); $('.rl-collapse').setAttribute('aria-expanded','false'); }
+    if (!conversationId()) status('Chat öffnen und erste Antwort abwarten');
+    style.textContent += '#red-loop-root .rl-diagnose,#red-loop-root .rl-position-reset{width:100%;margin-top:8px}#red-loop-root .rl-diagnostics{font-size:12px;line-height:1.5;overflow-wrap:anywhere}#red-loop-root [hidden]{display:none!important}';
+  }
   if (embedded) {
     // In the app the page is always the active view, so the foreground option
     // is meaningless there. The inset keeps the panel above the app toolbar.
